@@ -32,6 +32,11 @@ public enum HotkeyAction { VolumeUp, VolumeDown }                 // feature 06
 
 > "No active device" is **not** a `ConnectionState` — it is `PlayerState.HasActiveDevice` (below).
 > Feature 05 owns its messaging; feature 07 gates the volume control on it.
+>
+> **A Free (non-Premium) account is also not a separate `ConnectionState`** — it is
+> `Connected` + `Account.IsPremium == false`. Features 05/07/12 branch on `IsPremium` to show the
+> "Free · Volume control unavailable" presentation and to gate the control. Connecting a Free
+> account is a **success**, not a failure.
 
 ---
 
@@ -139,6 +144,8 @@ public interface IAuthService
     Task DisconnectAsync();                      // clear tokens + account
 }
 
+// NotPremium == true does NOT imply failure: a Free account still connects (Success == true,
+// NotPremium == true). Denied/Error are the failure cases.
 public sealed record AuthResult(bool Success, bool Denied, bool NotPremium, string? Error);
 
 // feature 07 — Spotify Web API (typed HttpClient, no SDK)

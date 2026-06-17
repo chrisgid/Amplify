@@ -31,7 +31,8 @@ the slider/buttons. Each hotkey press changes volume by the configurable **step 
   (optional; keep subtle and native).
 - **Step size** is 1–25% (default 5%), configured in Settings
   ([10](./10-settings-persistence.md)).
-- The card is **disabled/dimmed** when not connected or no active device.
+- The card is **disabled/dimmed** when not connected, on a **Free (non-Premium) account**, or when
+  there is no active device — i.e. whenever `IVolumeController.CanControl` is false.
 - Volume **0 = muted** (reflect with the muted speaker glyph).
 - **Active device only:** Amplify always targets Spotify's **current active device**. There is
   **no device picker** — the user selects/switches devices in Spotify itself; Amplify just follows
@@ -45,7 +46,8 @@ the slider/buttons. Each hotkey press changes volume by the configurable **step 
 - [ ] Volume is applied to the active device via
       `PUT /v1/me/player/volume?volume_percent={n}` (confirm shape via OpenAPI).
 - [ ] Current volume is read from `GET /v1/me/player` on load and kept in sync.
-- [ ] When disconnected or no active device, the control is disabled with clear messaging.
+- [ ] When disconnected, on a Free account, or with no active device, the control is disabled with
+      clear messaging (the Free upgrade notice is owned by [feature 05](./05-connection-status.md)).
 - [ ] 429/5xx responses are handled with backoff and don't desync the UI.
 
 ## Implementation guidance
@@ -78,17 +80,19 @@ the slider/buttons. Each hotkey press changes volume by the configurable **step 
   `ISpotifyClient` (the single source of this signal; see [`../contracts.md`](../contracts.md)).
   The user-facing messaging for it is owned by [feature 05](./05-connection-status.md); this
   feature only gates the control.
-- **Non-Premium** → volume control unavailable (gated at auth, feature 03).
+- **Free (non-Premium)** → the account connects normally, but `CanControl` is false: the card is
+  dimmed and hotkey nudges are inert. The "upgrade to Premium" messaging is owned by
+  [feature 05](./05-connection-status.md); this feature just gates the control on `IsPremium`.
 - **Rapid presses** → coalesce to the latest target; clamp at bounds (no wrap-around).
 - **API failure** → revert optimistic value; show error; keep hotkeys responsive.
 - **External change** (volume changed in Spotify) → reconcile on next read.
 
 ## Dependencies
 
-- Requires a connected Premium account ([03](./03-spotify-authentication.md)) and an active
-  device ([05](./05-connection-status.md)); reacts to [06 hotkeys](./06-global-hotkeys.md); step
-  size from [10](./10-settings-persistence.md); emits events used by
-  [09 notifications](./09-notifications.md).
+- Requires a connected account ([03](./03-spotify-authentication.md)); **volume control
+  additionally requires Premium and an active device** ([05](./05-connection-status.md)). Reacts to
+  [06 hotkeys](./06-global-hotkeys.md); step size from [10](./10-settings-persistence.md); emits
+  events used by [09 notifications](./09-notifications.md).
 
 ## Testing
 
@@ -98,6 +102,8 @@ the slider/buttons. Each hotkey press changes volume by the configurable **step 
 - Step math: `NudgeAsync` clamps at 0 and 100; respects configured step; direction sign correct.
 - Coalescing/debounce keeps only the latest target under rapid input.
 - Optimistic update reverts on API failure (mock `ISpotifyClient`).
+- `CanControl` gating: false when disconnected, when `IsPremium == false` (Free), or when no active
+  device; hotkey nudges are no-ops while `CanControl` is false.
 - 429 handling backs off and honours `Retry-After`.
 - Muted state at volume 0.
 

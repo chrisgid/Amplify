@@ -23,8 +23,11 @@ destructive reset.
 *Reference:* `design/project/components/settings.jsx` (Account + Reset sections),
 `components/app.jsx` (`doReset`, reset dialog).
 
-- **Account row:** when connected, shows account name + "Premium · Spotify" with a **Disconnect**
-  button; when not connected, shows "Not connected" with a **Reconnect** button.
+- **Account row:** when connected on **Premium**, shows account name + "{Plan} · Spotify" with a
+  green check and a **Disconnect** button. A **Free** account is also treated as connected — it
+  shows the account name and a **Disconnect** button, but with the **warning icon** (not the green
+  check) and sub-text **"Free · Volume control unavailable"**. When not connected, shows
+  "Not connected" with a **Reconnect** button.
 - **Spotify Client ID (read-only):** the stored Client ID is shown read-only with the note
   "From your Spotify Developer app. Reset Amplify to change it." (rendered by
   [feature 10](./10-settings-persistence.md)). It is captured at onboarding
@@ -32,8 +35,8 @@ destructive reset.
 - **Disconnect:** clears tokens and returns the app to the onboarding/not-connected state. It does
   **not** clear the stored Client ID, so Reconnect can reuse it without re-entry.
 - **Reset Amplify (danger):** row with a "Reset…" button → opens a **`ContentDialog`** confirming:
-  "This removes both keyboard shortcuts and disconnects your Spotify account. You'll need to sign
-  in again to use Amplify. This can't be undone." with **Reset everything** (destructive) and
+  "This removes your keyboard shortcuts and Client ID, and disconnects your Spotify account. You'll
+  need to set up Amplify again. This can't be undone." with **Reset everything** (destructive) and
   **Cancel**.
 - **On confirm:** restore default hotkeys, default volume step, default settings, **clear the
   stored Client ID**, disconnect Spotify, and route back to onboarding (which re-prompts for a
@@ -44,6 +47,8 @@ destructive reset.
 - [ ] Disconnect removes stored tokens ([feature 03](./03-spotify-authentication.md)) and moves
       the app to the not-connected state, **without** clearing the stored Client ID.
 - [ ] The stored Client ID is shown read-only; it cannot be edited in place (only Reset changes it).
+- [ ] A Free account is shown as connected (account name + Disconnect) with the warning icon and
+      "Free · Volume control unavailable" sub-text.
 - [ ] Reconnect (when disconnected) re-runs the connect flow, reusing the stored Client ID.
 - [ ] Reset shows a confirmation dialog and only proceeds on explicit confirm.
 - [ ] Reset restores default shortcuts (`Ctrl+Alt+↑/↓`), default step (5%), and default settings,

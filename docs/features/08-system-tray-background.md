@@ -21,7 +21,7 @@ and enforces **single-instance** behaviour so the hotkeys keep working without a
 ## UX / behaviour
 
 *Reference:* `design/project/components/settings.jsx` ("Launch at startup",
-"Start minimized to the tray"), `components/mainapp.jsx` ("Running in the background").
+"Start minimized to the tray").
 
 - A tray icon (Amplify logo) is present whenever the app runs.
 - **Tray menu:** Open Amplify, (optionally) Connected status line, Settings, Quit.
@@ -33,7 +33,6 @@ and enforces **single-instance** behaviour so the hotkeys keep working without a
   running + hotkeys active). Quit (menu) exits fully.
 - **Start minimized to the tray:** when enabled, launch with no window shown.
 - **Launch at startup:** when enabled, Amplify starts on Windows sign-in.
-- The Main screen shows a "Running in the background" indicator.
 
 ## Acceptance criteria
 

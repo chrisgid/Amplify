@@ -36,7 +36,7 @@ runs. It also handles the in-progress and "access wasn't granted" states returne
   1. Open the **[Spotify Developer Dashboard](https://developer.spotify.com/dashboard)** (a
      hyperlink) and sign in.
   2. Click **Create app**.
-  3. Set the app name to **Amplify** and the description to **Amplify App**.
+  3. Set the app name and description to **Amplify**.
   4. Add this **redirect URI** — shown in a **copy-to-clipboard chip**:
      `http://127.0.0.1:49737/callback`. Clicking copy shows a ✓/"Copied" confirmation for ~1.5s,
      then reverts.
@@ -74,7 +74,8 @@ runs. It also handles the in-progress and "access wasn't granted" states returne
 - [ ] Authorizing/verifying states disable the button (and the Client ID field) and show progress
       with accurate copy.
 - [ ] Denial shows the warning info bar and restores a working Connect button.
-- [ ] Premium requirement is communicated up front (helper text) and enforced by feature 03.
+- [ ] Premium requirement is communicated up front (helper text); a Free account can still connect,
+      but volume control is unavailable and an upgrade notice is shown (features 05/07).
 - [ ] Privacy/permissions info bar is present.
 
 ## Implementation guidance

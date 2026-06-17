@@ -40,7 +40,9 @@ restarts.
   onboarding ([feature 04](./04-onboarding.md)) and changed only via Reset
   ([feature 12](./12-reset-and-account.md)).
 - **Reset** — "Reset Amplify" (danger) ([feature 12](./12-reset-and-account.md)).
-- Footer: "Amplify {version} · Not affiliated with Spotify".
+- Footer: "Amplify {version} · Not affiliated with Spotify", where the **"Amplify" name is a
+  hyperlink** to the GitHub repo (`https://github.com/chrisgid/Amplify`) — use a `HyperlinkButton`/
+  `Hyperlink`; the version and "Not affiliated with Spotify" remain plain text.
 
 ## Acceptance criteria
 

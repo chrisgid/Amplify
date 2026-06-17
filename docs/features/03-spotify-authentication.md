@@ -9,14 +9,17 @@
 ## Summary
 
 Handles connecting a user's Spotify account using the **Authorization Code with PKCE** flow,
-securely storing and refreshing tokens, confirming the account is **Premium**, and disconnecting.
-This is the gateway for every Spotify-backed feature. There is **no client secret** (PKCE).
+securely storing and refreshing tokens, recording whether the account is **Premium**, and
+disconnecting. This is the gateway for every Spotify-backed feature. There is **no client secret**
+(PKCE). A **Free account connects successfully** — it is flagged non-Premium so downstream features
+gate volume control and show an upgrade notice; it is not a connection failure.
 
 ## User stories
 
 - As a user, I want to sign in to Spotify securely in my own browser, not inside the app.
 - As a user, I want to stay signed in across restarts without re-authorising every time.
-- As a user, I want a clear message if I decline the permission or if my account isn't Premium.
+- As a user, I want a clear message if I decline the permission; and if my account is Free, I want
+  to still connect but understand that volume control needs Premium.
 - As a user, I want to disconnect my account and have my tokens removed.
 
 ## UX / behaviour
@@ -26,8 +29,8 @@ This is the gateway for every Spotify-backed feature. There is **no client secre
   redirect listener, then opens the **system browser** to the Spotify authorize URL.
 - The browser shows Spotify's consent screen:
   - **Approve** → Spotify redirects to the local callback with `?code=…&state=…`; the app
-    exchanges the code for tokens, validates `state`, confirms Premium, and transitions to
-    connected.
+    exchanges the code for tokens, validates `state`, records Premium status (Free accounts
+    connect too, flagged non-Premium), and transitions to connected.
   - **Deny** → redirect carries `?error=access_denied&state=…`; the app shows the
     "access wasn't granted" notice and lets the user retry.
     *Reference:* `design/project/components/success.jsx` (success + denied pages),
@@ -47,8 +50,9 @@ This is the gateway for every Spotify-backed feature. There is **no client secre
 - [ ] `state` is random per attempt and validated on return; mismatches are rejected.
 - [ ] On approval, tokens are obtained and the **refresh token is stored in the Credential
       Locker**; access token kept in memory with its expiry.
-- [ ] Premium is confirmed via `GET /v1/me` (`product == "premium"`); non-Premium is surfaced
-      clearly and does not leave the app in a half-connected state.
+- [ ] The account's `product` is read via `GET /v1/me` and recorded as `Account.IsPremium`. A
+      **Free account still connects** (`AuthResult.Success == true`, `NotPremium == true`); volume
+      control is gated downstream (features 05/07) — non-Premium is **not** a connection failure.
 - [ ] On denial (`error=access_denied`), the user sees the denied state and can retry.
 - [ ] Access tokens refresh automatically before/at expiry (and on 401) without user action.
 - [ ] Disconnect clears in-memory tokens and removes the stored refresh token.
@@ -112,7 +116,9 @@ This is the gateway for every Spotify-backed feature. There is **no client secre
 - `state` mismatch / unexpected callback → reject and ask the user to try again.
 - Token exchange/refresh failure → map to the **error** status in
   [feature 05](./05-connection-status.md); never crash.
-- Non-Premium account → explicit message; do not enable volume control.
+- Free (non-Premium) account → connects successfully, flagged `NotPremium`; volume control stays
+  gated and the user sees the upgrade message ([feature 05](./05-connection-status.md)). Not treated
+  as an error or a half-connected state.
 - Honour **429** with exponential backoff + `Retry-After` on token endpoints too.
 
 ## Dependencies

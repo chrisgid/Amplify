@@ -29,8 +29,9 @@ change settings.
 
 - **Audience:** Spotify **Premium** users who want quick, system-wide volume control without
   alt-tabbing to Spotify.
-- **Requirement:** A **Spotify Premium** account and an active playback device. Volume control
-  via the Web API is a Premium-only capability.
+- **Requirement:** Volume control via the Web API is a **Premium-only** capability and needs an
+  active playback device. A **Free account can still sign in** — it reaches the main screen and is
+  shown a clear "upgrade to Premium" notice, with volume control disabled rather than hard-blocked.
 - **Affiliation:** Amplify is **not affiliated with Spotify**. Spotify is a trademark of
   Spotify AB.
 
