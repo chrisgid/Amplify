@@ -133,6 +133,11 @@ fit together without conflicting edits:
   [feature 01](./features/01-application-shell.md)) — features implement a hook rather than editing
   `App.xaml.cs` directly. Examples of init-time work: restore tokens (03), register hotkeys (06),
   apply theme (11), set up the tray + single instance + minimise/close handling (08).
+- **Wiring is incremental.** The shell adds each feature's `AddXxx()` registration and init hook
+  **as that feature lands** — it does not reference services that don't exist yet. Early in the
+  build (e.g. the Phase 0 skeleton) the host wires only the services present; later sessions append
+  their own registration when they build their feature. So "the shell owns the wiring" means it owns
+  the host/`App.xaml.cs` file, not that every `AddXxx()` exists from day one.
 - **Shared contracts/models live in one place** (a `Amplify.Core` project / `Contracts` +
   `Models` folders) as defined in [`contracts.md`](./contracts.md); features reference them rather
   than redefining.
@@ -256,7 +261,10 @@ The Spotify integration (features [03](./features/03-spotify-authentication.md) 
 ## 7. Feature index
 
 Build order roughly follows dependencies: shell + settings + theming first, then auth, then the
-features that depend on a connected account.
+features that depend on a connected account. **Build a thin end-to-end slice first** (then complete
+features, then an integration pass) — see the phased plan in
+[getting-started §8](./getting-started.md#8-build-order) and the
+[integration & smoke test](./integration-smoke-test.md).
 
 | # | Feature | Summary | Key deps |
 | --- | --- | --- | --- |

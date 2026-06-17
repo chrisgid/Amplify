@@ -14,6 +14,8 @@ then raises/lowers volume system-wide via shortcuts while the app runs in the tr
   full `AppSettings` shape. **Implement against these exactly.**
 - **[Feature docs](docs/features)** — one detailed, self-contained document per feature
   (build these individually; each links back to getting-started + contracts).
+- **[Integration & smoke test](docs/integration-smoke-test.md)** — Phase 2 end-to-end checklist:
+  assemble all features and verify the app actually runs before release.
 - **[Design README](design/README.md)** — the Claude Design handoff bundle; HTML/CSS/JS mockups
   under [`design/project`](design/project) (visual reference only, not to be copied literally).
 

@@ -13,6 +13,10 @@ native caption buttons), and an in-window navigation mechanism that swaps betwee
 top-level screens: **Onboarding**, **Main**, and **Settings**. It also wires up the app's
 host/DI container, theme application, and single-window lifecycle.
 
+> *Phase 0 note:* in the [walking skeleton](../getting-started.md#8-build-order) this is just a
+> bare launchable packaged window + DI host (no Mica/title-bar polish, no routing); harden to the
+> full spec in Phase 1.
+
 ## User stories
 
 - As a user, I want a small, native-looking window that feels like part of Windows 11.

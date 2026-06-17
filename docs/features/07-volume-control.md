@@ -14,6 +14,10 @@ the live volume UI on the Main screen: a meter (%), a slider, and ± buttons. Vo
 driven both by the global hotkeys ([06](./06-global-hotkeys.md)) and by direct interaction with
 the slider/buttons. Each hotkey press changes volume by the configurable **step size**.
 
+> *Phase 0 note:* the [walking skeleton](../getting-started.md#8-build-order) needs only one
+> `GET /v1/me/player` read and one `PUT .../volume` wired to a button (then a single hard-coded
+> `RegisterHotKey`); defer the full meter UI, optimistic/coalescing logic, and gating to Phase 1.
+
 ## User stories
 
 - As a user, I want my up/down hotkeys to raise/lower Spotify's volume by my chosen step.

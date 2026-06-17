@@ -14,6 +14,10 @@ disconnecting. This is the gateway for every Spotify-backed feature. There is **
 (PKCE). A **Free account connects successfully** — it is flagged non-Premium so downstream features
 gate volume control and show an upgrade notice; it is not a connection failure.
 
+> *Phase 0 note:* the [walking skeleton](../getting-started.md#8-build-order) needs only the
+> happy-path connect (loopback PKCE, store token, `GetAccessTokenAsync()`); defer refresh/rotation,
+> single-flight, and Premium/Free handling to Phase 1.
+
 ## User stories
 
 - As a user, I want to sign in to Spotify securely in my own browser, not inside the app.

@@ -139,6 +139,11 @@ Spotify app**:
 
 ## 7. Build, run, test
 
+- **Pre-flight (do this first):** before writing code, confirm the pinned SDK/package versions in
+  §1/§3 actually resolve — run `dotnet restore` on a stub solution (or check the versions on
+  NuGet). These versions are forward-looking; if any package id or version doesn't exist or has
+  moved, **verify the correct one via the `microsoft-docs:winui3`/`microsoft-docs` skills and
+  update this file** before building on top of it. A wrong version fails the very first restore.
 - **Build/run:** build `Amplify.App` (packaged) and deploy/run from Visual Studio, or use the
   Windows App SDK CLI flow. The packaged app is needed for toasts and `StartupTask` to work.
 - **Test:** `dotnet test tests/Amplify.Tests`. Prioritise `Amplify.Core` logic (see each feature's
@@ -148,8 +153,41 @@ Spotify app**:
 
 ## 8. Build order
 
-Per the feature index in [`specification.md` §7](./specification.md#7-feature-index): scaffold +
-shell (01) + settings (10) + theming (11) first, then auth (03), then onboarding/status (04/05),
-then hotkeys/volume (06/07), then tray/notifications (08/09), then reset/icon (12/13).
-**PR-tests CI (feature 02)** is built **second** — right after the shell scaffolds the solution and
-test project — so it guards every later feature; the **release** workflow (feature 14) is built last.
+Build in three phases: a thin **end-to-end slice** first to prove the risky platform plumbing,
+then fill out each feature in dependency order, then **verify the whole app runs** before release.
+
+### Phase 0 — walking skeleton (vertical slice)
+
+Before building any feature in full, stand up the **smallest path that actually changes Spotify's
+volume from the app**, using only a sliver of a few features:
+
+- a packaged (MSIX) app that launches with the DI host — minimal
+  [01](./features/01-application-shell.md) (no Mica/title-bar polish yet);
+- happy-path [03](./features/03-spotify-authentication.md): PKCE connect on the real
+  `127.0.0.1:49737` loopback, store the token, `GetAccessTokenAsync()` — no refresh/rotation or
+  Free-state nuance yet;
+- happy-path [07](./features/07-volume-control.md): `GET /v1/me/player` + one `PUT .../volume`
+  wired to a button, then to a single hard-coded `RegisterHotKey`.
+
+This deliberately exercises the integration points most likely to fight you — packaged identity,
+the OAuth loopback redirect, the typed `HttpClient` + bearer, and Win32 hotkey/HWND plumbing —
+while the surface is tiny. **Done when you can see Spotify's volume move from a hotkey.** Defer
+everything else (settings persistence, theming, tray, onboarding UI, notifications, reset) to
+Phase 1.
+
+### Phase 1 — complete the features (dependency order)
+
+Flesh out each feature to its full doc: shell (01) + settings (10) + theming (11), then finish auth
+(03: refresh/rotation, Premium/Free), onboarding/status (04/05), hotkeys/volume (06/07: recording
+UI, gating, optimistic UI), tray/notifications (08/09), reset/icon (12/13).
+
+**PR-tests CI (feature 02)** is built **right after the Phase 0 skeleton** so it guards everything
+after.
+
+### Phase 2 — integration & smoke test
+
+Once the features are in, do an explicit **end-to-end assembly + manual smoke test** — this is the
+first time the whole app is exercised as a user would, and it's where the integration bugs the
+unit tests can't catch (window/tray/hotkey/OAuth) surface. Follow the checklist in
+[`integration-smoke-test.md`](./integration-smoke-test.md). Only after it passes do you cut the
+**release** ([feature 14](./features/14-release.md)) — the last step.
