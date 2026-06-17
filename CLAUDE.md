@@ -28,3 +28,17 @@ volume control), then raises/lowers volume system-wide via shortcuts while the a
 - Default theme follows the user's Windows theme and accent colour.
 - Spotify integration uses **Authorization Code with PKCE** and the Web API; see
   [specification §6](docs/specification.md#6-spotify-web-api-client-standards) for the binding rules.
+
+## Working in this repo
+
+- **Pre-implementation:** this repo is currently **docs + design only** — there is no solution or
+  source yet. Features are built **one at a time in isolated sessions** against the docs above;
+  the build order and phased plan are in
+  [getting-started §8](docs/getting-started.md#8-build-order).
+- **Definition of done** (every feature): the solution **builds** and `dotnet test` is **green**
+  — never skip, weaken, or delete tests to pass — **and** a dated entry is appended to the
+  feature's [build-notes](docs/build-notes/README.md) file. Strict by default:
+  `Nullable=enable`, `TreatWarningsAsErrors=true`.
+- **Verify, don't guess:** confirm WinUI 3 / Windows App SDK / .NET APIs with the
+  `microsoft-docs:winui3` and `microsoft-docs` skills; take Spotify endpoints from the OpenAPI spec
+  ([specification §6](docs/specification.md#6-spotify-web-api-client-standards)).
