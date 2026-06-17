@@ -80,6 +80,11 @@ the slider/buttons. Each hotkey press changes volume by the configurable **step 
   `ISpotifyClient` (the single source of this signal; see [`../contracts.md`](../contracts.md)).
   The user-facing messaging for it is owned by [feature 05](./05-connection-status.md); this
   feature only gates the control.
+- **Deriving the signal from the API:** `GET /v1/me/player` returns **`204 No Content`** when no
+  device is active — map that (empty body) to `HasActiveDevice == false`, **not** an error. A
+  `SetVolumeAsync` that returns **`404` ("Device not found")** or **`403`** likewise means no
+  controllable device → revert the optimistic value and surface the no-device guidance (feature 05)
+  rather than a generic failure.
 - **Free (non-Premium)** → the account connects normally, but `CanControl` is false: the card is
   dimmed and hotkey nudges are inert. The "upgrade to Premium" messaging is owned by
   [feature 05](./05-connection-status.md); this feature just gates the control on `IsPremium`.

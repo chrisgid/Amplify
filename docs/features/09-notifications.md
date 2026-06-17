@@ -40,6 +40,10 @@ volume level so the user gets confirmation without opening the window.
 - Use **`AppNotificationManager`** (Windows App SDK) to build and show toasts; requires the
   app to be packaged (MSIX) with notification registration at startup. Verify the current API via
   the `microsoft-docs:winui3`/`microsoft-docs` skills.
+  - **Registration/manifest:** call `AppNotificationManager.Default.Register()` at startup (and
+    `Unregister()` on exit). If a `Click`/activation handler is used, the COM activator declarations
+    it needs go in `Package.appxmanifest` — own those here, not in the release feature
+    ([14](./14-release.md)). A bare "show toast" path needs no custom activator.
 - `INotificationService.ShowVolume(int percent, int direction)`; called by
   [feature 07](./07-volume-control.md) after a successful (or optimistic) hotkey change, gated by
   the setting.

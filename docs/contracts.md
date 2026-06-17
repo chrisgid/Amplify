@@ -197,10 +197,19 @@ public interface INotificationService
     void ShowVolume(int percent, int direction);  // only when NotifyOnVolumeChange
 }
 
-// startup hooks invoked by the shell (feature 01) at launch — features implement as needed
+// startup hooks invoked by the shell (feature 01) at launch — features implement as needed.
+// The shell resolves all registered IStartupInitializer instances and runs them **in ascending
+// Order**, AFTER it has loaded settings (ISettingsService.LoadAsync) and restored the session
+// (IAuthService.RestoreSessionAsync) as explicit pre-steps. Lower Order runs earlier. Use the
+// bands below so independently built features slot in deterministically:
+//   100  theme            (apply before the first frame — feature 11)
+//   200  tray + window     (single-instance already handled pre-window; feature 08)
+//   400  hotkeys           (register after settings are loaded — feature 06)
+//   900  everything else
 public interface IStartupInitializer
 {
-    Task OnLaunchedAsync();
+    int Order { get; }                           // ascending; see bands above
+    Task OnLaunchedAsync(CancellationToken ct);
 }
 ```
 

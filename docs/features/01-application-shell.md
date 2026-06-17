@@ -50,6 +50,27 @@ host/DI container, theme application, and single-window lifecycle.
 
 - **Project:** WinUI 3, packaged (MSIX), .NET 10. App bootstrap configures the
   `Microsoft.Extensions.Hosting` host and registers all services + ViewModels in DI.
+- **Host-owned infrastructure (this feature owns it):** the shell sets up the cross-cutting
+  plumbing the spec references but no other feature builds —
+  - **Logging:** wire `Microsoft.Extensions.Logging` with the **minimal custom file
+    `ILoggerProvider`** writing to `LocalFolder\logs\` (+ the Debug provider in dev); never log
+    tokens/PII (see [getting-started §5](../getting-started.md#5-local-data-logs-secrets)).
+  - **Configuration:** load `appsettings.json` and bind the Spotify options (`RedirectPort`,
+    `Scopes`) to a typed options class for injection (see
+    [getting-started §4](../getting-started.md#4-configuration--the-per-user-client-id-model)).
+- **Launch sequence (deterministic):** `App` startup runs in this fixed order — other features plug
+  in via `IStartupInitializer.Order`; they do **not** reorder this:
+  1. **Single-instance redirect** *before the window is created* — if a second instance, redirect
+     activation to the first and exit ([feature 08](./08-system-tray-background.md)).
+  2. Build the host (DI, logging, configuration above).
+  3. `await ISettingsService.LoadAsync()` — settings + migration must be ready before anything reads
+     them ([feature 10](./10-settings-persistence.md)).
+  4. `await IAuthService.RestoreSessionAsync()` — silent token restore so the initial route is known.
+  5. Run all `IStartupInitializer`s in **ascending `Order`** (theme 100 → tray/window 200 →
+     hotkeys 400; see [`../contracts.md`](../contracts.md)). Theme applies before the first frame
+     to avoid a light/dark flash.
+  6. Decide the route from auth state and activate the window (unless *start minimized*,
+     [feature 08](./08-system-tray-background.md)).
 - **Window/title bar:** use `Window.ExtendsContentIntoTitleBar = true` and set a custom
   `TitleBar` region; obtain the `AppWindow` for sizing/min-max and presenter config. Verify the
   current title-bar API with the `microsoft-docs:winui3` skill (`AppWindowTitleBar` vs

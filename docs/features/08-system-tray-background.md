@@ -62,6 +62,10 @@ and enforces **single-instance** behaviour so the hotkeys keep working without a
   `StartupTask.GetAsync` + `RequestEnableAsync`). Reflect the OS-controlled state back into the
   toggle (the user can disable it in Task Manager/Settings). Verify the API via the
   `microsoft-docs:winui3`/`microsoft-docs` skills.
+  - **Manifest:** this requires a `windows.startupTask` extension (with a `TaskId`) declared in
+    `Package.appxmanifest` — `StartupTask.GetAsync(taskId)` uses that same id. Add it as part of
+    this feature; it is **not** handled by the release/packaging feature
+    ([14](./14-release.md)).
 - **Single instance:** use Windows App SDK single-instancing (`AppInstance.FindOrRegisterForKey`
   + redirect activation) so a second launch activates the first instance.
 - **Lifetime:** the app's process lifetime is decoupled from window visibility; hotkeys

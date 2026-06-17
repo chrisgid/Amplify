@@ -72,6 +72,10 @@ gate volume control and show an upgrade notice; it is not a connection failure.
   5. Store `refresh_token`; keep `access_token` + `expires_in` in memory.
 - **Refresh:** `grant_type=refresh_token` (tutorial in §6). Refresh proactively when near
   expiry and reactively on a `401`. Spotify may return a new refresh token — persist it if so.
+- **Single-flight refresh:** `GetAccessTokenAsync()` may be called concurrently (e.g. a hotkey
+  burst). Guard the refresh with a `SemaphoreSlim`/async lock so only **one** refresh is in flight;
+  other callers await the same result. This avoids duplicate token requests and a race where one
+  call invalidates the rotated refresh token another just used.
 - **Service shape:** `IAuthService` with `Task<AuthResult> ConnectAsync()`,
   `Task<string> GetAccessTokenAsync()` (auto-refreshing), `Task DisconnectAsync()`,
   `bool IsConnected`, and an event/observable for state changes. `ISpotifyClient`

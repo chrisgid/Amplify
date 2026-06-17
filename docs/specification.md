@@ -123,12 +123,16 @@ fit together without conflicting edits:
 - **Each feature owns its own files** (its View(s), ViewModel(s), and service implementation) and
   exposes a single DI registration extension method, e.g. `services.AddAuth()`, `AddSettings()`,
   `AddHotkeys()`, `AddTray()`, etc.
-- **The shell ([feature 01](./features/01-application-shell.md)) owns `App.xaml.cs` and the host
-  setup.** It calls each feature's `AddXxx()` during host build, and invokes well-named init
-  hooks at startup (e.g. `IStartupInitializer.OnLaunchedAsync()`) that features implement —
-  features do **not** edit `App.xaml.cs` directly. Examples of init-time work: restore tokens
-  (03), register hotkeys (06), apply theme (11), set up the tray + single instance + minimise/
-  close handling (08).
+- **The shell ([feature 01](./features/01-application-shell.md)) owns `App.xaml.cs`, the host
+  setup, and the cross-cutting infrastructure** (logging + `appsettings.json` configuration
+  binding). It calls each feature's `AddXxx()` during host build, then drives a **fixed launch
+  sequence** (single-instance redirect → host → `ISettingsService.LoadAsync()` →
+  `IAuthService.RestoreSessionAsync()` → ordered `IStartupInitializer`s → route + activate). Init
+  hooks run in **ascending `IStartupInitializer.Order`** (theme 100 → tray/window 200 →
+  hotkeys 400; see [`contracts.md`](./contracts.md) and
+  [feature 01](./features/01-application-shell.md)) — features implement a hook rather than editing
+  `App.xaml.cs` directly. Examples of init-time work: restore tokens (03), register hotkeys (06),
+  apply theme (11), set up the tray + single instance + minimise/close handling (08).
 - **Shared contracts/models live in one place** (a `Amplify.Core` project / `Contracts` +
   `Models` folders) as defined in [`contracts.md`](./contracts.md); features reference them rather
   than redefining.
@@ -239,9 +243,13 @@ The Spotify integration (features [03](./features/03-spotify-authentication.md) 
 
 **Endpoints used by Amplify** (confirm exact shapes against the OpenAPI spec):
 - `GET /v1/me` — read profile incl. `product` to confirm Premium.
-- `GET /v1/me/player` — current playback state / active device / current volume.
+- `GET /v1/me/player` — current playback state / active device / current volume. **Returns
+  `204 No Content` (empty body) when there is no active device** — treat 204 as
+  `HasActiveDevice == false`, not an error.
 - `GET /v1/me/player/devices` — available devices.
 - `PUT /v1/me/player/volume?volume_percent={0-100}` — set volume (optional `device_id`).
+  **`404` ("Device not found") / `403` (restriction)** indicate no active/controllable device —
+  surface the "no active device" guidance rather than a generic error.
 
 ---
 

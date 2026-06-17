@@ -58,7 +58,10 @@ Releases** only — no Microsoft Store. Also defines the **versioning** scheme.
   password); import it in the job and sign with `signtool` or the MSBuild appx signing properties.
   A self-signed cert is acceptable for open-source side-loading (document installing the public
   cert / enabling sideloading in the README). **Never commit the certificate.**
-- Stamp the manifest version from `github.ref_name` (strip the leading `v`, append `.0`).
+- Stamp the manifest version from `github.ref_name` (strip the leading `v`, append `.0`). This
+  feature only **versions and packages** the manifest — feature-specific manifest extensions
+  (the `windows.startupTask` for [08](./08-system-tray-background.md), any notification activator
+  for [09](./09-notifications.md)) are authored by those features, not here.
 - Reuse the same build settings as [feature 02](./02-ci-pr-tests.md) (`Directory.Build.props`).
 
 ## Data & persistence
