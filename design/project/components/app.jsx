@@ -74,6 +74,8 @@ function App() {
 
   const theme = t.themePref === "System" ? sysDark ? "dark" : "light" : t.themePref.toLowerCase();
   const status = (t.status || "Connected").toLowerCase();
+  // Free accounts are connected but can't control playback volume.
+  const account = { ...ACCOUNT, plan: status === "free" ? "Free" : ACCOUNT.plan };
 
   // flow state
   const [route, setRoute] = useState("onboarding"); // onboarding | main | settings
@@ -141,7 +143,7 @@ function App() {
             }
             {route === "main" &&
             <MainApp
-              status={status} account={ACCOUNT}
+              status={status} account={account}
               combos={combos} setCombos={setCombos}
               volume={volume} setVolume={setVolume} step={step}
               onOpenSettings={() => setRoute("settings")}
@@ -153,7 +155,7 @@ function App() {
               settings={settings} setSettings={setSettings}
               theme={t.themePref} setTheme={(v) => setTweak("themePref", v)}
               step={step} setStep={setStep}
-              account={ACCOUNT} status={status}
+              account={account} status={status}
               clientId={clientId || SAMPLE_CLIENT_ID}
               onReset={() => setResetOpen(true)} onDisconnect={disconnect} />
             }
@@ -188,7 +190,7 @@ function App() {
         <TweakColor label="Accent" value={t.accent} options={ACCENTS.map((a) => a.value)}
         onChange={(v) => setTweak("accent", v)} />
         <TweakSection label="Connection status" />
-        <TweakRadio label="Spotify" value={t.status} options={["Connected", "Connecting", "Error"]}
+        <TweakRadio label="Spotify" value={t.status} options={["Connected", "Free", "Connecting", "Error"]}
         onChange={(v) => {setTweak("status", v);if (route === "onboarding") setRoute("main");}} />
         <TweakSection label="OAuth flow" />
         <TweakRadio label="Authorization" value={t.oauthOutcome} options={["Approve", "Deny"]}

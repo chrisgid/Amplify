@@ -34,22 +34,31 @@ function StatusBlock({ status, account, onReconnect }) {
       </InfoBar>);
 
   }
-  // connected
+  // connected (Premium) or free
+  const isFree = status === "free";
   return (
+    <>
     <div className="amp-card" style={{ display: "flex", alignItems: "center", gap: 13, padding: "12px 14px" }}>
       <div style={{ width: 38, height: 38, borderRadius: "50%", background: "var(--accent-fill)", color: "var(--on-accent)",
         display: "grid", placeItems: "center", fontWeight: 600, fontSize: 14, flexShrink: 0 }}>{account.initials}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span className="t-body-strong" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{account.name}</span>
-          <IconCheckCircle s={15} style={{ color: "var(--success)", flexShrink: 0 }} />
+          {isFree ?
+          <IconWarningTri s={15} style={{ color: "var(--warning)", flexShrink: 0 }} /> :
+          <IconCheckCircle s={15} style={{ color: "var(--success)", flexShrink: 0 }} />}
         </div>
         <div className="t-caption" style={{ color: "var(--text-3)" }}>{account.plan} · {account.device}</div>
       </div>
-      <span className="t-caption" style={{ color: "var(--success)", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+      <span className="t-caption" style={{ color: isFree ? "var(--warning)" : "var(--success)", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
         Connected
       </span>
-    </div>);
+    </div>
+    {isFree &&
+    <InfoBar kind="warning" icon={<IconAlert s={18} />} title="Volume control unavailable">
+      You're on a free Spotify account. Upgrade to Premium to control playback volume.
+    </InfoBar>}
+    </>);
 
 }
 
@@ -152,10 +161,6 @@ function MainApp({ status, account, combos, setCombos, volume, setVolume, step, 
 
       {/* Footer */}
       <div style={{ display: "flex", alignItems: "center", marginTop: 18 }}>
-        <span className="t-caption" style={{ color: "var(--text-3)", display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--success)", boxShadow: "0 0 0 3px var(--success-bg)" }} />
-          Running in the background
-        </span>
         <button className="btn subtle sm" style={{ marginLeft: "auto" }} onClick={onOpenSettings}>
           <IconSettings s={16} /> Settings
         </button>

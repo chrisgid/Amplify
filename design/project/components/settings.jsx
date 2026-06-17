@@ -60,9 +60,9 @@ function Settings({ onBack, settings, setSettings, theme, setTheme, step, setSte
       <div className="amp-list">
         <SettingRow
           icon={status === "connected" ? <IconCheckCircle s={19} style={{ color: "var(--success)" }} /> : <IconAlert s={19} style={{ color: "var(--warning)" }} />}
-          title={status === "connected" ? account.name : "Not connected"}
-          sub={status === "connected" ? `${account.plan} · Spotify` : "Reconnect to control volume"}
-          control={<button className="btn sm" onClick={onDisconnect}>{status === "connected" ? "Disconnect" : "Reconnect"}</button>} />
+          title={status === "connected" || status === "free" ? account.name : "Not connected"}
+          sub={status === "free" ? "Free · Volume control unavailable" : status === "connected" ? `${account.plan} · Spotify` : "Reconnect to control volume"}
+          control={<button className="btn sm" onClick={onDisconnect}>{status === "connected" || status === "free" ? "Disconnect" : "Reconnect"}</button>} />
       </div>
       <div className="amp-card" style={{ padding: "13px 16px", marginTop: 8 }}>
         <div className="row-title">Spotify Client ID</div>
@@ -78,7 +78,7 @@ function Settings({ onBack, settings, setSettings, theme, setTheme, step, setSte
       </div>
 
       <div className="t-caption" style={{ color: "var(--text-3)", textAlign: "center", marginTop: 20 }}>
-        Amplify 1.0.0 · Not affiliated with Spotify
+        <a href="https://github.com/chrisgid/Amplify" target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>Amplify</a> 1.0.0 · Not affiliated with Spotify
       </div>
     </div>
   );

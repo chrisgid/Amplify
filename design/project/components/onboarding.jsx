@@ -41,7 +41,7 @@ function Onboarding({ phase, denied, clientId, setClientId, onConnect }) {
           </li>
           <li>
             <span className="sx-num">3</span>
-            <div className="sx-text">Set the app name to <b>Amplify</b> and the description to <b>Amplify App</b>.</div>
+            <div className="sx-text">Set the app name and description to <b>Amplify</b></div>
           </li>
           <li>
             <span className="sx-num">4</span>
