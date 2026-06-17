@@ -251,7 +251,7 @@ The Spotify integration (features [03](./features/03-spotify-authentication.md) 
 - `GET /v1/me/player` — current playback state / active device / current volume. **Returns
   `204 No Content` (empty body) when there is no active device** — treat 204 as
   `HasActiveDevice == false`, not an error.
-- `PUT /v1/me/player/volume?volume_percent={0-100}` — set volume (optional `device_id`).
+- `PUT /v1/me/player/volume?volume_percent={0-100}` — set volume on the active device.
   **`404` ("Device not found") / `403` (restriction)** indicate no active/controllable device —
   surface the "no active device" guidance rather than a generic error.
 

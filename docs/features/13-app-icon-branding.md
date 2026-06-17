@@ -43,10 +43,11 @@ used and can be ignored.
 ## Implementation guidance
 
 - Produce the master icon as **SVG**, then export the required raster assets.
-- **MSIX / packaging assets** (Square44x44Logo, Square150x150Logo, Wide310x150Logo,
-  Square310x310Logo, StoreLogo, plus scale variants `100/125/150/200/400` and target-size
-  unplated 16/24/32/48/256 for the title-bar/taskbar) and a multi-resolution **`.ico`** for the
-  window/tray. Verify the exact asset matrix via the `microsoft-docs:winui3`/`microsoft-docs`
+- **MSIX / packaging assets** (Square44x44Logo, Square150x150Logo, StoreLogo, plus scale variants
+  `100/125/150/200/400` and target-size unplated 16/24/32/48/256 for the title-bar/taskbar) and a
+  multi-resolution **`.ico`** for the window/tray. The wide/large Start tiles (`Wide310x150Logo`,
+  `Square310x310Logo`) are **not needed** for a tray utility — skip them unless wide/large tiles are
+  ever wanted. Verify the exact asset matrix via the `microsoft-docs:winui3`/`microsoft-docs`
   skills.
 - Render the circular badge (speaker + concentric waves) with the brand gradient, centred on the
   square tile/icon assets with appropriate padding.

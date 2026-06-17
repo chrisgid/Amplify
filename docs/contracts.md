@@ -44,20 +44,21 @@ public enum HotkeyAction { VolumeUp, VolumeDown }                 // feature 06
 
 ```csharp
 // Spotify account shown in the status card (feature 05) and settings (feature 12).
+// Single source: IAuthService reads GET /v1/me during connect and exposes it via CurrentAccount —
+// ISpotifyClient does NOT expose a separate profile call.
 public sealed record Account(
     string DisplayName,
     string Plan,          // e.g. "Premium"
     bool   IsPremium,     // from GET /v1/me -> product == "premium"
-    string DeviceName,    // active device label, may be empty when none
     string Initials);     // derived from DisplayName for the avatar
+// Active device label is NOT part of the profile — it comes from PlayerState.DeviceName
+// (GET /v1/me/player). The status card composes "{Plan} · {DeviceName}" from both.
 
 // Current playback state (feature 07 reads volume/device; feature 05 reads device presence).
 public sealed record PlayerState(
     bool   HasActiveDevice,
     int    VolumePercent,   // 0..100
-    string? DeviceId,
-    string? DeviceName,
-    bool   IsPlaying);
+    string? DeviceName);    // active device label, null/empty when none
 
 // A global shortcut (feature 06). Canonical string form e.g. "ctrl+alt+arrowup".
 public sealed record Hotkey(
@@ -151,9 +152,8 @@ public sealed record AuthResult(bool Success, bool Denied, bool NotPremium, stri
 // feature 07 — Spotify Web API (typed HttpClient, no SDK)
 public interface ISpotifyClient
 {
-    Task<Account?> GetProfileAsync();           // GET /v1/me
     Task<PlayerState?> GetPlayerStateAsync();   // GET /v1/me/player
-    Task SetVolumeAsync(int percent, string? deviceId = null); // PUT /v1/me/player/volume
+    Task SetVolumeAsync(int percent);           // PUT /v1/me/player/volume (active device)
 }
 
 // feature 06 — global hotkeys

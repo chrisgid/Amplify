@@ -59,8 +59,8 @@ the slider/buttons. Each hotkey press changes volume by the configurable **step 
 - **Service:** `ISpotifyClient` — a **typed `HttpClient`** (registered via `IHttpClientFactory`,
   **no third-party SDK**) that uses `IAuthService.GetAccessTokenAsync()` for the bearer token.
   Canonical signature in [`../contracts.md`](../contracts.md):
-  `Task<PlayerState?> GetPlayerStateAsync()` and
-  `Task SetVolumeAsync(int percent, string? deviceId = null)`.
+  `Task<PlayerState?> GetPlayerStateAsync()` and `Task SetVolumeAsync(int percent)` (always the
+  active device — no device id).
 - **Controller:** `IVolumeController` owns the step math and orchestration:
   `Task NudgeAsync(int direction)` → `clamp(current + direction*step, 0, 100)` → `SetVolumeAsync`.
   Subscribes to `IHotkeyService.HotkeyPressed`.

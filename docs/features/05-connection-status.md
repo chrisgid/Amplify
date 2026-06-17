@@ -52,8 +52,10 @@ reconnect affordance when needed.
 ## Implementation guidance
 
 - A `StatusViewModel` exposes a `ConnectionState` enum and an `Account` model (name, plan,
-  `IsPremium`, device, initials) sourced from `GET /v1/me` and `GET /v1/me/player`
-  (confirm fields via the OpenAPI spec, §6).
+  `IsPremium`, initials). The **account comes from `IAuthService.CurrentAccount`** (auth already
+  reads `GET /v1/me` during connect — do not call the profile endpoint again here); the **active
+  device name/presence** comes from `ISpotifyClient.GetPlayerStateAsync()` (`GET /v1/me/player`).
+  Confirm fields via the OpenAPI spec, §6.
 - Use `InfoBar` (`Severity = Informational/Error`) for connecting/error, a `Severity = Warning`
   `InfoBar` for the Free notice, and a native card layout (`Border`/`Grid` with theme brushes) for
   connected. Use `FontIcon` glyphs (check vs warning triangle); spinner = `ProgressRing`.
