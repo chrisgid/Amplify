@@ -1,0 +1,69 @@
+# .NET / Visual Studio build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.csproj.user
+
+# Build / restore
+project.lock.json
+project.fragment.lock.json
+artifacts/
+*.binlog
+msbuild.log
+
+# Test results & coverage
+[Tt]est[Rr]esult*/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+coverage*.info
+
+# MSIX / packaging output
+AppPackages/
+BundleArtifacts/
+*.appx
+*.appxbundle
+*.appxupload
+*.msix
+*.msixbundle
+*.msixupload
+GeneratedArtifacts/
+_pkginfo.txt
+
+# Signing certificates / secrets — never commit these
+*.pfx
+*.snk
+*.cer
+appsettings.*.local.json
+secrets.json
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+!**/packages/build/
+
+# Claude Code local/personal settings
+.claude/settings.local.json
+
+# OS noise
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+.DS_Store
