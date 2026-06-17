@@ -10,6 +10,11 @@
 > app runs. Run this after the features are in and **before** cutting a release
 > ([feature 14](./features/14-release.md)).
 
+> **Start by reading the [build notes](./build-notes/).** Each feature's
+> `build-notes/NN-*.md` lists its deviations, assumptions, and **deferred/known gaps** — exactly the
+> things this pass needs to check. Log the results of this pass to
+> `build-notes/integration-smoke-test.md` (append-only, same convention as the per-feature notes).
+
 ## Assembly
 
 - [ ] Every feature's `AddXxx()` DI registration is called by the shell host

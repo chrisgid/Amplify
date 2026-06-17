@@ -210,6 +210,13 @@ These apply to **every** feature. Each feature doc restates the ones relevant to
   `RequiresSpotify` trait, excluded from the default `dotnet test` run), and are verified per each
   feature's *Testing* section. A test may be skipped only with an explicit, documented reason —
   never silently.
+- **Build notes (carry decisions forward):** because each feature is built in an isolated, stateless
+  session, a feature is done only when the session has **appended a dated entry to its build-notes
+  file** under [`docs/build-notes/`](./build-notes/) (creating it on first touch; never overwriting
+  earlier entries). Record only the **non-obvious** — deviations from spec/contracts and why,
+  assumptions made where the docs were silent, contract changes, deferred/known gaps, manual checks
+  done, and API/version facts verified — not a restatement of the diff. See
+  [`build-notes/README.md`](./build-notes/README.md) for the template and rule.
 - **Security:** never store secrets in plaintext or source; refresh tokens go in the Credential
   Locker. PKCE means there is **no client secret** to embed.
 

@@ -16,6 +16,8 @@ volume control), then raises/lowers volume system-wide via shortcuts while the a
   (build these individually; each links back to getting-started + contracts).
 - **[Integration & smoke test](docs/integration-smoke-test.md)** — Phase 2 end-to-end checklist:
   assemble all features and verify the app actually runs before release.
+- **[Build notes](docs/build-notes/README.md)** — per-feature decision log (append-only); writing an
+  entry is part of the definition of done. Read these when building a dependent feature.
 - **[Design README](design/README.md)** — the Claude Design handoff bundle; HTML/CSS/JS mockups
   under [`design/project`](design/project) (visual reference only, not to be copied literally).
 
