@@ -41,6 +41,6 @@ Issues and pull requests are welcome
 
 ## Disclaimer
 
-Yes, this application was built with the help of AI. From the initial idea, Claude Code and Claude Design was used to build out a specification, feature documentation, and a prototype which was later implemented by Claude Code.
+Yes, this application was built with the help of AI. From the initial idea, Claude Code and Claude Design were used to build out a specification, feature documentation, and a prototype which was later implemented by Claude Code.
 
 **Not affiliated with, endorsed by, or sponsored by Spotify.** Amplify uses the Spotify Web API to control playback volume on your own account.
