@@ -14,7 +14,7 @@
 - **Target framework:** `net10.0-windows10.0.19041.0` with
   `<WindowsSdkPackageVersion>10.0.19041.31</WindowsSdkPackageVersion>`; **min platform:**
   `10.0.17763.0` (WinUI 3 minimum — Windows 10 1809).
-- Visual Studio 2022 (latest 17.x) with the Windows App SDK / WinUI workload, or `dotnet` CLI with
+- Visual Studio 2026 (latest 18.x) with the Windows App SDK / WinUI workload, or `dotnet` CLI with
   the Windows App SDK templates.
 - Verify current WinUI 3 / Windows App SDK APIs with the `microsoft-docs:winui3` skill when in
   doubt — do not guess.
