@@ -181,8 +181,8 @@ Flesh out each feature to its full doc: shell (01) + settings (10) + theming (11
 (03: refresh/rotation, Premium/Free), onboarding/status (04/05), hotkeys/volume (06/07: recording
 UI, gating, optimistic UI), tray/notifications (08/09), reset/icon (12/13).
 
-**PR-tests CI (feature 02)** is built **right after the Phase 0 skeleton** so it guards everything
-after.
+**PR-tests CI (feature 02)** is stood up **as soon as the skeleton scaffolds the solution + test
+project** (early in Phase 0), so it guards the rest of Phase 0 and everything after.
 
 ### Phase 2 — integration & smoke test
 

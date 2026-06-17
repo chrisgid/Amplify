@@ -100,7 +100,7 @@ change settings.
  ───────────────────────────────────────────────────────────
  Services:
    IAuthService          OAuth/PKCE, token lifecycle, sign-out
-   ISpotifyClient        Web API calls (player state, volume, profile, devices)
+   ISpotifyClient        Web API calls (player state, volume, profile)
    IHotkeyService        register/unregister global hotkeys, raise events
    IVolumeController      step math + orchestrates ISpotifyClient
    ISettingsService      typed get/set + persistence + change notifications
@@ -251,7 +251,6 @@ The Spotify integration (features [03](./features/03-spotify-authentication.md) 
 - `GET /v1/me/player` — current playback state / active device / current volume. **Returns
   `204 No Content` (empty body) when there is no active device** — treat 204 as
   `HasActiveDevice == false`, not an error.
-- `GET /v1/me/player/devices` — available devices.
 - `PUT /v1/me/player/volume?volume_percent={0-100}` — set volume (optional `device_id`).
   **`404` ("Device not found") / `403` (restriction)** indicate no active/controllable device —
   surface the "no active device" guidance rather than a generic error.
@@ -270,7 +269,7 @@ features, then an integration pass) — see the phased plan in
 | --- | --- | --- | --- |
 | 01 | [Application shell & window](./features/01-application-shell.md) | Main window, Mica, custom title bar, navigation/routing, caption buttons | — |
 | 02 | [CI — PR tests](./features/02-ci-pr-tests.md) | GitHub Actions: build + run unit tests on every PR | 01 |
-| 03 | [Spotify authentication](./features/03-spotify-authentication.md) | PKCE OAuth, local callback, token storage & refresh, Premium check, sign-out | 01 |
+| 03 | [Spotify authentication](./features/03-spotify-authentication.md) | PKCE OAuth, local callback, token storage & refresh, Premium status, sign-out | 01 |
 | 04 | [Onboarding / first run](./features/04-onboarding.md) | Welcome screen, connect flow, denied handling | 01, 03 |
 | 05 | [Connection status & account](./features/05-connection-status.md) | Connected/connecting/error states, account card, reconnect | 03 |
 | 06 | [Global hotkeys](./features/06-global-hotkeys.md) | Bind/record combos, global registration, conflicts, persistence | 01, 10 |

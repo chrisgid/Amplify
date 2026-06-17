@@ -144,7 +144,7 @@ gate volume control and show an upgrade notice; it is not a connection failure.
 - `state` validation accepts matching and rejects mismatched/absent state.
 - Token refresh: refreshes when expired/near-expiry; retries once on 401; persists rotated
   refresh tokens. (Mock the token HTTP endpoint.)
-- Premium check maps `product` values correctly (premium vs free).
+- Premium status maps `product` values correctly (premium → `IsPremium`, free → not).
 - Disconnect removes the stored refresh token. (Mock the Credential Locker behind an interface.)
 - 429 backoff honours `Retry-After`.
 

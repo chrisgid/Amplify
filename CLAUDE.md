@@ -1,8 +1,8 @@
 # Amplify
 
 A **WinUI 3** desktop app for Windows 11 that controls **Spotify's** playback volume using
-**global keyboard hotkeys**. The user signs in once with Spotify (OAuth PKCE, Premium required),
-then raises/lowers volume system-wide via shortcuts while the app runs in the tray.
+**global keyboard hotkeys**. The user signs in once with Spotify (OAuth PKCE; Premium required for
+volume control), then raises/lowers volume system-wide via shortcuts while the app runs in the tray.
 
 ## Documentation
 
