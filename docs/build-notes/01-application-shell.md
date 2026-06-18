@@ -85,3 +85,38 @@ Scaffolded the solution and stood up a launchable, MSIX-packaged WinUI 3 window 
     the .NET 10 SDK (10.0.201 installed).
   - The .NET Generic Host pattern (`Host.CreateApplicationBuilder` → register window singleton →
     resolve from DI → `Activate()`) composes cleanly inside WinUI 3 `App.OnLaunched`.
+
+## 2026-06-19 — PR #1 review fixes · branch `feat/01-application-shell`
+
+Addressed three findings from code review on the Phase 0 PR. No behaviour change to the happy path;
+no contract changes.
+
+- **Removed `PublishTrimmed` / `PublishReadyToRun` from `Amplify.App.csproj`** (the WinUI template
+  enables both for Release). Two reasons: (1) trimmed Windows App SDK apps have documented
+  release-mode crashes, and under trim/AOT the developer must manually root reflection-based XAML
+  `{Binding}` targets — risk that buys little for an app this size; (2) reflection config binding is
+  trim-incompatible in general (the `SpotifyOptions` bind is *probably* safe because `PublishTrimmed`
+  auto-enables the configuration-binding source generator in .NET 8+, but that was untested — the
+  earlier "0 warnings" build was Debug, where no trim analysis runs). Left a comment in the csproj so
+  the template default isn't blindly re-added; revisit only with a concrete size/startup target and a
+  thoroughly tested trimmed Release build. Verified via the `microsoft-docs` skill.
+
+- **Re-added app-secret ignores to `.gitignore`.** Replacing the bespoke ignore with the
+  GitHub-standard VisualStudio template had silently dropped `appsettings.*.local.json`,
+  `secrets.json`, `*.cer`, `*.snk`, and `.claude/settings.local.json` (the standard file only
+  *comments out* `*.snk`). Re-added an "App secrets & local config — never commit" block — relevant
+  because onboarding captures a per-user Spotify Client ID. Also fixed the file's missing trailing
+  newline.
+
+- **Guarded the `async void OnLaunched` launch sequence.** An exception escaping the necessarily
+  `async void` override would crash the process with no diagnostics. Wrapped the sequence in
+  try/catch: logs `Critical`, disposes the host, then rethrows (fail-fast *with* diagnostics). To
+  satisfy the repo's analyzers-as-errors (`CA1848` LoggerMessage delegates, `CA1873` no expensive
+  args in log calls) the log uses a source-generated `[LoggerMessage]` partial (`LogStartupFailed`)
+  with the `ILogger<App>` resolved into a local first. A richer in-app error screen is deferred to the
+  Phase 1 shell UI; for now log + fail-fast is the honest behaviour.
+
+- **Manual/integration checks (re-run after the fixes):**
+  - `dotnet build Amplify.slnx -p:Platform=x64` → **0 warnings, 0 errors**.
+  - `dotnet test` → **3 passed** (unchanged).
+  - `dotnet format --verify-no-changes` → clean (exit 0).

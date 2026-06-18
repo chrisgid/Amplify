@@ -53,18 +53,34 @@ public partial class App : Application
     /// </summary>
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
-        // Future pre-steps, in order:
-        //   1. single-instance redirect before the window is created
-        //   2. await ISettingsService.LoadAsync()
-        //   3. await IAuthService.RestoreSessionAsync()
-        // then ordered initializers (theme 100 -> tray/window 200 -> hotkeys 400):
-        await StartupInitializerRunner.RunAsync(
-            _host.Services.GetServices<IStartupInitializer>(), CancellationToken.None);
+        // OnLaunched is necessarily async void, so any exception escaping here would crash the process
+        // with no diagnostics. Catch it, log it, and surface it instead. (A richer in-app error screen
+        // arrives with the shell UI; for now logging plus a fail-fast is the honest behaviour.)
+        try
+        {
+            // Future pre-steps, in order:
+            //   1. single-instance redirect before the window is created
+            //   2. await ISettingsService.LoadAsync()
+            //   3. await IAuthService.RestoreSessionAsync()
+            // then ordered initializers (theme 100 -> tray/window 200 -> hotkeys 400):
+            await StartupInitializerRunner.RunAsync(
+                _host.Services.GetServices<IStartupInitializer>(), CancellationToken.None);
 
-        _window = _host.Services.GetRequiredService<MainWindow>();
-        _window.Closed += OnMainWindowClosed;
-        _window.Activate();
+            _window = _host.Services.GetRequiredService<MainWindow>();
+            _window.Closed += OnMainWindowClosed;
+            _window.Activate();
+        }
+        catch (Exception ex)
+        {
+            ILogger<App> logger = _host.Services.GetRequiredService<ILogger<App>>();
+            LogStartupFailed(logger, ex);
+            _host.Dispose();
+            throw;
+        }
     }
 
     private void OnMainWindowClosed(object sender, WindowEventArgs args) => _host.Dispose();
+
+    [LoggerMessage(Level = LogLevel.Critical, Message = "Startup failed; the application cannot continue.")]
+    private static partial void LogStartupFailed(ILogger logger, Exception exception);
 }

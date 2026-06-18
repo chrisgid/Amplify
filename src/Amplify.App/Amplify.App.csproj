@@ -72,11 +72,10 @@
     <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
   </PropertyGroup>
 
-  <!-- Publish Properties -->
-  <PropertyGroup>
-    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
-    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
-    <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
-    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
-  </PropertyGroup>
+  <!--
+    Trimming and ReadyToRun are intentionally left off (the WinUI template enables both for Release).
+    Trimmed Windows App SDK apps have known release-mode crashes, and XAML data-binding targets must
+    be manually rooted to survive trimming — risk that buys little for an app this size. Revisit only
+    with a concrete size/startup target and a thoroughly tested trimmed Release build.
+  -->
 </Project>
