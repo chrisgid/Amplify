@@ -1,5 +1,5 @@
 # Amplify — solution-wide formatting & naming rules (dotnet format honours this file).
-# Keep code consistent across independently-built feature sessions (docs/specification.md §5).
+# Keeps code style consistent across independently-built feature sessions.
 
 root = true
 

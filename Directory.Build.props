@@ -2,9 +2,9 @@
 
   <!--
     Solution-wide MSBuild settings inherited by every project (Amplify.Core, Amplify.App,
-    Amplify.Tests). Compiler strictness is set here once per the engineering standards in
-    docs/specification.md §5. Target frameworks are intentionally NOT set here: Amplify.App targets
-    a Windows TFM while Core/Tests target net10.0, so each project sets its own.
+    Amplify.Tests). Compiler strictness is set here once so every project inherits it. Target
+    frameworks are intentionally NOT set here: Amplify.App targets a Windows TFM while Core/Tests
+    target net10.0, so each project sets its own.
   -->
   <PropertyGroup>
     <Nullable>enable</Nullable>
