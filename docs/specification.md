@@ -165,6 +165,13 @@ These apply to **every** feature. Each feature doc restates the ones relevant to
   `microsoft-docs:microsoft-code-reference`, `microsoft-docs:microsoft-docs`) to confirm APIs,
   signatures and patterns instead of guessing.
 - **Concise code:** prefer concise, idiomatic C# over verbose boilerplate.
+- **Keep code decoupled from the docs:** source comments should be **self-contained** — explain what
+  the code does and why in plain terms. **Do not reference the documentation from code** — no feature
+  numbers/names (`feature 03`), feature-doc paths (`docs/features/…​.md`), or build-plan phase labels.
+  Such references couple the code to the docs and rot when either side moves. Cross-feature
+  traceability belongs in the docs and [build-notes](./build-notes/README.md), not in source
+  comments. (Referring to shared **code** contracts by their type/member name — `ISettingsService`,
+  `IStartupInitializer.Order` — is fine; those are code, not docs.)
 - **Don't reinvent the wheel:** use the standard **.NET BCL** and **Windows App SDK / WinRT**
   classes and functions wherever a suitable one exists, rather than hand-rolling your own. For
   example: `System.Text.Json` for serialisation, `HttpClient`/`IHttpClientFactory` for HTTP,
