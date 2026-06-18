@@ -35,6 +35,9 @@ volume control), then raises/lowers volume system-wide via shortcuts while the a
   source yet. Features are built **one at a time in isolated sessions** against the docs above;
   the build order and phased plan are in
   [getting-started §8](docs/getting-started.md#8-build-order).
+- **Branching:** build each feature on a short-lived `feat/NN-slug` branch cut from `main` (the slug
+  matches the feature doc), then **squash-merge** back; keep `main` green. Full model in
+  [getting-started §9](docs/getting-started.md#9-branching--merge).
 - **Definition of done** (every feature): the solution **builds** and `dotnet test` is **green**
   — never skip, weaken, or delete tests to pass — **and** a dated entry is appended to the
   feature's [build-notes](docs/build-notes/README.md) file. Strict by default:

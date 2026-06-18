@@ -191,3 +191,46 @@ first time the whole app is exercised as a user would, and it's where the integr
 unit tests can't catch (window/tray/hotkey/OAuth) surface. Follow the checklist in
 [`integration-smoke-test.md`](./integration-smoke-test.md). Only after it passes do you cut the
 **release** ([feature 14](./features/14-release.md)) — the last step.
+
+## 9. Branching & merge
+
+The branching model mirrors the phased build above: **one short-lived branch per build unit**, cut
+from `main`, squash-merged back. Because each feature is built in an isolated, stateless session,
+the branch name alone has to tell that session exactly where it's working — so it maps 1:1 to the
+feature docs.
+
+### Branch from `main`, name by feature
+
+```
+main                       always green — builds + `dotnet test` pass
+feat/NN-slug               one branch per feature doc (e.g. feat/07-volume-control)
+chore/<short-desc>         docs / tooling not tied to a feature
+fix/<short-desc>           post-merge bug fixes
+```
+
+The `feat/` slug is the **feature doc's filename stem** — `features/07-volume-control.md` →
+`feat/07-volume-control` — the same stem used for its [build-notes](./build-notes/README.md)
+file. A **phase gets its own branch and PR**: build the Phase 0 sliver of feature 07 on
+`feat/07-volume-control`, merge it, then cut a fresh `feat/07-volume-control` from the updated
+`main` for the Phase 1 completion. The append-only build-notes file already carries both phases'
+entries, so there's no collision.
+
+### Lifecycle per session
+
+1. Branch from the latest `main`.
+2. Build the feature to its definition of done
+   ([spec §5](./specification.md#5-design-principles--engineering-standards)) — solution **builds**,
+   `dotnet test` is **green**, and a dated [build-notes](./build-notes/README.md) entry is appended.
+3. Open a PR; **squash-merge** into `main` (one tidy commit per feature/phase — keeps `main`
+   readable and keeps "one unit of work = one commit").
+4. Delete the branch.
+
+### Rules
+
+- **`main` stays green.** Never merge a red build; every merge must satisfy the definition of done.
+  Treat `main` as protected by convention.
+- **Branches are short-lived** — a session's worth of work. Integrate through `main`; no
+  long-running feature or integration branches.
+- **Phase 2** (integration & smoke test) runs on `main` after the relevant features have merged,
+  logging to `build-notes/integration-smoke-test.md`.
+- **Release** ([feature 14](./features/14-release.md)) is cut from `main` and tagged `vMAJOR.MINOR.PATCH`.
