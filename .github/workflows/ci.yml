@@ -1,0 +1,58 @@
+name: CI
+
+# Builds the solution and runs the unit tests on every pull request, and on pushes to the
+# default branch — the merge gate that keeps the default branch green. Mark this workflow as a
+# required status check in branch protection so a red build blocks merge.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same branch/PR cancels an in-flight run — faster feedback, fewer wasted minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    # WinUI 3 / Windows App SDK builds require Windows.
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # Cache the NuGet global-packages folder. Keyed on the project/build files so the cache is
+      # reused until a dependency changes. No packages.lock.json in the repo, so we cache the folder
+      # directly rather than using setup-dotnet's lock-file-based cache.
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore Amplify.slnx
+
+      # Platform=x64 is required: the packaged WinUI app (Amplify.App) exposes only x86/x64/ARM64,
+      # no Any CPU, so a plain `dotnet build` would default to the first declared platform (ARM64)
+      # and not match the x64 runner. Strict build settings (Nullable, TreatWarningsAsErrors,
+      # analyzers) come from Directory.Build.props, so a warning fails the build here as it does locally.
+      - name: Build
+        run: dotnet build Amplify.slnx --configuration Release -p:Platform=x64 --no-restore
+
+      # Unit tests only. Tests that need a live Spotify account/Premium, an active device, or the UI
+      # are tagged [Trait("Category", "RequiresSpotify")] and excluded here.
+      - name: Test
+        run: dotnet test Amplify.slnx --configuration Release -p:Platform=x64 --no-build --filter "Category!=RequiresSpotify"
