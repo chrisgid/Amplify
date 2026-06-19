@@ -10,10 +10,13 @@
 ## 1. Toolchain & target
 
 - **.NET SDK 10.x** (current **LTS**, 3-year support), C# 14.
-- **Windows App SDK 1.8** (WinUI 3), self-contained, **MSIX-packaged** app.
-- **Target framework:** `net10.0-windows10.0.19041.0` with
-  `<WindowsSdkPackageVersion>10.0.19041.31</WindowsSdkPackageVersion>`; **min platform:**
-  `10.0.17763.0` (WinUI 3 minimum — Windows 10 1809).
+- **Windows App SDK 2.2** (WinUI 3), self-contained, **MSIX-packaged** app. (The SDK adopted
+  SemVer at 2.0 — June 2026 — so the "2.2" line supersedes the old 1.x versions, and the
+  `Microsoft.WindowsAppSDK` NuGet package is now a metapackage. Verified current-stable on
+  2026-06-18.)
+- **Target framework:** `net10.0-windows10.0.26100.0`; **min platform:** `10.0.17763.0`
+  (WinUI 3 minimum — Windows 10 1809). No `WindowsSdkPackageVersion` override is needed with the
+  current WinUI templates.
 - Visual Studio 2026 (latest 18.x) with the Windows App SDK / WinUI workload, or `dotnet` CLI with
   the Windows App SDK templates.
 - Verify current WinUI 3 / Windows App SDK APIs with the `microsoft-docs:winui3` skill when in
@@ -22,8 +25,8 @@
 ## 2. Solution layout
 
 ```
-Amplify.sln
-  Directory.Build.props   # shared MSBuild: Nullable=enable, TreatWarningsAsErrors, analysers, TFM
+Amplify.slnx              # XML solution format (the .NET 10 SDK default; VS 2026 supports it)
+  Directory.Build.props   # shared MSBuild: Nullable=enable, TreatWarningsAsErrors, analysers
   .editorconfig           # solution-wide formatting + naming rules (dotnet format)
   src/
     Amplify.Core/      # contracts, models, enums, settings, pure logic (no UI) — see contracts.md
@@ -49,7 +52,7 @@ Amplify.sln
 
 | Package | Used for | Licence |
 | --- | --- | --- |
-| `Microsoft.WindowsAppSDK` (1.8.x) | WinUI 3 / windowing / toasts | MIT |
+| `Microsoft.WindowsAppSDK` (2.2.x, metapackage) | WinUI 3 / windowing / toasts | MIT |
 | `Microsoft.Extensions.Hosting` | generic host + DI + configuration | MIT |
 | `Microsoft.Extensions.Http` | typed `HttpClient` via `IHttpClientFactory` (Spotify client) | MIT |
 | `CommunityToolkit.Mvvm` | `ObservableObject`, `RelayCommand` | MIT |

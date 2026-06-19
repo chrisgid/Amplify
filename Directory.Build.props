@@ -1,0 +1,30 @@
+<Project>
+
+  <!--
+    Solution-wide MSBuild settings inherited by every project (Amplify.Core, Amplify.App,
+    Amplify.Tests). Compiler strictness is set here once so every project inherits it. Target
+    frameworks are intentionally NOT set here: Amplify.App targets a Windows TFM while Core/Tests
+    target net10.0, so each project sets its own.
+  -->
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+  </PropertyGroup>
+
+  <!--
+    The packaged WinUI app (Amplify.App) only supports x86/x64/ARM64 (no Any CPU). Every project
+    must expose the same platforms so the per-project mappings in Amplify.slnx
+    (<Platform Solution="*|x64" Project="x64" />) resolve — otherwise the libraries default to
+    "Any CPU", which the solution doesn't declare, and Visual Studio reports non-existent project
+    configurations. Platforms is advisory IDE metadata; building a project directly with the default
+    Platform=AnyCPU (e.g. `dotnet test`) still works and writes to bin/Debug/net10.0/.
+  -->
+  <PropertyGroup>
+    <Platforms>x86;x64;ARM64</Platforms>
+  </PropertyGroup>
+
+</Project>

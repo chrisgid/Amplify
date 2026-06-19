@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Amplify.App (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Amplify.App (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

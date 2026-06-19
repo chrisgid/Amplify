@@ -1,0 +1,86 @@
+using Amplify.Core.Configuration;
+using Amplify.Core.Startup;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.UI.Xaml;
+
+namespace Amplify.App;
+
+/// <summary>
+/// Application entry point and owner of the host/DI container. Other features register
+/// services via their own <c>AddXxx()</c> extension and plug launch-time work in through
+/// <see cref="IStartupInitializer"/> rather than editing this file.
+/// </summary>
+public partial class App : Application
+{
+    private readonly IHost _host;
+    private Window? _window;
+
+    /// <summary>Builds the host (DI, configuration, logging) before any window is created.</summary>
+    public App()
+    {
+        InitializeComponent();
+        _host = BuildHost();
+    }
+
+    private static IHost BuildHost()
+    {
+        // ContentRootPath = the app's install/output dir so the packaged appsettings.json resolves.
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            ContentRootPath = AppContext.BaseDirectory,
+        });
+
+        // Cross-cutting infrastructure the shell owns. A custom file ILoggerProvider
+        // (LocalFolder\logs\) is not wired up yet; the Debug provider covers development for now.
+        builder.Logging.AddDebug();
+
+        // appsettings.json -> typed options (consumed by the authentication service).
+        builder.Services.Configure<SpotifyOptions>(builder.Configuration.GetSection(SpotifyOptions.SectionName));
+
+        // Feature DI registrations are appended here as each feature lands (AddSettings(), AddAuth(), ...).
+        builder.Services.AddSingleton<MainWindow>();
+
+        return builder.Build();
+    }
+
+    /// <summary>
+    /// Runs the fixed launch sequence, then shows the main window. Pre-steps that other
+    /// features own (single-instance redirect, settings load, session restore) slot in where marked
+    /// as those features land; for now the sequence only runs the (currently empty) ordered
+    /// <see cref="IStartupInitializer"/> set.
+    /// </summary>
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
+    {
+        // OnLaunched is necessarily async void, so any exception escaping here would crash the process
+        // with no diagnostics. Catch it, log it, and surface it instead. (A richer in-app error screen
+        // arrives with the shell UI; for now logging plus a fail-fast is the honest behaviour.)
+        try
+        {
+            // Future pre-steps, in order:
+            //   1. single-instance redirect before the window is created
+            //   2. await ISettingsService.LoadAsync()
+            //   3. await IAuthService.RestoreSessionAsync()
+            // then ordered initializers (theme 100 -> tray/window 200 -> hotkeys 400):
+            await StartupInitializerRunner.RunAsync(
+                _host.Services.GetServices<IStartupInitializer>(), CancellationToken.None);
+
+            _window = _host.Services.GetRequiredService<MainWindow>();
+            _window.Closed += OnMainWindowClosed;
+            _window.Activate();
+        }
+        catch (Exception ex)
+        {
+            ILogger<App> logger = _host.Services.GetRequiredService<ILogger<App>>();
+            LogStartupFailed(logger, ex);
+            _host.Dispose();
+            throw;
+        }
+    }
+
+    private void OnMainWindowClosed(object sender, WindowEventArgs args) => _host.Dispose();
+
+    [LoggerMessage(Level = LogLevel.Critical, Message = "Startup failed; the application cannot continue.")]
+    private static partial void LogStartupFailed(ILogger logger, Exception exception);
+}

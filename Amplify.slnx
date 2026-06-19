@@ -1,0 +1,35 @@
+<Solution>
+  <!--
+    Solution platforms must be declared explicitly AND mapped per-project. The .slnx format otherwise
+    defaults each project to "Any CPU", which none of these projects expose (the packaged WinUI app
+    supports only x86/x64/ARM64), so Visual Studio reports "specifies a project configuration that
+    does not exist". The per-project <Platform Solution="*|x64" Project="x64" /> rules below mirror
+    what VS itself writes (see a fresh WinUI solution). <Deploy /> enables MSIX deployment for the
+    packaged app.
+  -->
+  <Configurations>
+    <Platform Name="ARM64" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/Amplify.App/Amplify.App.csproj">
+      <Platform Solution="*|ARM64" Project="ARM64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+      <Deploy />
+    </Project>
+    <Project Path="src/Amplify.Core/Amplify.Core.csproj">
+      <Platform Solution="*|ARM64" Project="ARM64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Amplify.Tests/Amplify.Tests.csproj">
+      <Platform Solution="*|ARM64" Project="ARM64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+  </Folder>
+</Solution>
