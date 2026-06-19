@@ -57,3 +57,23 @@ the obvious mechanics; recorded below is only the non-obvious.
   - The WinUI App builds in **Release** from the CLI cleanly (the feature-01 notes had only
     explicitly recorded a Debug/x64 build; Release is confirmed green here after the PR-#1 removal of
     `PublishTrimmed`/`PublishReadyToRun`).
+
+## 2026-06-20 — Repo made public: action pinning hardening · branch `feat/02-ci-pr-tests`
+
+When the repo flipped from private to public, two Actions policies were tightened (Settings →
+Actions → General): `allowed_actions` → `local_only` and `sha_pinning_required` → `true`. Both are
+incompatible with tag-pinned third-party actions, so the workflow was updated to comply.
+
+- **Pinned all three actions to full commit SHAs** (with a `# vX.Y.Z` comment) instead of moving
+  `@v4` tags — required by `sha_pinning_required`, and good supply-chain practice (a compromised tag
+  can't silently change what runs). Took the latest majors while pinning:
+  `actions/checkout` → **v7.0.0** (`9c091bb…`), `actions/setup-dotnet` → **v5.3.0** (`9a946fd…`),
+  `actions/cache` → **v5.0.5** (`27d5ce7…`). Our usage (checkout defaults; `dotnet-version`;
+  `path`/`key`/`restore-keys`) is unchanged across these majors.
+- **`allowed_actions: local_only` must be relaxed to `selected` with GitHub-owned actions allowed**
+  (or `all`) — `local_only` blocks every action not defined in this repo, including `actions/*`, so
+  SHA-pinning alone does **not** unblock CI. This is a repo setting, not a file; logged here as a
+  required maintainer action. Until changed, CI fails at the policy check before any step runs.
+- **Verified facts:** the v4 tags of all three actions still exist, but the current latest majors are
+  checkout v7 / setup-dotnet v5 / cache v5 (resolved via the GitHub API; annotated tags dereferenced
+  to their commit SHA).
