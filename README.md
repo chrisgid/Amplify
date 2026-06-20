@@ -2,6 +2,8 @@
 
 # Amplify
 
+[![CI](https://github.com/chrisgid/Amplify/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/chrisgid/Amplify/actions/workflows/ci.yml)
+
 **Control Spotify's volume with global keyboard hotkeys.**
 
 A native Windows app that lives in the system tray and lets you
