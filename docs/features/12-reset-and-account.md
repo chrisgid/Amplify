@@ -73,6 +73,10 @@ destructive reset.
 - Disconnect clears tokens (Credential Locker). Reset additionally clears/over-writes the settings
   store with defaults ([feature 10](./10-settings-persistence.md)). Ensure no stale state remains
   (hotkeys re-registered to defaults).
+- **Disconnect/Reset are the user-facing disconnect + data-deletion mechanism required by Spotify's
+  Developer Terms** ([spec §6](../specification.md#6-spotify-web-api-client-standards),
+  [`PRIVACY.md`](../../PRIVACY.md)): Disconnect revokes the stored session locally; Reset removes
+  all stored data (token + Client ID + preferences). Keep both reliable.
 
 ## Edge cases & error handling
 

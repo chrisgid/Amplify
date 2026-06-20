@@ -36,12 +36,17 @@ runs. It also handles the in-progress and "access wasn't granted" states returne
   1. Open the **[Spotify Developer Dashboard](https://developer.spotify.com/dashboard)** (a
      hyperlink) and sign in.
   2. Click **Create app**.
-  3. Set the app name and description to **Amplify**.
+  3. Give it any name and description you like (e.g. **Amplify**).
   4. Add this **redirect URI** — shown in a **copy-to-clipboard chip**:
      `http://127.0.0.1:49737/callback`. Clicking copy shows a ✓/"Copied" confirmation for ~1.5s,
      then reverts.
   5. Under **Which API/SDKs are you planning to use?** tick **Web API**, then **Save**.
   6. Copy the app's **Client ID** and paste it below.
+- **Own-app / terms note:** brief copy near the setup card clarifying the user is creating their
+  **own** private Spotify developer app — so Amplify runs entirely on their device with no shared
+  servers — and that setting it up means agreeing to
+  [Spotify's Developer Terms](https://developer.spotify.com/terms) (rendered as a caption with the
+  Terms as a hyperlink). *Exact visual copy is owned by Claude Design; keep this doc in sync.*
 - **Client ID field:** a labelled `TextBox` ("Client ID") with a placeholder example value. What
   the user types here is the value persisted to settings and used by [feature 03](./03-spotify-authentication.md).
 - **Connect (gated):** the primary **Connect Spotify account** button is **disabled until the
@@ -51,6 +56,7 @@ runs. It also handles the in-progress and "access wasn't granted" states returne
   required."
 - **Privacy note:** an info bar (use `InfoBar`) stating Amplify only requests permission to read
   and change playback state, and access can be revoked from the Spotify account at any time.
+  Amplify runs locally and stores nothing off-device (see [`PRIVACY.md`](../../PRIVACY.md)).
 - **Authorizing:** button becomes disabled with a spinner — "Waiting for Spotify…"; helper text:
   "Finish signing in on the page that opened in your browser." The Client ID field is disabled
   while authorizing/verifying.
@@ -64,6 +70,8 @@ runs. It also handles the in-progress and "access wasn't granted" states returne
 
 - [ ] Shown automatically when not connected; replaced by Main once connected.
 - [ ] The 6 setup steps are shown; the Developer Dashboard is a working link.
+- [ ] Onboarding states the user is creating their **own** Spotify developer app and links
+      [Spotify's Developer Terms](https://developer.spotify.com/terms).
 - [ ] The redirect URI `http://127.0.0.1:49737/callback` is presented in a copy-to-clipboard chip
       that gives ✓/"Copied" feedback on copy.
 - [ ] The Connect button is **disabled until the Client ID field is non-empty**; while disabled the

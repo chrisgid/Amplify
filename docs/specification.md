@@ -256,9 +256,28 @@ The Spotify integration (features [03](./features/03-spotify-authentication.md) 
 - **No deprecated endpoints.**
 - **Error handling.** Handle every HTTP status the OpenAPI schema documents; read the returned
   error message and surface meaningful feedback to the user.
-- **Developer Terms of Service** (`https://developer.spotify.com/terms`): don't cache Spotify
-  content beyond immediate use, always attribute content to Spotify, and never use the API to
-  train machine-learning models on Spotify data.
+- **Developer Terms & Policy** (`https://developer.spotify.com/terms`,
+  `https://developer.spotify.com/policy`). Amplify is kept compliant by design — preserve this
+  posture; don't drift from it:
+  - **Self-registration model.** Each user registers and owns **their own** Spotify developer app
+    and supplies their own Client ID (see
+    [getting-started §4](./getting-started.md#4-configuration--the-per-user-client-id-model)).
+    Amplify ships **no shared credentials** and stores no user data off-device, so each instance
+    serves exactly one user (its creator) and stays within Development-mode quota — no Extended
+    Quota review needed. Onboarding must make clear the user is creating their own app and accepts
+    Spotify's Developer Terms.
+  - **Personal, non-commercial.** Amplify is free and non-commercial — no selling access, no
+    in-app payments, no advertising.
+  - **Premium-gated.** Controlling a background Spotify app counts as "Streaming" under the Terms
+    and requires **Premium**; Free accounts connect but volume control is disabled (features
+    05/07).
+  - **Independent value.** Amplify is a companion/remote (system-wide hotkeys + tray), not a
+    replacement player — it adds value rather than replicating the Spotify client.
+  - **Data handling.** Don't cache Spotify content beyond immediate use; always attribute content
+    to Spotify; never use the API to train ML/AI models. All app data stays on-device (token in the
+    Credential Locker, Client ID/preferences in `settings.json`). **Reset/Disconnect** (feature 12)
+    is the required user-facing disconnect + data-deletion mechanism. See the repo's
+    [`PRIVACY.md`](../PRIVACY.md).
 
 **Endpoints used by Amplify** (confirm exact shapes against the OpenAPI spec):
 - `GET /v1/me` — read profile incl. `product` to confirm Premium.
