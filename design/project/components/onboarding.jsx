@@ -29,6 +29,9 @@ function Onboarding({ phase, denied, clientId, setClientId, onConnect }) {
       <div className="t-caption" style={{ fontWeight: 600, color: "var(--text-2)", margin: "22px 2px 10px" }}>
         Set up your Spotify connection
       </div>
+      <div className="t-caption" style={{ color: "var(--text-3)", margin: "0 2px 12px", textWrap: "pretty" }}>
+        These steps create your <b>own private Spotify developer app</b>, so Amplify runs entirely on your device — no shared servers. By setting it up you agree to <a className="amp-link" href="https://developer.spotify.com/terms" target="_blank" rel="noopener noreferrer">Spotify's Developer Terms</a>.
+      </div>
       <div className="amp-card" style={{ padding: "16px 16px 16px 15px" }}>
         <ol className="setup-steps">
           <li>
@@ -41,7 +44,7 @@ function Onboarding({ phase, denied, clientId, setClientId, onConnect }) {
           </li>
           <li>
             <span className="sx-num">3</span>
-            <div className="sx-text">Set the app name and description to <b>Amplify</b></div>
+            <div className="sx-text">Give it any name and description you like (e.g. <b>Amplify</b>).</div>
           </li>
           <li>
             <span className="sx-num">4</span>

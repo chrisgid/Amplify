@@ -28,6 +28,11 @@ volume control), then raises/lowers volume system-wide via shortcuts while the a
 - Default theme follows the user's Windows theme and accent colour.
 - Spotify integration uses **Authorization Code with PKCE** and the Web API; see
   [specification §6](docs/specification.md#6-spotify-web-api-client-standards) for the binding rules.
+- **Spotify compliance posture** (don't drift): each user registers their **own** Spotify app
+  (no shared credentials), Amplify is free/non-commercial, Premium-gated, runs **on-device only**
+  (no servers/telemetry), and Reset/Disconnect is the required disconnect + data-deletion path.
+  Captured in [specification §6](docs/specification.md#6-spotify-web-api-client-standards) and
+  [PRIVACY.md](PRIVACY.md).
 
 ## Working in this repo
 

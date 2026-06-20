@@ -41,6 +41,12 @@ dotnet test  -c Release   # unit tests
 
 Issues and pull requests are welcome
 
+## Privacy
+
+Amplify runs entirely on your own machine — no servers, no analytics, no telemetry. It talks only
+to Spotify's Web API, using the developer app you create during setup. See [PRIVACY.md](PRIVACY.md)
+for the details.
+
 ## Disclaimer
 
 Yes, this application was built with the help of AI. From the initial idea, Claude Code and Claude Design were used to build out a specification, feature documentation, and a prototype which was later implemented by Claude Code.
