@@ -213,3 +213,44 @@ decision) by moving its controls onto the routed pages so the app stays demonstr
   - `MicaBackdrop` auto-falls-back to a solid colour where unsupported (no manual support check).
   - `CommunityToolkit.Mvvm` latest stable resolves to **8.4.2** on this SDK; compatible with the App's
     `net10.0-windows10.0.26100.0` TFM.
+
+## 2026-06-21 — PR #7 review fixes · branch `feat/01-application-shell`
+
+Addressed four findings from review of the Phase 1 PR. No contract changes; routing/tests unchanged.
+
+- **Arm global hotkeys for the *initial* connected state, not only on transitions
+  (`MainWindow`).** Hotkeys were armed reactively in `OnConnectionStateChanged`, but `App.OnLaunched`
+  awaits `RestoreSessionAsync()` *before* the window is constructed and subscribed. Once token
+  persistence lands (feature 03 Phase 1), a restore that sets `Connected` raises
+  `ConnectionStateChanged` before the window exists, so the event is missed: the shell routes to Main
+  correctly (the route is read from a `State` snapshot) but the global hotkeys never arm — on-screen
+  buttons work, hotkeys silently don't. Fixed by extracting `OnConnected()` (arm + refresh) and
+  invoking it from the constructor when `_authService.State == ConnectionState.Connected`, as well as
+  from the transition handler. Latent today (restore is a no-op) but on the exact path feature 03's new
+  "launch lands on Main after restore" manual check exercises.
+
+- **Re-entrancy guard on `DevPlaybackSlice.RefreshAsync`.** On connect the window enqueues a refresh
+  and the route advance triggers `MainPage.OnNavigatedTo`, which also refreshes — two overlapping reads
+  mutating the cached fields and issuing duplicate GETs. Added a `_refreshing` flag (all calls are on
+  the UI thread, so a simple bool collapses them into one in-flight read). Throwaway code, but cheap to
+  make correct.
+
+- **Clamp HttpClient logging in the file provider.** With no `Logging` config section the floor is
+  Information, at which `System.Net.Http.HttpClient` logs request URIs into the file. Not a leak with
+  defaults (token-exchange secrets are in the request *body*, not logged; the `Authorization` header is
+  in the framework's default-redacted set) — but it's noise, and a latent token/PII risk if the level
+  were ever lowered to log headers. Added
+  `AddFilter<FileLoggerProvider>("System.Net.Http.HttpClient", LogLevel.Warning)` so only the file is
+  clamped; the dev-only Debug provider stays verbose, and app categories keep logging at Information.
+
+- **Documented `ShellRouter`'s deliberate Connected→Onboarding asymmetry.** The router advances
+  Onboarding→Main on connect but does **not** route Main/Settings back to Onboarding on a
+  disconnect/reset. This is intentional for now — nothing in this phase triggers it (`DisconnectAsync`
+  is unused, and a failed *connect* correctly leaves the user on Onboarding). Routing back on
+  disconnect belongs to the connection-status / reset features (05/12) when there's an affordance to
+  drive it; recorded here so the asymmetry isn't mistaken for an oversight.
+
+- **Manual/integration checks (re-run after the fixes):**
+  - `dotnet build Amplify.slnx -p:Platform=x64` → **0 warnings, 0 errors**.
+  - `dotnet test` → **31 passed** (unchanged).
+  - `dotnet format Amplify.slnx --verify-no-changes` → clean (exit 0).

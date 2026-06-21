@@ -52,6 +52,14 @@ public sealed partial class MainWindow : Window, IDisposable
 
         // Show the screen the shell picked for the current connection state.
         NavigateTo(_shell.CurrentRoute);
+
+        // A session restored before this window existed won't re-raise ConnectionStateChanged, so the
+        // initial connected state has to be handled here too — otherwise the global hotkeys would
+        // never arm on a launch that opens straight on the main screen.
+        if (_authService.State == ConnectionState.Connected)
+        {
+            OnConnected();
+        }
     }
 
     private void ConfigureWindowChrome()
@@ -107,17 +115,19 @@ public sealed partial class MainWindow : Window, IDisposable
 
     private void OnConnectionStateChanged(object? sender, ConnectionState state)
     {
-        if (state != ConnectionState.Connected)
+        if (state == ConnectionState.Connected)
         {
-            return;
+            // Connection-state changes can arrive off the UI thread; arming hotkeys touches the window.
+            _dispatcher.TryEnqueue(OnConnected);
         }
+    }
 
-        // Connection-state changes can arrive off the UI thread; arming hotkeys touches the window.
-        _dispatcher.TryEnqueue(() =>
-        {
-            ArmHotkeys();
-            _ = _playback.RefreshAsync();
-        });
+    // Arms the global hotkeys (idempotent) and refreshes the playback state once an account is
+    // connected — whether that connection was just made or restored at launch. Runs on the UI thread.
+    private void OnConnected()
+    {
+        ArmHotkeys();
+        _ = _playback.RefreshAsync();
     }
 
     private void ArmHotkeys()

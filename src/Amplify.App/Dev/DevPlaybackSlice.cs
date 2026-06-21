@@ -13,6 +13,8 @@ public sealed class DevPlaybackSlice(ISpotifyClient spotifyClient)
     // Matches the real default step; there is no configurable step size yet.
     private const int _step = 5;
 
+    private bool _refreshing;
+
     /// <summary>Last-known volume of the active device (0..100).</summary>
     public int Volume { get; private set; }
 
@@ -31,6 +33,14 @@ public sealed class DevPlaybackSlice(ISpotifyClient spotifyClient)
     /// <summary>Reads the current player state from Spotify and updates the cached values.</summary>
     public async Task RefreshAsync()
     {
+        // Connecting and the first navigation to the main screen can both start a refresh; collapse
+        // overlapping calls (all on the UI thread) into a single in-flight read.
+        if (_refreshing)
+        {
+            return;
+        }
+
+        _refreshing = true;
         try
         {
             PlayerState? state = await spotifyClient.GetPlayerStateAsync();
@@ -50,6 +60,10 @@ public sealed class DevPlaybackSlice(ISpotifyClient spotifyClient)
         catch (HttpRequestException)
         {
             LastError = "Couldn't read the current volume from Spotify.";
+        }
+        finally
+        {
+            _refreshing = false;
         }
 
         Changed?.Invoke(this, EventArgs.Empty);
