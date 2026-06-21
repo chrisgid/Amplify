@@ -1,5 +1,8 @@
 using Amplify.App.Auth;
+using Amplify.App.Dev;
+using Amplify.App.Logging;
 using Amplify.App.Spotify;
+using Amplify.App.ViewModels;
 using Amplify.Core.Auth;
 using Amplify.Core.Configuration;
 using Amplify.Core.Startup;
@@ -20,11 +23,18 @@ public partial class App : Application
     private readonly IHost _host;
     private Window? _window;
 
+    /// <summary>
+    /// The application's service provider. Pages created by the navigation <c>Frame</c> have no
+    /// constructor injection, so they resolve their dependencies from here.
+    /// </summary>
+    public static IServiceProvider Services { get; private set; } = null!;
+
     /// <summary>Builds the host (DI, configuration, logging) before any window is created.</summary>
     public App()
     {
         InitializeComponent();
         _host = BuildHost();
+        Services = _host.Services;
     }
 
     private static IHost BuildHost()
@@ -35,9 +45,11 @@ public partial class App : Application
             ContentRootPath = AppContext.BaseDirectory,
         });
 
-        // Cross-cutting infrastructure the shell owns. A custom file ILoggerProvider
-        // (LocalFolder\logs\) is not wired up yet; the Debug provider covers development for now.
+        // Cross-cutting infrastructure the shell owns: a rolling file log under LocalFolder\logs\
+        // plus the Debug provider for development. Never log tokens or PII. The file provider itself
+        // drops HttpClient's per-request noise (see FileLogger) so the Debug provider stays verbose.
         builder.Logging.AddDebug();
+        builder.Logging.AddFileLogging();
 
         // appsettings.json -> typed options (consumed by the authentication service).
         builder.Services.Configure<SpotifyOptions>(builder.Configuration.GetSection(SpotifyOptions.SectionName));
@@ -45,16 +57,21 @@ public partial class App : Application
         // Feature DI registrations are appended here as each feature lands (AddSettings(), AddAuth(), ...).
         builder.Services.AddSpotifyAuth();
         builder.Services.AddSpotifyClient();
+
+        // Shell: the routing view-model, the window, and the temporary playback slice the window and
+        // the main screen share to keep the end-to-end volume flow working.
+        builder.Services.AddSingleton<ShellViewModel>();
+        builder.Services.AddSingleton<DevPlaybackSlice>();
         builder.Services.AddSingleton<MainWindow>();
 
         return builder.Build();
     }
 
     /// <summary>
-    /// Runs the fixed launch sequence, then shows the main window. Pre-steps that other
-    /// features own (single-instance redirect, settings load, session restore) slot in where marked
-    /// as those features land; for now the sequence only runs the (currently empty) ordered
-    /// <see cref="IStartupInitializer"/> set.
+    /// Runs the fixed launch sequence, then shows the main window. The window derives its initial
+    /// screen from the connection state restored above. Pre-steps that other features own
+    /// (single-instance redirect, settings load) slot in where marked as those features land; for now
+    /// the sequence only runs the (currently empty) ordered <see cref="IStartupInitializer"/> set.
     /// </summary>
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {

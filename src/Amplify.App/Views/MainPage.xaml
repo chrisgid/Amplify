@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Amplify.App.Views.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid>
+        <ScrollViewer Padding="24,16,24,24">
+            <StackPanel
+                MaxWidth="420"
+                HorizontalAlignment="Stretch"
+                Spacing="16">
+                <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Amplify" />
+
+                <!--
+                    TEMPORARY volume controls migrated from the walking skeleton: they read and change
+                    the active device's volume and mirror the global hotkeys, proving the slice end to
+                    end. The live status card, hotkey list, and volume meter replace this later.
+                -->
+                <TextBlock
+                    x:Name="VolumeText"
+                    Style="{StaticResource SubtitleTextBlockStyle}"
+                    Text="Volume —" />
+                <TextBlock
+                    x:Name="DeviceText"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button
+                        Click="OnVolumeDownClick"
+                        Content="&#xE71F;"
+                        FontFamily="{StaticResource SymbolThemeFontFamily}"
+                        ToolTipService.ToolTip="Volume down" />
+                    <Button
+                        Click="OnVolumeUpClick"
+                        Content="&#xE710;"
+                        FontFamily="{StaticResource SymbolThemeFontFamily}"
+                        ToolTipService.ToolTip="Volume up" />
+                    <Button Click="OnRefreshClick" Content="Refresh" />
+                </StackPanel>
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="Global hotkeys: Ctrl+Alt+Up / Ctrl+Alt+Down (work in the background)."
+                    TextWrapping="Wrap" />
+
+                <Button
+                    Margin="0,8,0,0"
+                    Click="OnSettingsClick"
+                    Content="Settings" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

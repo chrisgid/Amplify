@@ -147,6 +147,12 @@ gate volume control and show an upgrade notice; it is not a connection failure.
 - Premium status maps `product` values correctly (premium → `IsPremium`, free → not).
 - Disconnect removes the stored refresh token. (Mock the Credential Locker behind an interface.)
 - 429 backoff honours `Retry-After`.
+- **Manual/integration (requires a real desktop + a prior connected session):** with a refresh
+  token already stored, relaunch the app and confirm `RestoreSessionAsync()` restores the session so
+  the shell ([01](./01-application-shell.md)) **opens directly on the Main screen, not Onboarding**.
+  The shell already routes from the post-restore `IAuthService.State` (it awaits
+  `RestoreSessionAsync()` before deciding the route), so this verifies the restore implementation, not
+  the routing. Conversely, after Disconnect, relaunch should land on Onboarding.
 
 ## Out of scope
 

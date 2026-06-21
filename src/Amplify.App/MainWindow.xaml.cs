@@ -1,76 +1,134 @@
-using Amplify.App.Auth;
+using System.Runtime.InteropServices;
+using Amplify.App.Dev;
 using Amplify.App.Interop;
+using Amplify.App.ViewModels;
+using Amplify.App.Views;
 using Amplify.Core.Auth;
-using Amplify.Core.Spotify;
+using Amplify.Core.Navigation;
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
+using Windows.Graphics;
 
 namespace Amplify.App;
 
 /// <summary>
-/// The single main window that hosts Amplify's screens. Currently a bare shell with a temporary
-/// connect-and-control test; the Mica backdrop, custom title bar, and routing are added later.
+/// The single main window. It owns the window chrome (Mica backdrop, custom title bar, sensible
+/// size/min-size) and the content <see cref="Frame"/>, and drives it from the shell view-model's
+/// route. It also owns the lifetime of the global volume hotkeys, arming them once an account is
+/// connected and releasing them when the window closes.
 /// </summary>
 public sealed partial class MainWindow : Window, IDisposable
 {
-    // Fixed nudge while there's no configurable step size yet; the real default is also 5%.
-    private const int _volumeStep = 5;
+    // The prototype's compact window: ~480 logical px wide, tall enough for the main screen, with a
+    // floor that keeps the layout usable while staying resizable.
+    private const int _initialWidth = 480;
+    private const int _initialHeight = 760;
+    private const int _minWidth = 420;
+    private const int _minHeight = 480;
 
+    private readonly ShellViewModel _shell;
     private readonly IAuthService _authService;
-    private readonly ISpotifyClient _spotifyClient;
-    private readonly DevClientIdSource _clientIdSource;
+    private readonly DevPlaybackSlice _playback;
+    private readonly DispatcherQueue _dispatcher;
 
     private GlobalHotkeyWindow? _hotkeys;
-    private int _volume;
-    private bool _hasActiveDevice;
+    private bool _disposed;
 
-    public MainWindow(IAuthService authService, ISpotifyClient spotifyClient, DevClientIdSource clientIdSource)
+    public MainWindow(ShellViewModel shell, IAuthService authService, DevPlaybackSlice playback)
     {
+        _shell = shell;
         _authService = authService;
-        _spotifyClient = spotifyClient;
-        _clientIdSource = clientIdSource;
+        _playback = playback;
         InitializeComponent();
+        _dispatcher = DispatcherQueue;
+
+        ConfigureWindowChrome();
+
+        _shell.RouteChanged += OnShellRouteChanged;
+        _authService.ConnectionStateChanged += OnConnectionStateChanged;
         Closed += OnClosed;
+
+        // Show the screen the shell picked for the current connection state.
+        NavigateTo(_shell.CurrentRoute);
+
+        // A session restored before this window existed won't re-raise ConnectionStateChanged, so the
+        // initial connected state has to be handled here too — otherwise the global hotkeys would
+        // never arm on a launch that opens straight on the main screen.
+        if (_authService.State == ConnectionState.Connected)
+        {
+            OnConnected();
+        }
     }
 
-    // Temporary handler for the walking-skeleton connect test; removed with the rest of the
-    // throwaway UI when onboarding lands. Resumes on the UI thread after each await.
-    private async void OnConnectClick(object sender, RoutedEventArgs e)
+    private void ConfigureWindowChrome()
     {
-        _clientIdSource.ClientId = ClientIdBox.Text.Trim();
-        ConnectButton.IsEnabled = false;
-        StatusText.Text = "Connecting…";
-        try
-        {
-            AuthResult result = await _authService.ConnectAsync();
-            StatusText.Text = result switch
-            {
-                { Success: true } => $"Connected. State: {_authService.State}.",
-                { Denied: true } => "Access not granted. You can try again.",
-                _ => result.Error ?? "Connection failed.",
-            };
+        // Mica falls back to a solid themed colour automatically where it isn't supported.
+        SystemBackdrop = new MicaBackdrop();
 
-            if (result.Success)
-            {
-                ArmHotkeys();
-                VolumePanel.Visibility = Visibility.Visible;
-                await RefreshVolumeAsync();
-            }
-        }
-        finally
+        // Replace the system title bar with our custom one (must be enabled in code, not XAML).
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(AppTitleBar);
+
+        nint hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        double scale = GetDpiForWindow(hwnd) / 96.0;
+        AppWindow.Resize(new SizeInt32((int)(_initialWidth * scale), (int)(_initialHeight * scale)));
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
-            ConnectButton.IsEnabled = true;
+            presenter.PreferredMinimumWidth = (int)(_minWidth * scale);
+            presenter.PreferredMinimumHeight = (int)(_minHeight * scale);
         }
     }
 
-    private void OnVolumeUpClick(object sender, RoutedEventArgs e) => _ = NudgeAsync(_volumeStep);
+    private void OnShellRouteChanged(object? sender, ShellRoute route) => NavigateTo(route);
 
-    private void OnVolumeDownClick(object sender, RoutedEventArgs e) => _ = NudgeAsync(-_volumeStep);
+    private void NavigateTo(ShellRoute route)
+    {
+        switch (route)
+        {
+            case ShellRoute.Onboarding:
+                ContentFrame.Navigate(typeof(OnboardingPage));
+                ContentFrame.BackStack.Clear();
+                break;
 
-    private async void OnRefreshClick(object sender, RoutedEventArgs e) => await RefreshVolumeAsync();
+            case ShellRoute.Main:
+                // Returning from settings reuses the cached main page so its state is preserved;
+                // a top-level switch (e.g. just connected) navigates fresh and drops the back stack.
+                if (ContentFrame.CurrentSourcePageType == typeof(SettingsPage) && ContentFrame.CanGoBack)
+                {
+                    ContentFrame.GoBack();
+                }
+                else
+                {
+                    ContentFrame.Navigate(typeof(MainPage));
+                    ContentFrame.BackStack.Clear();
+                }
 
-    // Global hotkeys fire on the window's UI thread (the message loop we hooked), so it is safe to
-    // touch the UI directly from here.
-    private void OnVolumeNudged(object? sender, int direction) => _ = NudgeAsync(direction * _volumeStep);
+                break;
+
+            case ShellRoute.Settings:
+                ContentFrame.Navigate(typeof(SettingsPage));
+                break;
+        }
+    }
+
+    private void OnConnectionStateChanged(object? sender, ConnectionState state)
+    {
+        if (state == ConnectionState.Connected)
+        {
+            // Connection-state changes can arrive off the UI thread; arming hotkeys touches the window.
+            _dispatcher.TryEnqueue(OnConnected);
+        }
+    }
+
+    // Arms the global hotkeys (idempotent) and refreshes the playback state once an account is
+    // connected — whether that connection was just made or restored at launch. Runs on the UI thread.
+    private void OnConnected()
+    {
+        ArmHotkeys();
+        _ = _playback.RefreshAsync();
+    }
 
     private void ArmHotkeys()
     {
@@ -81,71 +139,39 @@ public sealed partial class MainWindow : Window, IDisposable
 
         nint hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         _hotkeys = new GlobalHotkeyWindow(hwnd);
-        _hotkeys.VolumeNudged += OnVolumeNudged;
+        // Hotkey messages arrive on the window's UI thread, so the nudge can run directly.
+        _hotkeys.VolumeNudged += (_, direction) => _ = _playback.NudgeAsync(direction);
         try
         {
             _hotkeys.Register();
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
-            StatusText.Text = ex.Message;
+            // Another app may own the combo; the on-screen buttons still work. A real hotkey service
+            // surfaces conflicts to the user later.
+            _hotkeys.Dispose();
+            _hotkeys = null;
         }
     }
-
-    private async Task RefreshVolumeAsync()
-    {
-        try
-        {
-            PlayerState? state = await _spotifyClient.GetPlayerStateAsync();
-            _hasActiveDevice = state is { HasActiveDevice: true };
-            if (_hasActiveDevice && state is not null)
-            {
-                _volume = state.VolumePercent;
-                DeviceText.Text = $"Now controlling: {state.DeviceName}";
-            }
-            else
-            {
-                DeviceText.Text = "No active Spotify device. Start playback in Spotify, then press Refresh.";
-            }
-
-            UpdateVolumeText();
-        }
-        catch (HttpRequestException)
-        {
-            StatusText.Text = "Couldn't read the current volume from Spotify.";
-        }
-    }
-
-    private async Task NudgeAsync(int delta)
-    {
-        if (!_hasActiveDevice)
-        {
-            return;
-        }
-
-        int target = Math.Clamp(_volume + delta, 0, 100);
-        try
-        {
-            // Commit only once Spotify accepts the change, so the displayed value can't drift from reality.
-            await _spotifyClient.SetVolumeAsync(target);
-            _volume = target;
-            UpdateVolumeText();
-        }
-        catch (HttpRequestException)
-        {
-            StatusText.Text = "Couldn't change the volume. Make sure Spotify is playing on an active device.";
-        }
-    }
-
-    private void UpdateVolumeText() =>
-        VolumeText.Text = _hasActiveDevice ? $"Volume {_volume}%" : "Volume —";
 
     private void OnClosed(object sender, WindowEventArgs args) => Dispose();
 
     /// <summary>Releases the global hotkey registration and window hook.</summary>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _shell.RouteChanged -= OnShellRouteChanged;
+        _authService.ConnectionStateChanged -= OnConnectionStateChanged;
         _hotkeys?.Dispose();
         _hotkeys = null;
     }
+
+    [DllImport("user32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static extern uint GetDpiForWindow(nint hwnd);
 }
