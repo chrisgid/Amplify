@@ -1,3 +1,5 @@
+using Amplify.App.Auth;
+using Amplify.Core.Auth;
 using Amplify.Core.Configuration;
 using Amplify.Core.Startup;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +42,7 @@ public partial class App : Application
         builder.Services.Configure<SpotifyOptions>(builder.Configuration.GetSection(SpotifyOptions.SectionName));
 
         // Feature DI registrations are appended here as each feature lands (AddSettings(), AddAuth(), ...).
+        builder.Services.AddSpotifyAuth();
         builder.Services.AddSingleton<MainWindow>();
 
         return builder.Build();
@@ -61,7 +64,9 @@ public partial class App : Application
             // Future pre-steps, in order:
             //   1. single-instance redirect before the window is created
             //   2. await ISettingsService.LoadAsync()
-            //   3. await IAuthService.RestoreSessionAsync()
+            // Restore any stored session before the window/initializers (no-op until refresh lands).
+            await _host.Services.GetRequiredService<IAuthService>().RestoreSessionAsync();
+
             // then ordered initializers (theme 100 -> tray/window 200 -> hotkeys 400):
             await StartupInitializerRunner.RunAsync(
                 _host.Services.GetServices<IStartupInitializer>(), CancellationToken.None);
