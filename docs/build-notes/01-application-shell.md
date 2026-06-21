@@ -120,3 +120,96 @@ no contract changes.
   - `dotnet build Amplify.slnx -p:Platform=x64` → **0 warnings, 0 errors**.
   - `dotnet test` → **3 passed** (unchanged).
   - `dotnet format --verify-no-changes` → clean (exit 0).
+
+## 2026-06-21 — Phase 1 (shell completion) · branch `feat/01-application-shell`
+
+Hardened the bare Phase 0 window into the real shell: Mica backdrop, custom title bar, and an
+in-window `Frame` router across Onboarding / Main / Settings chosen from auth state, plus the
+deferred custom file logger. The Phase 0 connect + volume/hotkey slice was **preserved** (user
+decision) by moving its controls onto the routed pages so the app stays demonstrable end to end.
+
+- **Title bar = the `TitleBar` control, not hand-rolled `AppWindowTitleBar` drag regions.** Verified
+  via the `microsoft-docs` skill that Windows App SDK 2.2 ships `Microsoft.UI.Xaml.Controls.TitleBar`,
+  which allocates caption-button space and exposes `Title`/`IconSource` while the system still draws
+  and handles min/max/close. Used `ExtendsContentIntoTitleBar = true` **in code** (setting it in XAML
+  errors) + `SetTitleBar(AppTitleBar)`. Avoids the manual interactive-region maths the older pattern
+  needs. Logo icon is a placeholder pointing at an existing `Square44x44Logo` asset (the real Amplify
+  logo is feature 13).
+
+- **Mica:** `SystemBackdrop = new MicaBackdrop()` set unconditionally — it falls back to a solid
+  themed colour automatically where Mica isn't supported, so no explicit `MicaController.IsSupported()`
+  guard is needed. The root `Grid`/`Frame`/pages keep transparent backgrounds so Mica shows through.
+  Mica also follows the OS light/dark theme by default, which is what satisfies feature 01's
+  "respects the active theme" criterion without an `IThemeService` (that's feature 11).
+
+- **Routing logic lives in `Amplify.Core/Navigation/ShellRouter.cs` (UI-free), not in the
+  view-model.** Rationale: the test project targets `net10.0` and references `Amplify.Core` only;
+  referencing the packaged WinUI App (WinExe/MSIX) from tests is the painful path getting-started §2
+  warns about. Putting the route state machine in Core makes every routing rule unit-testable
+  (`ShellRouterTests`, 10 cases) while `ShellViewModel` (App) stays a thin adapter that wraps the
+  router, exposes `CommunityToolkit.Mvvm` `[RelayCommand]`s, and marshals
+  `IAuthService.ConnectionStateChanged` onto the UI thread via the captured `DispatcherQueue`. Added
+  `ShellRoute` enum to Core too. **No contracts.md change** — these are new shell-owned types; the
+  contract's "ViewModels live in App" still holds (the VM is in App).
+
+- **Settings→Main preserves state via `Frame.GoBack()` + `NavigationCacheMode.Required` on
+  `MainPage`.** Going *to* settings is a forward `Navigate` (pushes onto the back stack, keeping the
+  cached main page); returning calls `GoBack()` so the same instance comes back. Top-level switches
+  (e.g. just-connected Onboarding→Main) `Navigate` fresh and clear the back stack so Back can't return
+  to onboarding.
+
+- **Incremental wiring respected (spec §4).** The shell references only services that exist today —
+  `IAuthService`, `IStartupInitializer`. `ISettingsService`/`IThemeService`/`ITrayService` are **not**
+  referenced or stubbed; they wire in when features 10/11/08 land. The launch sequence is unchanged
+  (single-instance redirect + settings load still marked as future pre-steps).
+
+- **Pages resolve dependencies from a new `App.Services` static `IServiceProvider`.** Pages are
+  created by `Frame.Navigate(type)` with no constructor injection, so the standard WinUI+Hosting
+  pattern is a static service-locator accessor on `App`. Acceptable here; the page code-behind is
+  throwaway placeholder content anyway (the real screens are features 04/05/07/10).
+
+- **Preserved-slice plumbing:** added a clearly-marked throwaway `DevPlaybackSlice` (App singleton)
+  that holds the volume read/set logic + last-known state, so the main screen's buttons and the global
+  hotkeys share one source of truth. The `GlobalHotkeyWindow` lifetime moved to `MainWindow` (owns the
+  HWND), armed once on `Connected` and disposed on `Closed`, routing presses into `DevPlaybackSlice`.
+  All of this is replaced by features 03/04/05/06/07.
+
+- **Window size uses `GetDpiForWindow` to scale logical→physical px.** `AppWindow.Resize` and
+  `OverlappedPresenter.PreferredMinimumWidth/Height` take physical pixels; without scaling the ~480px
+  logical window would shrink on high-DPI displays. Small `user32` P/Invoke (System32 search path),
+  consistent with the existing hotkey interop.
+
+- **Deviation from the approved plan: no `.resw` this phase.** The plan called for moving strings into
+  a `Resources.resw`. Decided against it for now: the only durable shell string is the brand name
+  "Amplify" (title bar), and every other visible string is throwaway slice/placeholder text that the
+  owning features (04/05/10) will replace **together with their own localized resources**. Standing up
+  `.resw` + `x:Uid` wiring for soon-to-be-deleted text — on code that can't be runtime-verified in this
+  headless session (a wrong `x:Uid` fails silently at runtime, not at build) — is low value and risk.
+  Localization-readiness (spec §5) is therefore deferred to when the screens gain real content; noted
+  here so it isn't lost.
+
+- **Contract changes:** none. Added new Core types (`ShellRoute`, `ShellRouter`) under `Navigation/`.
+
+- **Deferred / known gaps (still open):** `ISettingsService` (10) + window-state persistence,
+  `IThemeService`/manual theme override (11), `ITrayService` + single-instance redirect (08), the real
+  Onboarding/Status/Volume/Settings screen content (03/04/05/07/10), `.resw` localization (above), the
+  real Amplify logo (13).
+
+- **Manual/integration checks:**
+  - `dotnet build Amplify.slnx -p:Platform=x64` → **0 warnings, 0 errors** (`TreatWarningsAsErrors`).
+  - `dotnet test` → **31 passed** (21 prior + 10 new `ShellRouter` cases).
+  - `dotnet format Amplify.slnx --verify-no-changes` → clean (exit 0).
+  - **Outstanding (requires an interactive desktop, not runnable headless):** deploy/run the packaged
+    app and confirm — Mica window with custom title bar (logo + "Amplify"); native min/max-restore/
+    close + draggable title bar + content not under the caption buttons; launches to Onboarding when
+    disconnected and Main when connected; Connect routes to Main and volume ±/global hotkeys still move
+    Spotify's volume; Main→Settings→Back works and preserves Main state; content scrolls under a fixed
+    title bar; window follows the Windows light/dark theme. Also confirm a rolling log file appears
+    under `LocalFolder\logs\amplify-<date>.log`.
+
+- **Verified facts:**
+  - Windows App SDK 2.2 `TitleBar` control (`Microsoft.UI.Xaml.Controls.TitleBar`) is the current
+    recommended custom-title-bar approach; `Window.ExtendsContentIntoTitleBar` must be set in code.
+  - `MicaBackdrop` auto-falls-back to a solid colour where unsupported (no manual support check).
+  - `CommunityToolkit.Mvvm` latest stable resolves to **8.4.2** on this SDK; compatible with the App's
+    `net10.0-windows10.0.26100.0` TFM.

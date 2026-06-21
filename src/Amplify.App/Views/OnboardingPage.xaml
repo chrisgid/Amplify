@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Amplify.App.Views.OnboardingPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer Padding="24,16,24,24">
+        <StackPanel
+            MaxWidth="420"
+            HorizontalAlignment="Stretch"
+            Spacing="12">
+            <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Amplify" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource BodyTextBlockStyle}"
+                Text="Control Spotify's volume with hotkeys of your choice."
+                TextWrapping="Wrap" />
+
+            <!--
+                TEMPORARY connect controls migrated from the walking skeleton so the app stays usable
+                end to end. The full onboarding flow (guided Spotify app setup, Client-ID capture into
+                settings) replaces this whole screen later.
+            -->
+            <TextBox
+                x:Name="ClientIdBox"
+                Margin="0,8,0,0"
+                Header="Spotify Client ID"
+                PlaceholderText="Paste your Spotify app's Client ID" />
+            <Button
+                x:Name="ConnectButton"
+                Click="OnConnectClick"
+                Content="Connect Spotify account"
+                Style="{StaticResource AccentButtonStyle}" />
+            <TextBlock
+                x:Name="StatusText"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource BodyTextBlockStyle}"
+                TextWrapping="Wrap" />
+        </StackPanel>
+    </ScrollViewer>
+</Page>

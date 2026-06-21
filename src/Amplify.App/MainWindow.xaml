@@ -10,73 +10,30 @@
     mc:Ignorable="d">
 
     <!--
-        TEMPORARY walking-skeleton UI: a Client ID field and a Connect button that exercise the PKCE
-        sign-in end to end. This is throwaway scaffolding — it is replaced by the onboarding screen
-        (which captures the Client ID) and the connected status card once those features land.
+        The shell: a Mica window with a custom title bar (logo + name) above a Frame that hosts the
+        three top-level screens. The title bar stays fixed while each screen scrolls its own content.
+        The backdrop and title-bar extension are configured in code-behind (they can't be set in XAML).
     -->
     <Grid>
-        <StackPanel
-            Width="360"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center"
-            Spacing="12">
-            <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Amplify" />
-            <TextBlock
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource CaptionTextBlockStyle}"
-                Text="Phase 0 connect test (temporary)" />
-            <TextBox
-                x:Name="ClientIdBox"
-                Header="Spotify Client ID"
-                PlaceholderText="Paste your Spotify app's Client ID" />
-            <Button
-                x:Name="ConnectButton"
-                Click="OnConnectClick"
-                Content="Connect Spotify" />
-            <TextBlock
-                x:Name="StatusText"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource BodyTextBlockStyle}"
-                TextWrapping="Wrap" />
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-            <!--  Shown once connected: reads/sets the active device's volume to prove the slice end to end.  -->
-            <StackPanel
-                x:Name="VolumePanel"
-                Spacing="8"
-                Visibility="Collapsed">
-                <TextBlock
-                    x:Name="VolumeText"
-                    Style="{StaticResource SubtitleTextBlockStyle}"
-                    Text="Volume —" />
-                <TextBlock
-                    x:Name="DeviceText"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    TextWrapping="Wrap" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button
-                        x:Name="VolumeDownButton"
-                        Click="OnVolumeDownClick"
-                        Content="&#xE71F;"
-                        FontFamily="{StaticResource SymbolThemeFontFamily}"
-                        ToolTipService.ToolTip="Volume down" />
-                    <Button
-                        x:Name="VolumeUpButton"
-                        Click="OnVolumeUpClick"
-                        Content="&#xE710;"
-                        FontFamily="{StaticResource SymbolThemeFontFamily}"
-                        ToolTipService.ToolTip="Volume up" />
-                    <Button
-                        x:Name="RefreshButton"
-                        Click="OnRefreshClick"
-                        Content="Refresh" />
-                </StackPanel>
-                <TextBlock
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="Global hotkeys: Ctrl+Alt+Up / Ctrl+Alt+Down (work in the background)."
-                    TextWrapping="Wrap" />
-            </StackPanel>
-        </StackPanel>
+        <TitleBar
+            x:Name="AppTitleBar"
+            Title="Amplify">
+            <TitleBar.IconSource>
+                <ImageIconSource ImageSource="ms-appx:///Assets/Square44x44Logo.scale-200.png" />
+            </TitleBar.IconSource>
+        </TitleBar>
+
+        <Frame x:Name="ContentFrame" Grid.Row="1">
+            <Frame.ContentTransitions>
+                <TransitionCollection>
+                    <NavigationThemeTransition />
+                </TransitionCollection>
+            </Frame.ContentTransitions>
+        </Frame>
     </Grid>
 </Window>
