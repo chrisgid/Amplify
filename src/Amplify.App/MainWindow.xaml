@@ -38,6 +38,45 @@
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                 Style="{StaticResource BodyTextBlockStyle}"
                 TextWrapping="Wrap" />
+
+            <!--  Shown once connected: reads/sets the active device's volume to prove the slice end to end.  -->
+            <StackPanel
+                x:Name="VolumePanel"
+                Spacing="8"
+                Visibility="Collapsed">
+                <TextBlock
+                    x:Name="VolumeText"
+                    Style="{StaticResource SubtitleTextBlockStyle}"
+                    Text="Volume —" />
+                <TextBlock
+                    x:Name="DeviceText"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button
+                        x:Name="VolumeDownButton"
+                        Click="OnVolumeDownClick"
+                        Content="&#xE71F;"
+                        FontFamily="{StaticResource SymbolThemeFontFamily}"
+                        ToolTipService.ToolTip="Volume down" />
+                    <Button
+                        x:Name="VolumeUpButton"
+                        Click="OnVolumeUpClick"
+                        Content="&#xE710;"
+                        FontFamily="{StaticResource SymbolThemeFontFamily}"
+                        ToolTipService.ToolTip="Volume up" />
+                    <Button
+                        x:Name="RefreshButton"
+                        Click="OnRefreshClick"
+                        Content="Refresh" />
+                </StackPanel>
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="Global hotkeys: Ctrl+Alt+Up / Ctrl+Alt+Down (work in the background)."
+                    TextWrapping="Wrap" />
+            </StackPanel>
         </StackPanel>
     </Grid>
 </Window>
