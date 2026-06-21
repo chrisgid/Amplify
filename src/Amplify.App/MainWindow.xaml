@@ -10,14 +10,34 @@
     mc:Ignorable="d">
 
     <!--
-        A bare window with the default system title bar and placeholder content. The Mica backdrop,
-        custom title bar (logo + caption-button insets), and screen routing are added later.
+        TEMPORARY walking-skeleton UI: a Client ID field and a Connect button that exercise the PKCE
+        sign-in end to end. This is throwaway scaffolding — it is replaced by the onboarding screen
+        (which captures the Client ID) and the connected status card once those features land.
     -->
     <Grid>
-        <TextBlock
+        <StackPanel
+            Width="360"
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
-            Style="{StaticResource TitleTextBlockStyle}"
-            Text="Amplify" />
+            Spacing="12">
+            <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Amplify" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="Phase 0 connect test (temporary)" />
+            <TextBox
+                x:Name="ClientIdBox"
+                Header="Spotify Client ID"
+                PlaceholderText="Paste your Spotify app's Client ID" />
+            <Button
+                x:Name="ConnectButton"
+                Click="OnConnectClick"
+                Content="Connect Spotify" />
+            <TextBlock
+                x:Name="StatusText"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource BodyTextBlockStyle}"
+                TextWrapping="Wrap" />
+        </StackPanel>
     </Grid>
 </Window>
