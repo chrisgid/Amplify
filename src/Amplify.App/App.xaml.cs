@@ -1,4 +1,5 @@
 using Amplify.App.Auth;
+using Amplify.App.Spotify;
 using Amplify.Core.Auth;
 using Amplify.Core.Configuration;
 using Amplify.Core.Startup;
@@ -43,6 +44,7 @@ public partial class App : Application
 
         // Feature DI registrations are appended here as each feature lands (AddSettings(), AddAuth(), ...).
         builder.Services.AddSpotifyAuth();
+        builder.Services.AddSpotifyClient();
         builder.Services.AddSingleton<MainWindow>();
 
         return builder.Build();
