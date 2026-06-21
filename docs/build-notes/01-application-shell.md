@@ -235,13 +235,16 @@ Addressed four findings from review of the Phase 1 PR. No contract changes; rout
   the UI thread, so a simple bool collapses them into one in-flight read). Throwaway code, but cheap to
   make correct.
 
-- **Clamp HttpClient logging in the file provider.** With no `Logging` config section the floor is
-  Information, at which `System.Net.Http.HttpClient` logs request URIs into the file. Not a leak with
-  defaults (token-exchange secrets are in the request *body*, not logged; the `Authorization` header is
-  in the framework's default-redacted set) — but it's noise, and a latent token/PII risk if the level
-  were ever lowered to log headers. Added
-  `AddFilter<FileLoggerProvider>("System.Net.Http.HttpClient", LogLevel.Warning)` so only the file is
-  clamped; the dev-only Debug provider stays verbose, and app categories keep logging at Information.
+- **Drop HttpClient noise inside the file provider (not via a framework filter).** With no `Logging`
+  config section the floor is Information, at which `System.Net.Http.HttpClient` logs request URIs into
+  the file. Not a leak with defaults (token-exchange secrets are in the request *body*, not logged; the
+  `Authorization` header is in the framework's default-redacted set) — but it's noise, and a latent
+  token/PII risk if the level were ever lowered to log headers. First attempt used
+  `AddFilter<FileLoggerProvider>(…)`, but although that is meant to be provider-scoped it also quieted
+  the **Debug** provider in practice (verbose Debug output dropped). Moved the policy **into
+  `FileLogger.IsEnabled`** instead — it keeps only `Warning`+ for `System.Net.Http.HttpClient*`
+  categories — so the suppression is structurally confined to the file and the Debug provider stays
+  fully verbose for development. App categories keep logging at Information.
 
 - **Documented `ShellRouter`'s deliberate Connected→Onboarding asymmetry.** The router advances
   Onboarding→Main on connect but does **not** route Main/Settings back to Onboarding on a

@@ -46,15 +46,10 @@ public partial class App : Application
         });
 
         // Cross-cutting infrastructure the shell owns: a rolling file log under LocalFolder\logs\
-        // plus the Debug provider for development. Never log tokens or PII.
+        // plus the Debug provider for development. Never log tokens or PII. The file provider itself
+        // drops HttpClient's per-request noise (see FileLogger) so the Debug provider stays verbose.
         builder.Logging.AddDebug();
         builder.Logging.AddFileLogging();
-
-        // Keep HttpClient's per-request logs out of the file: at Information they record request URIs
-        // (noise), and lowering the level would start logging headers — a needless token/PII risk in
-        // a persisted log. App categories still log at the default Information level. Debug output
-        // (dev-only) is left verbose.
-        builder.Logging.AddFilter<FileLoggerProvider>("System.Net.Http.HttpClient", LogLevel.Warning);
 
         // appsettings.json -> typed options (consumed by the authentication service).
         builder.Services.Configure<SpotifyOptions>(builder.Configuration.GetSection(SpotifyOptions.SectionName));

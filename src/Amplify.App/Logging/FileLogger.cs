@@ -9,9 +9,24 @@ namespace Amplify.App.Logging;
 /// </summary>
 internal sealed class FileLogger(string category, FileLogWriter writer) : ILogger
 {
+    // HttpClient logs a line per request (the URI at Information, headers at lower levels). That's
+    // noise in a diagnostic file and a token/PII risk if the level were ever lowered, so the file
+    // keeps only warnings and above from these categories. Scoped here, inside the file provider, so
+    // other providers (e.g. Debug) are unaffected and stay fully verbose.
+    private const string _httpClientCategoryPrefix = "System.Net.Http.HttpClient";
+
     IDisposable? ILogger.BeginScope<TState>(TState state) => null;
 
-    public bool IsEnabled(LogLevel logLevel) => logLevel != LogLevel.None;
+    public bool IsEnabled(LogLevel logLevel)
+    {
+        if (logLevel == LogLevel.None)
+        {
+            return false;
+        }
+
+        return logLevel >= LogLevel.Warning
+            || !category.StartsWith(_httpClientCategoryPrefix, StringComparison.Ordinal);
+    }
 
     public void Log<TState>(
         LogLevel logLevel,
