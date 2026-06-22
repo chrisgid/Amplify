@@ -5,45 +5,156 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:tk="using:CommunityToolkit.WinUI.Controls"
     mc:Ignorable="d">
 
     <ScrollViewer Padding="24,16,24,24">
-        <StackPanel
-            MaxWidth="420"
-            HorizontalAlignment="Stretch"
-            Spacing="16">
+        <!--
+            A Grid wrapping the MaxWidth StackPanel avoids a known SettingsExpander layout glitch when
+            a MaxWidth is set directly on the items' parent panel.
+        -->
+        <Grid>
             <StackPanel
-                Orientation="Horizontal"
-                Spacing="8">
-                <Button
-                    Click="OnBackClick"
-                    AutomationProperties.Name="Back"
-                    Style="{StaticResource SubtleButtonStyle}"
-                    ToolTipService.ToolTip="Back">
-                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE72B;" />
-                </Button>
+                MaxWidth="420"
+                HorizontalAlignment="Stretch"
+                Spacing="4">
+
+                <!-- Header -->
+                <StackPanel
+                    Margin="0,0,0,8"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                    <Button
+                        x:Uid="Settings_Back"
+                        Click="OnBackClick"
+                        Style="{StaticResource SubtleButtonStyle}">
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE72B;" />
+                    </Button>
+                    <TextBlock
+                        x:Uid="Settings_Title"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource TitleTextBlockStyle}" />
+                </StackPanel>
+
+                <!-- General -->
                 <TextBlock
-                    VerticalAlignment="Center"
-                    Style="{StaticResource TitleTextBlockStyle}"
-                    Text="Settings" />
+                    x:Uid="Settings_General_Header"
+                    Margin="2,12,2,4"
+                    Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <tk:SettingsCard x:Uid="Settings_LaunchStartup">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE7E8;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.LaunchAtStartup, Mode=TwoWay}" />
+                </tk:SettingsCard>
+                <tk:SettingsCard x:Uid="Settings_StartMinimized">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE708;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.StartMinimizedToTray, Mode=TwoWay}" />
+                </tk:SettingsCard>
+                <tk:SettingsCard x:Uid="Settings_Notify">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEA8F;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.NotifyOnVolumeChange, Mode=TwoWay}" />
+                </tk:SettingsCard>
+
+                <!-- Appearance -->
+                <TextBlock
+                    x:Uid="Settings_Appearance_Header"
+                    Margin="2,12,2,4"
+                    Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <tk:SettingsCard x:Uid="Settings_Theme">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE771;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <ComboBox
+                        MinWidth="138"
+                        SelectedIndex="{x:Bind ViewModel.SelectedThemeIndex, Mode=TwoWay}">
+                        <ComboBoxItem x:Uid="Settings_Theme_System" />
+                        <ComboBoxItem x:Uid="Settings_Theme_Light" />
+                        <ComboBoxItem x:Uid="Settings_Theme_Dark" />
+                    </ComboBox>
+                </tk:SettingsCard>
+
+                <!-- Volume -->
+                <TextBlock
+                    x:Uid="Settings_Volume_Header"
+                    Margin="2,12,2,4"
+                    Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <tk:SettingsCard x:Uid="Settings_VolumeStep">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE767;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <StackPanel
+                        Orientation="Horizontal"
+                        Spacing="12"
+                        VerticalAlignment="Center">
+                        <TextBlock
+                            MinWidth="36"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BodyStrongTextBlockStyle}"
+                            Text="{x:Bind ViewModel.VolumeStepDisplay, Mode=OneWay}" />
+                        <Slider
+                            Width="180"
+                            VerticalAlignment="Center"
+                            Maximum="25"
+                            Minimum="1"
+                            StepFrequency="1"
+                            Value="{x:Bind ViewModel.VolumeStepValue, Mode=TwoWay}" />
+                    </StackPanel>
+                </tk:SettingsCard>
+
+                <!-- Account -->
+                <TextBlock
+                    x:Uid="Settings_Account_Header"
+                    Margin="2,12,2,4"
+                    Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <tk:SettingsCard
+                    Description="{x:Bind ViewModel.AccountSubtitle, Mode=OneWay}"
+                    Header="{x:Bind ViewModel.AccountTitle, Mode=OneWay}">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE77B;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <!-- Disconnect/Reconnect behaviour is owned by another feature; shown disabled here. -->
+                    <Button x:Uid="Settings_Account_Disconnect" IsEnabled="False" />
+                </tk:SettingsCard>
+                <tk:SettingsCard x:Uid="Settings_ClientId">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE72E;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        IsTextSelectionEnabled="True"
+                        Text="{x:Bind ViewModel.SpotifyClientIdDisplay, Mode=OneWay}" />
+                </tk:SettingsCard>
+
+                <!-- Reset -->
+                <TextBlock
+                    x:Uid="Settings_Reset_Header"
+                    Margin="2,12,2,4"
+                    Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <tk:SettingsCard x:Uid="Settings_Reset">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE894;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <!-- The reset action itself is owned by another feature; shown disabled here. -->
+                    <Button x:Uid="Settings_Reset_Button" IsEnabled="False" />
+                </tk:SettingsCard>
+
+                <!-- Footer: the brand links to the repo; version + affiliation follow as plain text. -->
+                <TextBlock
+                    Margin="0,16,0,0"
+                    HorizontalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap">
+                    <Hyperlink NavigateUri="https://github.com/chrisgid/Amplify"><Run x:Uid="Settings_Footer_Brand" /></Hyperlink><Run Text="{x:Bind ViewModel.FooterText}" />
+                </TextBlock>
             </StackPanel>
-
-            <!--
-                Placeholder. The real settings (general, appearance, volume step, account, reset) and
-                the persistence layer behind them land with their own feature; for now this screen
-                only demonstrates routing back to the main screen.
-            -->
-            <TextBlock
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource BodyTextBlockStyle}"
-                Text="Settings will appear here."
-                TextWrapping="Wrap" />
-
-            <TextBlock
-                x:Name="VersionText"
-                Margin="0,8,0,0"
-                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                Style="{StaticResource CaptionTextBlockStyle}" />
-        </StackPanel>
+        </Grid>
     </ScrollViewer>
 </Page>
