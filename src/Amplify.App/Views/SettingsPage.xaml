@@ -15,7 +15,7 @@
         -->
         <Grid>
             <StackPanel
-                MaxWidth="420"
+                MaxWidth="520"
                 HorizontalAlignment="Stretch"
                 Spacing="4">
 

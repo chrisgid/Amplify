@@ -19,6 +19,14 @@
     `schemaVersion` emitted first (declaration order). The contract examples imply camelCase.
   - **CA1716 suppressed on `ISettingsService.Get<T>`** — the name is fixed by the shared contract and
     the app is C#-only (the analyzer flags `Get` as a VB keyword).
+  - **Window widened from the spec's "~480px" to fit native settings cards.** The CommunityToolkit
+    `SettingsCard` drops its action control onto a second row once the card is narrower than its
+    `SettingsCardWrapThreshold` (476px, confirmed from the v8.2.250402 source). At a 480px window the
+    cards always wrapped (cramped, action under the text). Rather than lower the toolkit threshold,
+    the shell window was enlarged (initial 480→600, min 420→560) and the settings content `MaxWidth`
+    raised 420→520 so cards stay ≥476px and never wrap, even when resized to the minimum. This edits
+    feature 01's `MainWindow` sizing; the placeholder Main/Onboarding screens keep their 420 content
+    width (centred) for now.
   - **Backups before every reset, not just version changes:** the prior file is copied to
     `settings.v{old}.bak` for a known-version migrate/reset and to `settings.corrupt.bak` when the
     file can't be parsed / has no readable `schemaVersion`, honouring "back up before any reset" even
@@ -76,3 +84,6 @@
     (Windows App SDK), distinct from the UWP `Windows.ApplicationModel.Resources.ResourceLoader`.
   - **CommunityToolkit.Mvvm 8.4 in WinUI requires `[ObservableProperty]` on `partial` properties**,
     not fields — field usage errors with analyzer `MVVMTK0045` (CsWinRT marshalling).
+  - **`SettingsCard` wraps its content below the header when narrower than `SettingsCardWrapThreshold`
+    = 476px** (and collapses the icon below `SettingsCardWrapNoIconThreshold` = 286px); both are
+    overridable `x:Double` theme resources, but here the layout was widened instead of overriding them.
