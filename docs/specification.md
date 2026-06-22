@@ -141,6 +141,14 @@ fit together without conflicting edits:
 - **Shared contracts/models live in one place** (a `Amplify.Core` project / `Contracts` +
   `Models` folders) as defined in [`contracts.md`](./contracts.md); features reference them rather
   than redefining.
+- **Localized strings live in one shared `Resources.resw`**, accessed via `x:Uid` /
+  `ResourceLoader` (spec §5). Because it is a single flat file many features write to, it is
+  **stood up by [feature 10](./features/10-settings-persistence.md)** — the first foundational
+  feature with a real, runtime-verifiable screen ([feature 01](./features/01-application-shell.md)
+  deferred it as its slice strings were throwaway). Each feature then adds **its own
+  prefix-namespaced keys** (`Settings_*`, `Onboarding_*`, `Status_*`, `Volume_*`, …) so
+  independently built features don't collide on a key or on merge — the same incremental pattern as
+  the `AddXxx()` wiring above.
 - See [`getting-started.md`](./getting-started.md) for the solution/project layout and exact
   package versions.
 
@@ -200,9 +208,10 @@ These apply to **every** feature. Each feature doc restates the ones relevant to
   `Amplify.Core` — that is the shared API surface every feature builds against.
 - **No magic values:** centralise constants (redirect port, volume step bounds 1–25, settings
   `schemaVersion`, Spotify scopes) in one place rather than scattering literals.
-- **Localisation/accessibility readiness:** put user-facing strings in `.resw` resource files
-  rather than hard-coding them in XAML/code, so the app can be localised and reads consistently to
-  assistive tech.
+- **Localisation/accessibility readiness:** put user-facing strings in the shared `.resw` resource
+  file rather than hard-coding them in XAML/code, so the app can be localised and reads consistently
+  to assistive tech. Ownership and the key-prefix convention for that shared file are defined in
+  [§4 — Wiring & file ownership](#wiring--file-ownership-avoid-cross-feature-collisions).
 - **Testing:** write **unit tests around key functionality** using **xUnit** (+ **NSubstitute**
   for mocking). Prioritise services and logic (token handling, hotkey parsing/formatting,
   volume/step math, settings serialisation + migration, backoff) over UI. 100% coverage is

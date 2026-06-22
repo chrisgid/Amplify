@@ -10,7 +10,10 @@
 The Settings screen and the underlying persistence layer (`ISettingsService`) that every other
 feature reads and writes. It groups all user preferences — general (startup/tray/notifications),
 appearance (theme), volume (step size), account, and reset — and persists them durably across
-restarts.
+restarts. As the first foundational feature with a real, content-heavy screen, it also **stands up
+the app's shared `Resources.resw`** (localized strings) that every later screen draws from
+(see [Implementation guidance](#implementation-guidance) and
+[spec §4](../specification.md#wiring--file-ownership-avoid-cross-feature-collisions)).
 
 ## User stories
 
@@ -51,6 +54,9 @@ restarts.
 - [ ] Changing a setting notifies interested features (e.g. theme, step size, startup) live.
 - [ ] Defaults match the prototype (notifications off; tray/startup on; step 5%; theme = system).
 - [ ] Back navigation returns to Main.
+- [ ] Stands up the shared **`Resources.resw`** and the `x:Uid`/`ResourceLoader` plumbing; the
+      Settings screen's user-facing strings are sourced from it via `Settings_*`-prefixed keys (no
+      hard-coded UI text).
 
 ## Implementation guidance
 
@@ -87,6 +93,16 @@ restarts.
   ([feature 03](./03-spotify-authentication.md)).
 - Use native controls only (`ToggleSwitch`, `ComboBox`, `Slider`, `SettingsCard`); `FontIcon`
   glyphs for section/row icons.
+- **Shared localized resources (owned here):** create the app's single default-language
+  **`Resources.resw`** and the `x:Uid` / `ResourceLoader` access convention — the one shared string
+  file every screen uses ([spec §4](../specification.md#wiring--file-ownership-avoid-cross-feature-collisions),
+  [§5](../specification.md#5-design-principles--engineering-standards)).
+  [Feature 01](./01-application-shell.md) deferred this (its slice strings were throwaway and not
+  runtime-verifiable); 10 stands it up because its Settings screen is the first real,
+  runtime-verifiable surface. Migrate **this feature's own** Settings strings in first, namespacing
+  keys with a **`Settings_`** prefix. Later features add their own prefixed keys (`Onboarding_*`,
+  `Status_*`, `Volume_*`, …) to the **same** file — do **not** fork per-feature `.resw` files. Keep
+  the shell's one durable string (the "Amplify" brand/title) working as you wire this up.
 
 ## Data & persistence
 
