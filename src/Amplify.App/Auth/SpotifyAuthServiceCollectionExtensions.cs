@@ -7,15 +7,20 @@ namespace Amplify.App.Auth;
 internal static class SpotifyAuthServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the authentication service, its refresh-token store, the typed <c>HttpClient</c>
-    /// factory used for the token exchange, and the temporary Client ID source.
+    /// Registers the authentication service (exposed as both the public <see cref="IAuthService"/> and
+    /// the internal token-provider seam, sharing one instance), its refresh-token store, the typed
+    /// token <c>HttpClient</c>, and the Web API authorization handler.
     /// </summary>
     public static IServiceCollection AddSpotifyAuth(this IServiceCollection services)
     {
-        services.AddHttpClient();
+        services.AddHttpClient<SpotifyTokenClient>();
         services.AddSingleton<IRefreshTokenStore, PasswordVaultRefreshTokenStore>();
-        services.AddSingleton<DevClientIdSource>();
-        services.AddSingleton<IAuthService, SpotifyAuthService>();
+
+        services.AddSingleton<SpotifyAuthService>();
+        services.AddSingleton<IAuthService>(sp => sp.GetRequiredService<SpotifyAuthService>());
+        services.AddSingleton<ISpotifyTokenProvider>(sp => sp.GetRequiredService<SpotifyAuthService>());
+
+        services.AddTransient<SpotifyAuthorizationHandler>();
         return services;
     }
 }

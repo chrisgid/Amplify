@@ -1,8 +1,7 @@
 using System.Net;
-using System.Net.Http.Json;
-using System.Text.Json.Serialization;
 using Amplify.Core.Auth;
 using Amplify.Core.Configuration;
+using Amplify.Core.Settings;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Windows.System;
@@ -10,38 +9,42 @@ using Windows.System;
 namespace Amplify.App.Auth;
 
 /// <summary>
-/// Connects a Spotify account with Authorization Code + PKCE: generates the PKCE secrets, runs the
-/// loopback redirect listener, opens the system browser, exchanges the code for tokens, and persists
-/// the refresh token. The access token is held in memory. Registered as a singleton so the in-memory
-/// token and connection state are shared app-wide.
+/// Connects a Spotify account with Authorization Code + PKCE and owns the token lifecycle: it runs
+/// the interactive browser flow, stores the refresh token in the Credential Locker, keeps the access
+/// token in memory with its expiry, and refreshes it transparently — proactively before expiry and
+/// reactively when a request is rejected. Registered as a singleton so the token and connection
+/// state are shared app-wide. The per-user Client ID is read from settings; Amplify ships none.
 /// </summary>
-/// <remarks>
-/// This is the walking-skeleton happy path: token refresh/rotation, single-flight refresh, silent
-/// session restore, and Premium/Free handling are added later.
-/// </remarks>
-internal sealed partial class SpotifyAuthService : IAuthService
+internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenProvider, IDisposable
 {
     private static readonly TimeSpan _consentTimeout = TimeSpan.FromMinutes(5);
 
-    private readonly IHttpClientFactory _httpClientFactory;
+    // Refresh this far ahead of the stated expiry so a token never goes stale mid-request.
+    private static readonly TimeSpan _refreshSkew = TimeSpan.FromSeconds(60);
+
+    private readonly SpotifyTokenClient _tokenClient;
     private readonly IRefreshTokenStore _refreshTokenStore;
-    private readonly DevClientIdSource _clientIdSource;
+    private readonly ISettingsService _settings;
     private readonly SpotifyOptions _options;
     private readonly ILogger<SpotifyAuthService> _logger;
 
+    // Serialises refreshes so a burst of callers triggers at most one token request in flight.
+    private readonly SemaphoreSlim _refreshLock = new(1, 1);
+
     private string? _accessToken;
     private DateTimeOffset _accessTokenExpiry;
+    private string? _refreshToken;
 
     public SpotifyAuthService(
-        IHttpClientFactory httpClientFactory,
+        SpotifyTokenClient tokenClient,
         IRefreshTokenStore refreshTokenStore,
-        DevClientIdSource clientIdSource,
+        ISettingsService settings,
         IOptions<SpotifyOptions> options,
         ILogger<SpotifyAuthService> logger)
     {
-        _httpClientFactory = httpClientFactory;
+        _tokenClient = tokenClient;
         _refreshTokenStore = refreshTokenStore;
-        _clientIdSource = clientIdSource;
+        _settings = settings;
         _options = options.Value;
         _logger = logger;
     }
@@ -53,35 +56,48 @@ internal sealed partial class SpotifyAuthService : IAuthService
     public event EventHandler<ConnectionState>? ConnectionStateChanged;
 
     /// <summary>
-    /// Silent restore needs the refresh-token exchange, which is not part of this slice, so there is
-    /// never a usable session to restore yet.
+    /// Silently restores a session from the stored refresh token: refreshes the access token, reads
+    /// the account, and transitions to connected. Returns <c>false</c> (leaving the app on onboarding)
+    /// when there is no stored token or Client ID, or the refresh fails.
     /// </summary>
-    public Task<bool> RestoreSessionAsync() => Task.FromResult(false);
-
-    public Task<string> GetAccessTokenAsync()
+    public async Task<bool> RestoreSessionAsync()
     {
-        // No proactive/reactive refresh yet: return the token captured at connect, or fail clearly.
-        if (_accessToken is null)
+        string? refreshToken = _refreshTokenStore.Load();
+        string clientId = _settings.Current.SpotifyClientId;
+        if (string.IsNullOrEmpty(refreshToken) || string.IsNullOrWhiteSpace(clientId))
         {
-            throw new InvalidOperationException("Not connected to Spotify.");
+            return false;
         }
 
-        return Task.FromResult(_accessToken);
-    }
+        _refreshToken = refreshToken;
+        SetState(ConnectionState.Connecting);
+        try
+        {
+            TokenSet tokens = await _tokenClient.RefreshAsync(clientId, refreshToken).ConfigureAwait(false);
+            ApplyTokens(tokens);
+            CurrentAccount = await _tokenClient.GetAccountAsync(_accessToken!).ConfigureAwait(false);
+            SetState(ConnectionState.Connected);
+            return true;
+        }
+        catch (HttpRequestException ex)
+        {
+            LogRestoreFailed(ex);
+            // A 400/401 means the refresh token is no longer valid — drop it so we don't retry a dead
+            // token on every launch. Transient failures keep the token for a later attempt.
+            if (ex.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
+            {
+                _refreshTokenStore.Clear();
+            }
 
-    public Task DisconnectAsync()
-    {
-        _accessToken = null;
-        _accessTokenExpiry = default;
-        CurrentAccount = null;
-        _refreshTokenStore.Clear();
-        SetState(ConnectionState.Disconnected);
-        return Task.CompletedTask;
+            ClearTokens();
+            SetState(ConnectionState.Disconnected);
+            return false;
+        }
     }
 
     public async Task<AuthResult> ConnectAsync()
     {
-        string clientId = _clientIdSource.ClientId;
+        string clientId = _settings.Current.SpotifyClientId;
         if (string.IsNullOrWhiteSpace(clientId))
         {
             return new AuthResult(false, false, false, "Enter your Spotify Client ID first.");
@@ -117,26 +133,25 @@ internal sealed partial class SpotifyAuthService : IAuthService
             using var timeout = new CancellationTokenSource(_consentTimeout);
             OAuthCallback callback = await listener.WaitForCallbackAsync(timeout.Token);
 
-            if (!string.Equals(callback.State, codes.State, StringComparison.Ordinal))
+            switch (OAuthCallbackEvaluator.Evaluate(callback.Code, callback.State, callback.Error, codes.State))
             {
-                SetState(ConnectionState.Error);
-                return new AuthResult(false, false, false, "The sign-in response didn't match this request. Please try again.");
+                case OAuthCallbackOutcome.StateMismatch:
+                    SetState(ConnectionState.Error);
+                    return new AuthResult(false, false, false,
+                        "The sign-in response didn't match this request. Please try again.");
+
+                case OAuthCallbackOutcome.Denied:
+                    // Denial is a normal, retryable outcome — return to disconnected rather than error.
+                    SetState(ConnectionState.Disconnected);
+                    return new AuthResult(false, Denied: true, false, null);
+
+                case OAuthCallbackOutcome.MissingCode:
+                    SetState(ConnectionState.Error);
+                    return new AuthResult(false, false, false,
+                        "Spotify didn't return an authorization code. Please try again.");
             }
 
-            if (callback.Error is not null)
-            {
-                // Denial is a normal, retryable outcome — return to disconnected rather than error.
-                SetState(ConnectionState.Disconnected);
-                return new AuthResult(false, Denied: true, false, null);
-            }
-
-            if (string.IsNullOrEmpty(callback.Code))
-            {
-                SetState(ConnectionState.Error);
-                return new AuthResult(false, false, false, "Spotify didn't return an authorization code. Please try again.");
-            }
-
-            return await ExchangeCodeAsync(clientId, redirectUri, callback.Code, codes.Verifier, timeout.Token);
+            return await CompleteConnectAsync(clientId, redirectUri, callback.Code!, codes.Verifier, timeout.Token);
         }
         catch (OperationCanceledException)
         {
@@ -145,49 +160,136 @@ internal sealed partial class SpotifyAuthService : IAuthService
         }
         catch (HttpRequestException ex)
         {
-            LogTokenRequestFailed(ex);
+            LogConnectFailed(ex);
             SetState(ConnectionState.Error);
-            return new AuthResult(false, false, false, "Couldn't reach Spotify to complete sign-in. Please try again.");
+            return new AuthResult(false, false, false, "Couldn't complete sign-in with Spotify. Please try again.");
         }
     }
 
-    private async Task<AuthResult> ExchangeCodeAsync(
+    public Task<string> GetAccessTokenAsync()
+    {
+        // Fast path: a comfortably-valid token needs no lock.
+        if (TokenIsFresh())
+        {
+            return Task.FromResult(_accessToken!);
+        }
+
+        return RefreshIfNeededAsync();
+    }
+
+    /// <summary>Forces a refresh after a 401, collapsing concurrent retries onto one token request.</summary>
+    public async Task<string> RefreshAccessTokenAsync(string previousToken)
+    {
+        await _refreshLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            // Another caller may have already refreshed in response to the same 401 burst.
+            if (_accessToken is not null && !string.Equals(_accessToken, previousToken, StringComparison.Ordinal))
+            {
+                return _accessToken;
+            }
+
+            await RefreshCoreAsync().ConfigureAwait(false);
+            return _accessToken!;
+        }
+        finally
+        {
+            _refreshLock.Release();
+        }
+    }
+
+    public Task DisconnectAsync()
+    {
+        ClearTokens();
+        _refreshTokenStore.Clear();
+        SetState(ConnectionState.Disconnected);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Disposes the refresh lock. Called by the host when the singleton is torn down.</summary>
+    public void Dispose() => _refreshLock.Dispose();
+
+    private async Task<string> RefreshIfNeededAsync()
+    {
+        await _refreshLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            // Re-check under the lock: a concurrent caller may have just refreshed.
+            if (TokenIsFresh())
+            {
+                return _accessToken!;
+            }
+
+            await RefreshCoreAsync().ConfigureAwait(false);
+            return _accessToken!;
+        }
+        finally
+        {
+            _refreshLock.Release();
+        }
+    }
+
+    // Performs the actual refresh. Must be called while holding _refreshLock.
+    private async Task RefreshCoreAsync()
+    {
+        if (_refreshToken is null)
+        {
+            throw new InvalidOperationException("Not connected to Spotify.");
+        }
+
+        string clientId = _settings.Current.SpotifyClientId;
+        if (string.IsNullOrWhiteSpace(clientId))
+        {
+            throw new InvalidOperationException("No Spotify Client ID is configured.");
+        }
+
+        try
+        {
+            TokenSet tokens = await _tokenClient.RefreshAsync(clientId, _refreshToken).ConfigureAwait(false);
+            ApplyTokens(tokens);
+        }
+        catch (HttpRequestException ex)
+        {
+            LogRefreshFailed(ex);
+            SetState(ConnectionState.Error);
+            throw;
+        }
+    }
+
+    private async Task<AuthResult> CompleteConnectAsync(
         string clientId, string redirectUri, string code, string verifier, CancellationToken ct)
     {
-        var form = new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["grant_type"] = "authorization_code",
-            ["code"] = code,
-            ["redirect_uri"] = redirectUri,
-            ["client_id"] = clientId,
-            ["code_verifier"] = verifier,
-        });
+        TokenSet tokens = await _tokenClient.ExchangeCodeAsync(clientId, redirectUri, code, verifier, ct)
+            .ConfigureAwait(false);
+        ApplyTokens(tokens);
 
-        using HttpClient http = _httpClientFactory.CreateClient();
-        using HttpResponseMessage response = await http.PostAsync(SpotifyOAuthConstants.TokenEndpoint, form, ct);
-        if (!response.IsSuccessStatusCode)
-        {
-            LogTokenExchangeRejected((int)response.StatusCode);
-            SetState(ConnectionState.Error);
-            return new AuthResult(false, false, false, "Spotify rejected the sign-in. Please try connecting again.");
-        }
+        CurrentAccount = await _tokenClient.GetAccountAsync(_accessToken!, ct).ConfigureAwait(false);
+        SetState(ConnectionState.Connected);
+        return new AuthResult(true, false, NotPremium: !CurrentAccount.IsPremium, null);
+    }
 
-        TokenResponse? tokens = await response.Content.ReadFromJsonAsync<TokenResponse>(ct);
-        if (tokens?.AccessToken is null)
-        {
-            SetState(ConnectionState.Error);
-            return new AuthResult(false, false, false, "Spotify's response was missing the access token. Please try again.");
-        }
+    private bool TokenIsFresh() =>
+        _accessToken is not null && DateTimeOffset.UtcNow < _accessTokenExpiry - _refreshSkew;
 
+    private void ApplyTokens(TokenSet tokens)
+    {
         _accessToken = tokens.AccessToken;
-        _accessTokenExpiry = DateTimeOffset.UtcNow.AddSeconds(tokens.ExpiresIn);
+        _accessTokenExpiry = tokens.ExpiresAt(DateTimeOffset.UtcNow);
+
+        // Spotify rotates the refresh token only sometimes; persist a new one, keep the old otherwise.
         if (!string.IsNullOrEmpty(tokens.RefreshToken))
         {
+            _refreshToken = tokens.RefreshToken;
             _refreshTokenStore.Save(tokens.RefreshToken);
         }
+    }
 
-        SetState(ConnectionState.Connected);
-        return new AuthResult(true, false, false, null);
+    private void ClearTokens()
+    {
+        _accessToken = null;
+        _accessTokenExpiry = default;
+        _refreshToken = null;
+        CurrentAccount = null;
     }
 
     private static string BuildAuthorizeUrl(string clientId, string redirectUri, PkceCodes codes, string[] scopes)
@@ -219,18 +321,15 @@ internal sealed partial class SpotifyAuthService : IAuthService
         ConnectionStateChanged?.Invoke(this, state);
     }
 
-    private sealed record TokenResponse(
-        [property: JsonPropertyName("access_token")] string? AccessToken,
-        [property: JsonPropertyName("refresh_token")] string? RefreshToken,
-        [property: JsonPropertyName("expires_in")] int ExpiresIn,
-        [property: JsonPropertyName("token_type")] string? TokenType);
-
     [LoggerMessage(Level = LogLevel.Error, Message = "OAuth callback listener failed to start on port {Port}.")]
     private partial void LogListenerStartFailed(Exception exception, int port);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Spotify token request failed at the network level.")]
-    private partial void LogTokenRequestFailed(Exception exception);
+    [LoggerMessage(Level = LogLevel.Error, Message = "Spotify sign-in failed to complete.")]
+    private partial void LogConnectFailed(Exception exception);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Spotify token exchange returned HTTP {StatusCode}.")]
-    private partial void LogTokenExchangeRejected(int statusCode);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Silent session restore failed; staying signed out.")]
+    private partial void LogRestoreFailed(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Spotify access-token refresh failed.")]
+    private partial void LogRefreshFailed(Exception exception);
 }
