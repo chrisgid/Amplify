@@ -18,9 +18,9 @@ namespace Amplify.Core.Settings;
 /// </remarks>
 public sealed partial class SettingsService : ISettingsService
 {
-    private const string FileName = "settings.json";
+    private const string _fileName = "settings.json";
 
-    private static readonly JsonSerializerOptions SerializerOptions = new()
+    private static readonly JsonSerializerOptions _serializerOptions = new()
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -60,7 +60,7 @@ public sealed partial class SettingsService : ISettingsService
         ArgumentNullException.ThrowIfNull(migrators);
 
         _directory = directory;
-        _filePath = Path.Combine(directory, FileName);
+        _filePath = Path.Combine(directory, _fileName);
         _logger = logger;
         _migrators = migrators;
         _currentVersion = currentVersion;
@@ -98,6 +98,10 @@ public sealed partial class SettingsService : ISettingsService
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Single-caller by contract: the file read runs outside <c>_gate</c>, so this must not be
+    /// interleaved with <see cref="Update"/> (see the interface remarks).
+    /// </remarks>
     public async Task LoadAsync()
     {
         AppSettings loaded;
@@ -154,7 +158,8 @@ public sealed partial class SettingsService : ISettingsService
         switch (result.Outcome)
         {
             case SettingsMigrationOutcome.Loaded:
-                return Deserialize(root) ?? HandleUndeserialisable(fileVersion);
+                AppSettings? loaded = Deserialize(root);
+                return loaded is null ? HandleUndeserialisable(fileVersion) : Normalize(loaded);
 
             case SettingsMigrationOutcome.Migrated:
                 AppSettings? migrated = Deserialize(result.Root!);
@@ -163,6 +168,7 @@ public sealed partial class SettingsService : ISettingsService
                     return HandleUndeserialisable(fileVersion);
                 }
 
+                Normalize(migrated);
                 Backup($"v{fileVersion}");
                 Persist(migrated);
                 LogMigrated(_logger, fileVersion, _currentVersion);
@@ -230,7 +236,7 @@ public sealed partial class SettingsService : ISettingsService
     {
         try
         {
-            return root.Deserialize<AppSettings>(SerializerOptions);
+            return root.Deserialize<AppSettings>(_serializerOptions);
         }
         catch (JsonException)
         {
@@ -262,16 +268,24 @@ public sealed partial class SettingsService : ISettingsService
     private void Persist(AppSettings settings)
     {
         Directory.CreateDirectory(_directory);
-        string json = JsonSerializer.Serialize(settings, SerializerOptions);
+        string json = JsonSerializer.Serialize(settings, _serializerOptions);
         string tempPath = Path.Combine(_directory, $"settings.{Guid.NewGuid():N}.tmp");
 
         File.WriteAllText(tempPath, json);
         File.Move(tempPath, _filePath, overwrite: true);
     }
 
+    // Enforces value invariants the rest of the app relies on, so a hand-edited or mis-migrated file
+    // can't surface an out-of-range value to readers that don't re-validate (e.g. the hotkey/step math).
+    private static AppSettings Normalize(AppSettings settings)
+    {
+        settings.VolumeStep = Math.Clamp(settings.VolumeStep, AppSettings.MinVolumeStep, AppSettings.MaxVolumeStep);
+        return settings;
+    }
+
     private static AppSettings Clone(AppSettings source) =>
         JsonSerializer.Deserialize<AppSettings>(
-            JsonSerializer.Serialize(source, SerializerOptions), SerializerOptions)!;
+            JsonSerializer.Serialize(source, _serializerOptions), _serializerOptions)!;
 
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Could not read settings; falling back to defaults.")]

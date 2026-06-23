@@ -33,7 +33,14 @@ public interface ISettingsService
 
     /// <summary>
     /// Loads the settings from disk, migrating older files and resetting from unreadable or
-    /// future-versioned ones. Call once during the launch sequence before features initialise.
+    /// future-versioned ones.
     /// </summary>
+    /// <remarks>
+    /// Must be called <b>exactly once</b> during the launch sequence, before any feature can call
+    /// <see cref="Update"/>. It is not safe to interleave with <see cref="Update"/>: the file read
+    /// happens outside the write lock, so a concurrent update could be clobbered by the load's final
+    /// assignment. The fixed launch order (settings load → session restore → ordered initializers)
+    /// guarantees this single-caller contract.
+    /// </remarks>
     Task LoadAsync();
 }

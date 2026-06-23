@@ -27,6 +27,13 @@
     raised 420→520 so cards stay ≥476px and never wrap, even when resized to the minimum. This edits
     feature 01's `MainWindow` sizing; the placeholder Main/Onboarding screens keep their 420 content
     width (centred) for now.
+  - **`VolumeStep` is clamped to [1, 25] on load** (both the loaded and migrated paths), so a
+    hand-edited or mis-migrated out-of-range value can't reach readers that don't re-validate (hotkey
+    re-register, step math). Bounds centralised as `AppSettings.MinVolumeStep`/`MaxVolumeStep`.
+    (Review follow-up; the UI slider already constrained the write path, this guards the file path.)
+  - **`LoadAsync` documents a single-caller threading contract** (interface + impl remarks): it must
+    run exactly once in the launch sequence before any `Update`, as the file read happens outside the
+    write lock. (Review follow-up; documentation only — the fixed launch order already guarantees it.)
   - **Backups before every reset, not just version changes:** the prior file is copied to
     `settings.v{old}.bak` for a known-version migrate/reset and to `settings.corrupt.bak` when the
     file can't be parsed / has no readable `schemaVersion`, honouring "back up before any reset" even

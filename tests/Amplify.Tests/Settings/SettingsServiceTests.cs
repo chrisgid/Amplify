@@ -49,6 +49,17 @@ public sealed class SettingsServiceTests : IDisposable
         public JsonObject Upgrade(JsonObject root) => throw new InvalidOperationException("boom");
     }
 
+    private sealed class OutOfRangeStepMigrator(int fromVersion) : ISettingsMigrator
+    {
+        public int FromVersion => fromVersion;
+
+        public JsonObject Upgrade(JsonObject root)
+        {
+            root["volumeStep"] = 999;
+            return root;
+        }
+    }
+
     [Fact]
     public async Task MissingFileLoadsDefaultsAndWritesCleanFile()
     {
@@ -191,6 +202,34 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(10, service.Current.VolumeStep); // migrator overwrote the step
         Assert.Equal(2, service.Current.SchemaVersion);
         Assert.True(File.Exists(Path.Combine(_dir, "settings.v1.bak")));
+    }
+
+    [Theory]
+    [InlineData(9999, 25)]
+    [InlineData(30, 25)]
+    [InlineData(0, 1)]
+    [InlineData(-5, 1)]
+    public async Task OutOfRangeVolumeStepIsClampedOnLoad(int stored, int expected)
+    {
+        await File.WriteAllTextAsync(_file, $"{{ \"schemaVersion\": 1, \"volumeStep\": {stored} }}");
+
+        SettingsService service = NewService();
+        await service.LoadAsync();
+
+        Assert.Equal(expected, service.Current.VolumeStep);
+    }
+
+    [Fact]
+    public async Task MigratedOutOfRangeVolumeStepIsClamped()
+    {
+        await File.WriteAllTextAsync(_file, "{ \"schemaVersion\": 1, \"volumeStep\": 3 }");
+
+        // The migrator pushes the step out of range; the load must still clamp it.
+        var service = new SettingsService(
+            _dir, NullLogger<SettingsService>.Instance, [new OutOfRangeStepMigrator(1)], 2);
+        await service.LoadAsync();
+
+        Assert.Equal(25, service.Current.VolumeStep);
     }
 
     [Fact]

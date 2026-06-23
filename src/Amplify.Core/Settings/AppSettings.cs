@@ -38,7 +38,16 @@ public sealed class AppSettings
     /// <summary>The app's theme preference; defaults to following the Windows theme.</summary>
     public ThemeMode ThemeMode { get; set; } = ThemeMode.System;
 
-    /// <summary>The percentage each hotkey press changes the volume by; valid range 1–25.</summary>
+    /// <summary>The smallest valid <see cref="VolumeStep"/>.</summary>
+    public const int MinVolumeStep = 1;
+
+    /// <summary>The largest valid <see cref="VolumeStep"/>.</summary>
+    public const int MaxVolumeStep = 25;
+
+    /// <summary>
+    /// The percentage each hotkey press changes the volume by; clamped to
+    /// [<see cref="MinVolumeStep"/>, <see cref="MaxVolumeStep"/>] when loaded.
+    /// </summary>
     public int VolumeStep { get; set; } = 5;
 
     /// <summary>The volume-up hotkey in its canonical string form.</summary>
