@@ -21,11 +21,13 @@ namespace Amplify.App;
 /// </summary>
 public sealed partial class MainWindow : Window, IDisposable
 {
-    // The prototype's compact window: ~480 logical px wide, tall enough for the main screen, with a
-    // floor that keeps the layout usable while staying resizable.
-    private const int _initialWidth = 480;
+    // A compact, tall window. The width is sized so the settings list's native cards
+    // (CommunityToolkit SettingsCard) stay in their single-row layout — those cards drop the action
+    // control below the text once they're narrower than ~476px, so the content area is kept above
+    // that, and the minimum width holds the same floor while staying resizable.
+    private const int _initialWidth = 600;
     private const int _initialHeight = 760;
-    private const int _minWidth = 420;
+    private const int _minWidth = 560;
     private const int _minHeight = 480;
 
     private readonly ShellViewModel _shell;

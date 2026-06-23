@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    Amplify's shared, default-language string table. Every screen's user-facing text lives here and
+    is referenced from XAML via x:Uid or from code via ResourceLoader. Keys are namespaced by a
+    feature prefix (Settings_, and later Onboarding_, Status_, Volume_, ...) so independently built
+    screens never collide. Property identifiers (e.g. ".Header", ".Text", ".Content") set the
+    matching control property when applied through x:Uid.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- Header -->
+  <data name="Settings_Back.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="Settings_Back.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="Settings_Title.Text" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+
+  <!-- Section headers -->
+  <data name="Settings_General_Header.Text" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="Settings_Appearance_Header.Text" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="Settings_Volume_Header.Text" xml:space="preserve">
+    <value>Volume</value>
+  </data>
+  <data name="Settings_Account_Header.Text" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="Settings_Reset_Header.Text" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+
+  <!-- General -->
+  <data name="Settings_LaunchStartup.Header" xml:space="preserve">
+    <value>Launch at startup</value>
+  </data>
+  <data name="Settings_LaunchStartup.Description" xml:space="preserve">
+    <value>Start Amplify when you sign in to Windows</value>
+  </data>
+  <data name="Settings_StartMinimized.Header" xml:space="preserve">
+    <value>Start minimized to the tray</value>
+  </data>
+  <data name="Settings_StartMinimized.Description" xml:space="preserve">
+    <value>Open quietly in the notification area</value>
+  </data>
+  <data name="Settings_Notify.Header" xml:space="preserve">
+    <value>Notify on volume change</value>
+  </data>
+  <data name="Settings_Notify.Description" xml:space="preserve">
+    <value>Show a brief toast when a shortcut fires</value>
+  </data>
+
+  <!-- Appearance -->
+  <data name="Settings_Theme.Header" xml:space="preserve">
+    <value>App theme</value>
+  </data>
+  <data name="Settings_Theme_System.Content" xml:space="preserve">
+    <value>Use system</value>
+  </data>
+  <data name="Settings_Theme_Light.Content" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="Settings_Theme_Dark.Content" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+
+  <!-- Volume -->
+  <data name="Settings_VolumeStep.Header" xml:space="preserve">
+    <value>Volume step size</value>
+  </data>
+  <data name="Settings_VolumeStep.Description" xml:space="preserve">
+    <value>Each key press changes the volume by this amount</value>
+  </data>
+
+  <!-- Account (button label + status text resolved in code) -->
+  <data name="Settings_Account_Disconnect.Content" xml:space="preserve">
+    <value>Disconnect</value>
+  </data>
+  <data name="Settings_Account_NotConnected" xml:space="preserve">
+    <value>Not connected</value>
+  </data>
+  <data name="Settings_Account_NotConnectedHint" xml:space="preserve">
+    <value>Connect from the main screen to control volume</value>
+  </data>
+  <data name="Settings_Account_FreeSubtitle" xml:space="preserve">
+    <value>Free · Volume control unavailable</value>
+  </data>
+
+  <!-- Spotify Client ID -->
+  <data name="Settings_ClientId.Header" xml:space="preserve">
+    <value>Spotify Client ID</value>
+  </data>
+  <data name="Settings_ClientId.Description" xml:space="preserve">
+    <value>From your Spotify Developer app. Reset Amplify to change it.</value>
+  </data>
+  <data name="Settings_ClientId_NotSet" xml:space="preserve">
+    <value>Not set</value>
+  </data>
+
+  <!-- Reset -->
+  <data name="Settings_Reset.Header" xml:space="preserve">
+    <value>Reset Amplify</value>
+  </data>
+  <data name="Settings_Reset.Description" xml:space="preserve">
+    <value>Clears your shortcuts and disconnects Spotify</value>
+  </data>
+  <data name="Settings_Reset_Button.Content" xml:space="preserve">
+    <value>Reset…</value>
+  </data>
+
+  <!-- Footer -->
+  <data name="Settings_Footer_Brand.Text" xml:space="preserve">
+    <value>Amplify</value>
+  </data>
+  <data name="Settings_Footer_Suffix" xml:space="preserve">
+    <value>{0} · Not affiliated with Spotify</value>
+    <comment>{0} is the app version, e.g. 1.0.0</comment>
+  </data>
+</root>

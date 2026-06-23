@@ -1,10 +1,12 @@
 using Amplify.App.Auth;
 using Amplify.App.Dev;
 using Amplify.App.Logging;
+using Amplify.App.Settings;
 using Amplify.App.Spotify;
 using Amplify.App.ViewModels;
 using Amplify.Core.Auth;
 using Amplify.Core.Configuration;
+using Amplify.Core.Settings;
 using Amplify.Core.Startup;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -55,6 +57,7 @@ public partial class App : Application
         builder.Services.Configure<SpotifyOptions>(builder.Configuration.GetSection(SpotifyOptions.SectionName));
 
         // Feature DI registrations are appended here as each feature lands (AddSettings(), AddAuth(), ...).
+        builder.Services.AddSettings();
         builder.Services.AddSpotifyAuth();
         builder.Services.AddSpotifyClient();
 
@@ -80,9 +83,10 @@ public partial class App : Application
         // arrives with the shell UI; for now logging plus a fail-fast is the honest behaviour.)
         try
         {
-            // Future pre-steps, in order:
-            //   1. single-instance redirect before the window is created
-            //   2. await ISettingsService.LoadAsync()
+            // Future pre-step: single-instance redirect before the window is created.
+            // Load settings first so features initialise against persisted preferences.
+            await _host.Services.GetRequiredService<ISettingsService>().LoadAsync();
+
             // Restore any stored session before the window/initializers (no-op until refresh lands).
             await _host.Services.GetRequiredService<IAuthService>().RestoreSessionAsync();
 
