@@ -8,7 +8,7 @@
     xmlns:tk="using:CommunityToolkit.WinUI.Controls"
     mc:Ignorable="d">
 
-    <ScrollViewer Padding="24,16,24,24">
+    <ScrollViewer Padding="24,16,24,0">
         <!--
             A Grid wrapping the MaxWidth StackPanel avoids a known SettingsExpander layout glitch when
             a MaxWidth is set directly on the items' parent panel.
@@ -83,27 +83,33 @@
                     x:Uid="Settings_Volume_Header"
                     Margin="2,12,2,4"
                     Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <tk:SettingsCard x:Uid="Settings_VolumeStep">
+                <!-- The slider is wide, so this card always lays its content out below the header. -->
+                <tk:SettingsCard
+                    x:Uid="Settings_VolumeStep"
+                    ContentAlignment="Vertical"
+                    HorizontalContentAlignment="Stretch">
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE767;" />
                     </tk:SettingsCard.HeaderIcon>
-                    <StackPanel
-                        Orientation="Horizontal"
-                        Spacing="12"
-                        VerticalAlignment="Center">
-                        <TextBlock
-                            MinWidth="36"
-                            VerticalAlignment="Center"
-                            Style="{StaticResource BodyStrongTextBlockStyle}"
-                            Text="{x:Bind ViewModel.VolumeStepDisplay, Mode=OneWay}" />
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                         <Slider
-                            Width="180"
+                            Grid.Column="0"
                             VerticalAlignment="Center"
                             Maximum="25"
                             Minimum="1"
                             StepFrequency="1"
                             Value="{x:Bind ViewModel.VolumeStepValue, Mode=TwoWay}" />
-                    </StackPanel>
+                        <TextBlock
+                            Grid.Column="1"
+                            MinWidth="36"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BodyStrongTextBlockStyle}"
+                            Text="{x:Bind ViewModel.VolumeStepDisplay, Mode=OneWay}" />
+                    </Grid>
                 </tk:SettingsCard>
 
                 <!-- Account -->
@@ -146,7 +152,7 @@
 
                 <!-- Footer: the brand links to the repo; version + affiliation follow as plain text. -->
                 <TextBlock
-                    Margin="0,16,0,0"
+                    Margin="0,16,0,16"
                     HorizontalAlignment="Center"
                     Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                     Style="{StaticResource CaptionTextBlockStyle}"
