@@ -41,10 +41,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     public partial int SelectedThemeIndex { get; set; }
 
     [ObservableProperty]
-    public partial string AccountTitle { get; set; }
+    public partial string AccountTitle { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial string AccountSubtitle { get; set; }
+    public partial string AccountSubtitle { get; set; } = string.Empty;
 
     public SettingsViewModel(ISettingsService settings, IAuthService auth)
     {
