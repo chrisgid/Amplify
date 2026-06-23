@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Amplify.App.Dev;
 using Amplify.App.Interop;
+using Amplify.App.Theming;
 using Amplify.App.ViewModels;
 using Amplify.App.Views;
 using Amplify.Core.Auth;
@@ -33,23 +34,27 @@ public sealed partial class MainWindow : Window, IDisposable
     private readonly ShellViewModel _shell;
     private readonly IAuthService _authService;
     private readonly DevPlaybackSlice _playback;
+    private readonly ThemeService _theme;
     private readonly DispatcherQueue _dispatcher;
 
     private GlobalHotkeyWindow? _hotkeys;
     private bool _disposed;
 
-    public MainWindow(ShellViewModel shell, IAuthService authService, DevPlaybackSlice playback)
+    public MainWindow(ShellViewModel shell, IAuthService authService, DevPlaybackSlice playback, ThemeService theme)
     {
         _shell = shell;
         _authService = authService;
         _playback = playback;
+        _theme = theme;
         InitializeComponent();
         _dispatcher = DispatcherQueue;
 
         ConfigureWindowChrome();
+        ApplyTheme();
 
         _shell.RouteChanged += OnShellRouteChanged;
         _authService.ConnectionStateChanged += OnConnectionStateChanged;
+        _theme.ThemeChanged += OnThemeChanged;
         Closed += OnClosed;
 
         // Show the screen the shell picked for the current connection state.
@@ -80,6 +85,21 @@ public sealed partial class MainWindow : Window, IDisposable
         {
             presenter.PreferredMinimumWidth = (int)(_minWidth * scale);
             presenter.PreferredMinimumHeight = (int)(_minHeight * scale);
+        }
+    }
+
+    // Theme changes (the user's override, or Windows switching theme/accent while we follow it) can
+    // arrive off the UI thread; applying RequestedTheme touches the window.
+    private void OnThemeChanged(object? sender, EventArgs e) => _dispatcher.TryEnqueue(ApplyTheme);
+
+    // Drive the content root's theme from the resolved preference. ElementTheme.Default follows the
+    // OS live; Light/Dark pin it. The root carries the Mica backdrop and title bar along, and system
+    // brushes pick up the OS accent automatically.
+    private void ApplyTheme()
+    {
+        if (Content is FrameworkElement root)
+        {
+            root.RequestedTheme = _theme.CurrentTheme;
         }
     }
 
@@ -169,6 +189,7 @@ public sealed partial class MainWindow : Window, IDisposable
         _disposed = true;
         _shell.RouteChanged -= OnShellRouteChanged;
         _authService.ConnectionStateChanged -= OnConnectionStateChanged;
+        _theme.ThemeChanged -= OnThemeChanged;
         _hotkeys?.Dispose();
         _hotkeys = null;
     }

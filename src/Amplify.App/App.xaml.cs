@@ -3,6 +3,7 @@ using Amplify.App.Dev;
 using Amplify.App.Logging;
 using Amplify.App.Settings;
 using Amplify.App.Spotify;
+using Amplify.App.Theming;
 using Amplify.App.ViewModels;
 using Amplify.Core.Auth;
 using Amplify.Core.Configuration;
@@ -58,6 +59,7 @@ public partial class App : Application
 
         // Feature DI registrations are appended here as each feature lands (AddSettings(), AddAuth(), ...).
         builder.Services.AddSettings();
+        builder.Services.AddTheming();
         builder.Services.AddSpotifyAuth();
         builder.Services.AddSpotifyClient();
 
