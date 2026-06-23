@@ -88,9 +88,9 @@ public sealed partial class MainWindow : Window, IDisposable
         }
     }
 
-    // Theme changes (the user's override, or Windows switching theme/accent while we follow it) can
-    // arrive off the UI thread; applying RequestedTheme touches the window.
-    private void OnThemeChanged(object? sender, EventArgs e) => _dispatcher.TryEnqueue(ApplyTheme);
+    // The theme service raises ThemeChanged on the UI thread (it owns marshalling its off-thread
+    // settings/OS sources), so the appearance can be applied directly.
+    private void OnThemeChanged(object? sender, EventArgs e) => ApplyTheme();
 
     // Drive the content root's theme from the resolved preference. ElementTheme.Default follows the
     // OS live; Light/Dark pin it. The root carries the Mica backdrop and title bar along, and system
