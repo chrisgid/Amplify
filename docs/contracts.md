@@ -33,10 +33,11 @@ public enum HotkeyAction { VolumeUp, VolumeDown }                 // feature 06
 > "No active device" is **not** a `ConnectionState` — it is `PlayerState.HasActiveDevice` (below).
 > Feature 05 owns its messaging; feature 07 gates the volume control on it.
 >
-> **A Free (non-Premium) account is also not a separate `ConnectionState`** — it is
-> `Connected` + `Account.IsPremium == false`. Features 05/07/12 branch on `IsPremium` to show the
-> "Free · Volume control unavailable" presentation and to gate the control. Connecting a Free
-> account is a **success**, not a failure.
+> **There is no Free-vs-Premium distinction in the app.** Amplify requires Premium, but the Web API
+> no longer exposes subscription level (the `product` field was removed), and Spotify enforces
+> Premium upstream — each user runs their **own** developer app, and a Development-mode app requires
+> its owner to have active Premium. So a connectable user is always Premium; the app does not detect
+> or branch on it. If a volume call is ever rejected (`403`), feature 07 surfaces that reactively.
 
 ---
 
@@ -48,11 +49,11 @@ public enum HotkeyAction { VolumeUp, VolumeDown }                 // feature 06
 // ISpotifyClient does NOT expose a separate profile call.
 public sealed record Account(
     string DisplayName,
-    string Plan,          // e.g. "Premium"
-    bool   IsPremium,     // from GET /v1/me -> product == "premium"
     string Initials);     // derived from DisplayName for the avatar
+// Subscription level is NOT exposed by the Web API (the product field was removed) and Amplify
+// always requires Premium, so there is no plan/IsPremium field.
 // Active device label is NOT part of the profile — it comes from PlayerState.DeviceName
-// (GET /v1/me/player). The status card composes "{Plan} · {DeviceName}" from both.
+// (GET /v1/me/player); the status card composes the device label from it.
 
 // Current playback state (feature 07 reads volume/device; feature 05 reads device presence).
 public sealed record PlayerState(
@@ -145,9 +146,8 @@ public interface IAuthService
     Task DisconnectAsync();                      // clear tokens + account
 }
 
-// NotPremium == true does NOT imply failure: a Free account still connects (Success == true,
-// NotPremium == true). Denied/Error are the failure cases.
-public sealed record AuthResult(bool Success, bool Denied, bool NotPremium, string? Error);
+// Denied (user declined consent) and a non-null Error are the failure cases.
+public sealed record AuthResult(bool Success, bool Denied, string? Error);
 
 // feature 07 — Spotify Web API (typed HttpClient, no SDK)
 public interface ISpotifyClient
@@ -169,7 +169,7 @@ public interface IHotkeyService
 public interface IVolumeController
 {
     int Volume { get; }                          // last known 0..100
-    bool CanControl { get; }                      // connected + Premium + HasActiveDevice
+    bool CanControl { get; }                      // connected + HasActiveDevice
     Task SetVolumeAsync(int percent);
     Task NudgeAsync(int direction);              // +1 / -1 * step, clamped 0..100
     event EventHandler<int> VolumeChanged;        // for UI + notifications

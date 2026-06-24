@@ -1,15 +1,11 @@
 using System.Net;
 using System.Text;
-using Amplify.Core.Auth;
 using Amplify.Core.Spotify;
-using NSubstitute;
 
 namespace Amplify.Tests.Spotify;
 
 public sealed class SpotifyClientTests
 {
-    private const string _accessToken = "tok-123";
-
     [Fact]
     public async Task GetPlayerStateNoContentReportsNoActiveDevice()
     {
@@ -40,19 +36,6 @@ public sealed class SpotifyClientTests
         Assert.True(state.HasActiveDevice);
         Assert.Equal(42, state.VolumePercent);
         Assert.Equal("Kitchen speaker", state.DeviceName);
-    }
-
-    [Fact]
-    public async Task GetPlayerStateSendsBearerTokenFromAuthService()
-    {
-        (SpotifyClient client, RecordingHandler handler) =
-            CreateClient(_ => new HttpResponseMessage(HttpStatusCode.NoContent));
-
-        await client.GetPlayerStateAsync();
-
-        Assert.NotNull(handler.LastRequest);
-        Assert.Equal("Bearer", handler.LastRequest.Headers.Authorization?.Scheme);
-        Assert.Equal(_accessToken, handler.LastRequest.Headers.Authorization?.Parameter);
     }
 
     [Fact]
@@ -88,11 +71,7 @@ public sealed class SpotifyClientTests
     {
         var handler = new RecordingHandler(respond);
         var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.spotify.com/") };
-
-        IAuthService auth = Substitute.For<IAuthService>();
-        auth.GetAccessTokenAsync().Returns(_accessToken);
-
-        return (new SpotifyClient(http, auth), handler);
+        return (new SpotifyClient(http), handler);
     }
 
     private static HttpResponseMessage JsonResponse(string json) =>

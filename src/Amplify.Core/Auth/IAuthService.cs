@@ -2,8 +2,8 @@ namespace Amplify.Core.Auth;
 
 /// <summary>
 /// Connects a Spotify account using Authorization Code with PKCE, manages the access/refresh token
-/// lifecycle, records whether the account is Premium, and disconnects. This is the gateway every
-/// Spotify-backed feature depends on; there is no client secret.
+/// lifecycle, and disconnects. This is the gateway every Spotify-backed feature depends on; there is
+/// no client secret.
 /// </summary>
 public interface IAuthService
 {

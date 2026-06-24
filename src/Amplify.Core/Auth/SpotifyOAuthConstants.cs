@@ -13,6 +13,13 @@ public static class SpotifyOAuthConstants
     /// <summary>Token endpoint for the code exchange and refresh.</summary>
     public const string TokenEndpoint = "https://accounts.spotify.com/api/token";
 
+    /// <summary>
+    /// Web API endpoint for the current user's profile, read once on connect for the display name.
+    /// The profile is owned by authentication; the Web API client does not expose a separate profile
+    /// call.
+    /// </summary>
+    public const string CurrentUserEndpoint = "https://api.spotify.com/v1/me";
+
     /// <summary>Path component of the loopback redirect URI (<c>http://127.0.0.1:{port}/callback</c>).</summary>
     public const string RedirectPath = "/callback";
 

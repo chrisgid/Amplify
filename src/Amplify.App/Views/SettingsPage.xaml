@@ -117,9 +117,7 @@
                     x:Uid="Settings_Account_Header"
                     Margin="2,12,2,4"
                     Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <tk:SettingsCard
-                    Description="{x:Bind ViewModel.AccountSubtitle, Mode=OneWay}"
-                    Header="{x:Bind ViewModel.AccountTitle, Mode=OneWay}">
+                <tk:SettingsCard Header="{x:Bind ViewModel.AccountTitle, Mode=OneWay}">
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE77B;" />
                     </tk:SettingsCard.HeaderIcon>

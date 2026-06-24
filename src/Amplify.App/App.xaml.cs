@@ -89,7 +89,8 @@ public partial class App : Application
             // Load settings first so features initialise against persisted preferences.
             await _host.Services.GetRequiredService<ISettingsService>().LoadAsync();
 
-            // Restore any stored session before the window/initializers (no-op until refresh lands).
+            // Silently restore a stored session before the window/initializers so the shell can open
+            // straight on the main screen when a refresh token is present.
             await _host.Services.GetRequiredService<IAuthService>().RestoreSessionAsync();
 
             // then ordered initializers (theme 100 -> tray/window 200 -> hotkeys 400):

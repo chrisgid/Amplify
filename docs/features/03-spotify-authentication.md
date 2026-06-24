@@ -9,21 +9,25 @@
 ## Summary
 
 Handles connecting a user's Spotify account using the **Authorization Code with PKCE** flow,
-securely storing and refreshing tokens, recording whether the account is **Premium**, and
-disconnecting. This is the gateway for every Spotify-backed feature. There is **no client secret**
-(PKCE). A **Free account connects successfully** — it is flagged non-Premium so downstream features
-gate volume control and show an upgrade notice; it is not a connection failure.
+securely storing and refreshing tokens, reading the account's display name, and disconnecting. This
+is the gateway for every Spotify-backed feature. There is **no client secret** (PKCE).
+
+Amplify requires **Premium**, but the app does **not** detect it: the Web API no longer exposes
+subscription level (the `product` field was removed), and Spotify enforces Premium upstream — each
+user owns their developer app and a Development-mode app requires its owner to have active Premium,
+so a connectable account is always Premium. A rejected volume call (`403`) is handled reactively
+downstream ([07](./07-volume-control.md)) rather than by a pre-flight Premium check.
 
 > *Phase 0 note:* the [walking skeleton](../getting-started.md#8-build-order) needs only the
-> happy-path connect (loopback PKCE, store token, `GetAccessTokenAsync()`); defer refresh/rotation,
-> single-flight, and Premium/Free handling to Phase 1.
+> happy-path connect (loopback PKCE, store token, `GetAccessTokenAsync()`); defer refresh/rotation
+> and single-flight to Phase 1.
 
 ## User stories
 
 - As a user, I want to sign in to Spotify securely in my own browser, not inside the app.
 - As a user, I want to stay signed in across restarts without re-authorising every time.
-- As a user, I want a clear message if I decline the permission; and if my account is Free, I want
-  to still connect but understand that volume control needs Premium.
+- As a user, I want a clear message if I decline the permission, and a clear error if something goes
+  wrong, so I can retry.
 - As a user, I want to disconnect my account and have my tokens removed.
 
 ## UX / behaviour
@@ -33,8 +37,8 @@ gate volume control and show an upgrade notice; it is not a connection failure.
   redirect listener, then opens the **system browser** to the Spotify authorize URL.
 - The browser shows Spotify's consent screen:
   - **Approve** → Spotify redirects to the local callback with `?code=…&state=…`; the app
-    exchanges the code for tokens, validates `state`, records Premium status (Free accounts
-    connect too, flagged non-Premium), and transitions to connected.
+    validates `state`, exchanges the code for tokens, reads the account's display name, and
+    transitions to connected.
   - **Deny** → redirect carries `?error=access_denied&state=…`; the app shows the
     "access wasn't granted" notice and lets the user retry.
     *Reference:* `design/project/components/success.jsx` (success + denied pages),
@@ -54,9 +58,9 @@ gate volume control and show an upgrade notice; it is not a connection failure.
 - [ ] `state` is random per attempt and validated on return; mismatches are rejected.
 - [ ] On approval, tokens are obtained and the **refresh token is stored in the Credential
       Locker**; access token kept in memory with its expiry.
-- [ ] The account's `product` is read via `GET /v1/me` and recorded as `Account.IsPremium`. A
-      **Free account still connects** (`AuthResult.Success == true`, `NotPremium == true`); volume
-      control is gated downstream (features 05/07) — non-Premium is **not** a connection failure.
+- [ ] The account's display name is read via `GET /v1/me` and exposed on `CurrentAccount` for the
+      status/settings UI. Subscription level is **not** read (the `product` field was removed from
+      the Web API) and the app does not branch on Premium vs Free.
 - [ ] On denial (`error=access_denied`), the user sees the denied state and can retry.
 - [ ] Access tokens refresh automatically before/at expiry (and on 401) without user action.
 - [ ] Disconnect clears in-memory tokens and removes the stored refresh token.
@@ -113,8 +117,8 @@ gate volume control and show an upgrade notice; it is not a connection failure.
 
 - **Refresh token** → Windows Credential Locker (`PasswordVault`), resource = "Amplify".
 - **Access token + expiry** → in memory only.
-- **Cached profile** (name, `product`, device label) → kept only as long as needed for the
-  session UI; not persisted long-term (respect Spotify ToS on caching).
+- **Cached profile** (display name) → kept only as long as needed for the session UI; not persisted
+  long-term (respect Spotify ToS on caching).
 
 ## Edge cases & error handling
 
@@ -124,9 +128,9 @@ gate volume control and show an upgrade notice; it is not a connection failure.
 - `state` mismatch / unexpected callback → reject and ask the user to try again.
 - Token exchange/refresh failure → map to the **error** status in
   [feature 05](./05-connection-status.md); never crash.
-- Free (non-Premium) account → connects successfully, flagged `NotPremium`; volume control stays
-  gated and the user sees the upgrade message ([feature 05](./05-connection-status.md)). Not treated
-  as an error or a half-connected state.
+- Volume call rejected with `403` (e.g. a restriction) → surfaced reactively as the "can't control"
+  guidance ([feature 05](./05-connection-status.md)); there is no pre-flight Premium check, since the
+  API no longer reports subscription level and Premium is enforced upstream.
 - Honour **429** with exponential backoff + `Retry-After` on token endpoints too.
 
 ## Dependencies
@@ -144,7 +148,7 @@ gate volume control and show an upgrade notice; it is not a connection failure.
 - `state` validation accepts matching and rejects mismatched/absent state.
 - Token refresh: refreshes when expired/near-expiry; retries once on 401; persists rotated
   refresh tokens. (Mock the token HTTP endpoint.)
-- Premium status maps `product` values correctly (premium → `IsPremium`, free → not).
+- Profile read maps the account's display name (and derives avatar initials).
 - Disconnect removes the stored refresh token. (Mock the Credential Locker behind an interface.)
 - 429 backoff honours `Retry-After`.
 - **Manual/integration (requires a real desktop + a prior connected session):** with a refresh
