@@ -81,6 +81,26 @@ public sealed class SpotifyTokenClientTests
     }
 
     [Fact]
+    public async Task RefreshTreatsRetryAfterZeroAsRetryNow()
+    {
+        var delays = new List<TimeSpan>();
+        var handler = new StubHttpMessageHandler((_, attempt) => attempt == 1
+            ? RateLimited(TimeSpan.Zero)
+            : JsonResponse("""{ "access_token": "after-retry", "expires_in": 3600 }"""));
+
+        var client = new SpotifyTokenClient(new HttpClient(handler), (delay, _) =>
+        {
+            delays.Add(delay);
+            return Task.CompletedTask;
+        });
+
+        await client.RefreshAsync("cid", "rt");
+
+        // "Retry-After: 0" must be honoured as zero delay, not fall through to the exponential backoff.
+        Assert.Equal(TimeSpan.Zero, Assert.Single(delays));
+    }
+
+    [Fact]
     public async Task GetAccountReadsDisplayNameAndDerivesInitials()
     {
         SpotifyTokenClient client = CreateClient(Ok("""{ "display_name": "Jane Doe" }"""));

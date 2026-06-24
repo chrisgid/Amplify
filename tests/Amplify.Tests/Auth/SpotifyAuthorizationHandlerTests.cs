@@ -55,6 +55,28 @@ public sealed class SpotifyAuthorizationHandlerTests
         await provider.DidNotReceive().RefreshAccessTokenAsync(Arg.Any<string>());
     }
 
+    [Fact]
+    public async Task ReplaysRequestBodyOnUnauthorizedRetry()
+    {
+        ISpotifyTokenProvider provider = Substitute.For<ISpotifyTokenProvider>();
+        provider.GetAccessTokenAsync().Returns("stale");
+        provider.RefreshAccessTokenAsync("stale").Returns("fresh");
+        var inner = new StubHttpMessageHandler((_, attempt) =>
+            new HttpResponseMessage(attempt == 1 ? HttpStatusCode.Unauthorized : HttpStatusCode.OK));
+
+        using HttpMessageInvoker invoker = CreateInvoker(provider, inner);
+        var request = new HttpRequestMessage(HttpMethod.Put, "https://api.spotify.com/v1/me/player")
+        {
+            Content = new StringContent("the-body"),
+        };
+        await invoker.SendAsync(request, CancellationToken.None);
+
+        // The retry must carry the original body, not an empty one.
+        Assert.Equal(2, inner.Bodies.Count);
+        Assert.Equal("the-body", inner.Bodies[1]);
+        Assert.Equal("fresh", inner.Requests[1].Headers.Authorization?.Parameter);
+    }
+
     private static HttpMessageInvoker CreateInvoker(ISpotifyTokenProvider provider, HttpMessageHandler inner)
     {
         var handler = new SpotifyAuthorizationHandler(provider) { InnerHandler = inner };

@@ -18,7 +18,13 @@ internal static class SpotifyClientServiceCollectionExtensions
     {
         services.AddHttpClient<ISpotifyClient, SpotifyClient>(client =>
                 client.BaseAddress = _apiBaseAddress)
-            .AddHttpMessageHandler<SpotifyAuthorizationHandler>();
+            .AddHttpMessageHandler<SpotifyAuthorizationHandler>()
+            // The client is captured by a long-lived singleton, so recycle pooled connections
+            // ourselves (IHttpClientFactory's handler rotation can't apply to a captured instance).
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+            });
         return services;
     }
 }

@@ -13,7 +13,14 @@ internal static class SpotifyAuthServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddSpotifyAuth(this IServiceCollection services)
     {
-        services.AddHttpClient<SpotifyTokenClient>();
+        // The token client is captured by the singleton auth service, so IHttpClientFactory's handler
+        // rotation never applies. Recycle pooled connections ourselves so a days-long session doesn't
+        // refresh tokens over stale connections to the Accounts service.
+        services.AddHttpClient<SpotifyTokenClient>()
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+            });
         services.AddSingleton<IRefreshTokenStore, PasswordVaultRefreshTokenStore>();
 
         services.AddSingleton<SpotifyAuthService>();

@@ -37,14 +37,22 @@ public sealed class SpotifyAuthorizationHandler(ISpotifyTokenProvider tokenProvi
         return await base.SendAsync(retry, cancellationToken).ConfigureAwait(false);
     }
 
-    // Copies method, target, version, and headers. Amplify's Web API requests carry no body, so
-    // content is not reconstructed.
+    // Copies method, target, version, headers, and body so the replay is faithful. The original
+    // content instance is reused (Amplify's content is buffered, so it can be sent again); its
+    // content headers travel with it. Authorization is skipped — the caller sets it fresh.
     private static HttpRequestMessage Clone(HttpRequestMessage request)
     {
-        var clone = new HttpRequestMessage(request.Method, request.RequestUri) { Version = request.Version };
+        var clone = new HttpRequestMessage(request.Method, request.RequestUri)
+        {
+            Version = request.Version,
+            Content = request.Content,
+        };
         foreach ((string name, IEnumerable<string> values) in request.Headers)
         {
-            clone.Headers.TryAddWithoutValidation(name, values);
+            if (!string.Equals(name, "Authorization", StringComparison.OrdinalIgnoreCase))
+            {
+                clone.Headers.TryAddWithoutValidation(name, values);
+            }
         }
 
         return clone;

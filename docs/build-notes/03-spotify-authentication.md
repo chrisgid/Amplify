@@ -185,3 +185,35 @@ testing that `Account.IsPremium` was always `false`.
 
 - **Note:** earlier entries above still describe the Premium-detection implementation — they are
   left intact (append-only log); this entry supersedes them.
+
+## 2026-06-24 — Code-review fixes · feat/03-spotify-authentication
+
+Five review findings on the Phase 1 work, all addressed:
+
+- **Restore must never crash startup (was high).** `RestoreSessionAsync` caught only
+  `HttpRequestException`, but `ReadFromJsonAsync` can throw `JsonException` and the `HttpClient`
+  timeout surfaces as `TaskCanceledException` — either would escape to `App.OnLaunched`, which logs
+  and **rethrows** (fail-fast). Broadened the restore catch to `Exception` (best-effort path → fall
+  back to onboarding); the dead-token clear is still scoped to a token-endpoint `400/401`.
+- **Transient refresh error latched `Connected → Error` forever (was medium-high).**
+  `RefreshCoreAsync` set `Error` on failure but never reset on success, so a single near-expiry blip
+  left the status UI stuck on Error even though subsequent refreshes worked. It now `SetState(Connected)`
+  after a successful refresh (idempotent).
+- **Captive dependency (was medium).** The singleton auth service captures the transient typed
+  `SpotifyTokenClient`, pinning one `HttpMessageHandler` for the process — defeating
+  `IHttpClientFactory` rotation, so a days-long session could reuse stale connections. Both typed
+  clients (`SpotifyTokenClient` and the `ISpotifyClient`/`SpotifyClient`, which is likewise captured
+  by a singleton) now set `SocketsHttpHandler.PooledConnectionLifetime = 2 min` so pooled connections
+  recycle regardless of capture.
+- **401-replay dropped the request body (was latent).** `SpotifyAuthorizationHandler.Clone` copied
+  headers but not `Content`; harmless today (GET / bodyless PUT) but a future body-carrying request
+  would silently replay empty on a 401. Clone now reuses the original (buffered) `Content` and skips
+  the stale `Authorization` header explicitly. New handler test asserts the body survives a retry.
+- **`Retry-After: 0` treated as missing (was low).** `delta > Zero` rejected a literal zero and fell
+  through to the 1/2/4s exponential backoff; changed to `>= Zero` so "retry now" is honoured. New
+  token-client test covers it.
+
+- **Manual/integration checks:**
+  - `dotnet build Amplify.slnx -c Release -p:Platform=x64` → **0 warnings, 0 errors**.
+  - `dotnet test … --filter "Category!=RequiresSpotify"` → **76 passed** (+2 new).
+  - `dotnet format --verify-no-changes` → clean.

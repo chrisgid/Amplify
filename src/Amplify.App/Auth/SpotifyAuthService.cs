@@ -79,12 +79,15 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
             SetState(ConnectionState.Connected);
             return true;
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex)
         {
+            // Restore is best-effort and runs during startup, so it must never throw: any failure
+            // (HTTP error, request timeout, malformed response, …) falls back to onboarding rather
+            // than crashing the app.
             LogRestoreFailed(ex);
             // A 400/401 means the refresh token is no longer valid — drop it so we don't retry a dead
-            // token on every launch. Transient failures keep the token for a later attempt.
-            if (ex.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
+            // token on every launch. Other failures keep the token for a later attempt.
+            if (ex is HttpRequestException { StatusCode: HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized })
             {
                 _refreshTokenStore.Clear();
             }
@@ -247,6 +250,9 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
         {
             TokenSet tokens = await _tokenClient.RefreshAsync(clientId, _refreshToken).ConfigureAwait(false);
             ApplyTokens(tokens);
+            // A successful refresh means the connection is healthy again — clear any prior transient
+            // error so the status UI doesn't stay latched on Error after recovery.
+            SetState(ConnectionState.Connected);
         }
         catch (HttpRequestException ex)
         {

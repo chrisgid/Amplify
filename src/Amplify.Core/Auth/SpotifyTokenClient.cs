@@ -120,7 +120,8 @@ public sealed class SpotifyTokenClient
 
     private static TimeSpan RetryDelay(RetryConditionHeaderValue? retryAfter, int attempt)
     {
-        if (retryAfter?.Delta is { } delta && delta > TimeSpan.Zero)
+        // A present delta — including a literal "Retry-After: 0" ("retry now") — is authoritative.
+        if (retryAfter?.Delta is { } delta && delta >= TimeSpan.Zero)
         {
             return delta;
         }
