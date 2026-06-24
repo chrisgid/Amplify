@@ -1,12 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!--
-    Amplify's shared, default-language string table. Every screen's user-facing text lives here and
-    is referenced from XAML via x:Uid or from code via ResourceLoader. Keys are namespaced by a
-    feature prefix (Settings_, and later Onboarding_, Status_, Volume_, ...) so independently built
-    screens never collide. Property identifiers (e.g. ".Header", ".Text", ".Content") set the
-    matching control property when applied through x:Uid.
-  -->
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -65,8 +117,6 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-
-  <!-- Header -->
   <data name="Settings_Back.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
     <value>Back</value>
   </data>
@@ -76,8 +126,6 @@
   <data name="Settings_Title.Text" xml:space="preserve">
     <value>Settings</value>
   </data>
-
-  <!-- Section headers -->
   <data name="Settings_General_Header.Text" xml:space="preserve">
     <value>General</value>
   </data>
@@ -93,8 +141,6 @@
   <data name="Settings_Reset_Header.Text" xml:space="preserve">
     <value>Reset</value>
   </data>
-
-  <!-- General -->
   <data name="Settings_LaunchStartup.Header" xml:space="preserve">
     <value>Launch at startup</value>
   </data>
@@ -113,8 +159,6 @@
   <data name="Settings_Notify.Description" xml:space="preserve">
     <value>Show a brief toast when a shortcut fires</value>
   </data>
-
-  <!-- Appearance -->
   <data name="Settings_Theme.Header" xml:space="preserve">
     <value>App theme</value>
   </data>
@@ -127,24 +171,18 @@
   <data name="Settings_Theme_Dark.Content" xml:space="preserve">
     <value>Dark</value>
   </data>
-
-  <!-- Volume -->
   <data name="Settings_VolumeStep.Header" xml:space="preserve">
     <value>Volume step size</value>
   </data>
   <data name="Settings_VolumeStep.Description" xml:space="preserve">
     <value>Each key press changes the volume by this amount</value>
   </data>
-
-  <!-- Account (button label + status text resolved in code) -->
   <data name="Settings_Account_Disconnect.Content" xml:space="preserve">
     <value>Disconnect</value>
   </data>
   <data name="Settings_Account_NotConnected" xml:space="preserve">
     <value>Not connected</value>
   </data>
-
-  <!-- Spotify Client ID -->
   <data name="Settings_ClientId.Header" xml:space="preserve">
     <value>Spotify Client ID</value>
   </data>
@@ -154,8 +192,6 @@
   <data name="Settings_ClientId_NotSet" xml:space="preserve">
     <value>Not set</value>
   </data>
-
-  <!-- Reset -->
   <data name="Settings_Reset.Header" xml:space="preserve">
     <value>Reset Amplify</value>
   </data>
@@ -165,13 +201,89 @@
   <data name="Settings_Reset_Button.Content" xml:space="preserve">
     <value>Reset…</value>
   </data>
-
-  <!-- Footer -->
   <data name="Settings_Footer_Brand.Text" xml:space="preserve">
     <value>Amplify</value>
   </data>
   <data name="Settings_Footer_Suffix" xml:space="preserve">
     <value>{0} · Not affiliated with Spotify</value>
     <comment>{0} is the app version, e.g. 1.0.0</comment>
+  </data>
+  <data name="Onboarding_Title.Text" xml:space="preserve">
+    <value>Amplify</value>
+  </data>
+  <data name="Onboarding_Tagline.Text" xml:space="preserve">
+    <value>Control Spotify's volume with hotkeys of your choice.</value>
+  </data>
+  <data name="Onboarding_Setup_Header.Text" xml:space="preserve">
+    <value>Set up your Spotify connection</value>
+  </data>
+  <data name="Onboarding_Step2.Text" xml:space="preserve">
+    <value>2. Click Create app</value>
+  </data>
+  <data name="Onboarding_Step3.Text" xml:space="preserve">
+    <value>3. Give it any name and description you like (e.g. Amplify)</value>
+  </data>
+  <data name="Onboarding_Step4.Text" xml:space="preserve">
+    <value>4. Add this redirect URI:</value>
+  </data>
+  <data name="Onboarding_Step5.Text" xml:space="preserve">
+    <value>5. Under "Which API/SDKs are you planning to use?" tick Web API, then Save</value>
+  </data>
+  <data name="Onboarding_Step6.Text" xml:space="preserve">
+    <value>6. Copy the app's Client ID and paste it below</value>
+  </data>
+  <data name="Onboarding_CopyRedirectUri.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Copy redirect URI</value>
+  </data>
+  <data name="Onboarding_CopyRedirectUri.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Copy redirect URI</value>
+  </data>
+  <data name="Onboarding_OwnApp_Caption.Text" xml:space="preserve">
+    <value>You're creating your own private Spotify developer app, so Amplify runs entirely on your device with no shared servers. Setting it up means agreeing to </value>
+  </data>
+  <data name="Onboarding_Terms_Link.Text" xml:space="preserve">
+    <value>Spotify's Developer Terms</value>
+  </data>
+  <data name="Onboarding_ClientId.Header" xml:space="preserve">
+    <value>Client ID</value>
+  </data>
+  <data name="Onboarding_ClientId.PlaceholderText" xml:space="preserve">
+    <value>e.g. 4f9a2c7be1d04b3a8c6f0e9d2b5a1c8e</value>
+  </data>
+  <data name="Onboarding_Helper_NeedsClientId" xml:space="preserve">
+    <value>Paste your Client ID above to continue.</value>
+  </data>
+  <data name="Onboarding_Helper_ReadyToConnect" xml:space="preserve">
+    <value>Opens your browser to sign in securely with Spotify. An account with Spotify Premium is required.</value>
+  </data>
+  <data name="Onboarding_Helper_Authorizing" xml:space="preserve">
+    <value>Finish signing in on the page that opened in your browser.</value>
+  </data>
+  <data name="Onboarding_Privacy.Title" xml:space="preserve">
+    <value>Your privacy</value>
+  </data>
+  <data name="Onboarding_Privacy.Message" xml:space="preserve">
+    <value>Amplify only requests permission to read and change playback state. You can revoke access from your Spotify account at any time. Amplify runs locally and stores nothing off-device.</value>
+  </data>
+  <data name="Onboarding_Denied.Title" xml:space="preserve">
+    <value>Access wasn't granted</value>
+  </data>
+  <data name="Onboarding_Denied.Message" xml:space="preserve">
+    <value>You declined the permission request on Spotify. Connect again and choose Agree to continue.</value>
+  </data>
+  <data name="Onboarding_Connect_ButtonText" xml:space="preserve">
+    <value>Connect Spotify account</value>
+  </data>
+  <data name="Onboarding_Connecting_ButtonText" xml:space="preserve">
+    <value>Waiting for Spotify…</value>
+  </data>
+  <data name="Onboarding_Step1_Prefix.Text" xml:space="preserve">
+    <value>1. Open the </value>
+  </data>
+  <data name="Onboarding_Step1_Link.Text" xml:space="preserve">
+    <value>Spotify Developer Dashboard</value>
+  </data>
+  <data name="Onboarding_Step1_Suffix.Text" xml:space="preserve">
+    <value> and sign in</value>
   </data>
 </root>
