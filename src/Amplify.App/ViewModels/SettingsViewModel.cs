@@ -43,9 +43,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string AccountTitle { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial string AccountSubtitle { get; set; } = string.Empty;
-
     public SettingsViewModel(ISettingsService settings, IAuthService auth)
     {
         _settings = settings;
@@ -147,19 +144,10 @@ public sealed partial class SettingsViewModel : ObservableObject
             OnPropertyChanged(nameof(SpotifyClientIdDisplay));
         });
 
-    private void RefreshAccount()
-    {
-        if (_auth.State == ConnectionState.Connected && _auth.CurrentAccount is Account account)
-        {
-            AccountTitle = account.DisplayName;
-            AccountSubtitle = _strings.GetString("Settings_Account_PremiumSubtitle");
-        }
-        else
-        {
-            AccountTitle = _strings.GetString("Settings_Account_NotConnected");
-            AccountSubtitle = _strings.GetString("Settings_Account_NotConnectedHint");
-        }
-    }
+    private void RefreshAccount() =>
+        AccountTitle = _auth.State == ConnectionState.Connected && _auth.CurrentAccount is Account account
+            ? account.DisplayName
+            : _strings.GetString("Settings_Account_NotConnected");
 
     private void RunOnUi(Action action)
     {
