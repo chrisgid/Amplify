@@ -10,7 +10,7 @@ developer app *you* create during setup.
 To show your connection status and change your volume, Amplify reads — over the
 Spotify Web API, only while it's running:
 
-- your **account profile** (display name and whether you have Premium), and
+- your **account profile** (display name), and
 - your **current playback state** (volume level and the active device name).
 
 It requests the **minimum Spotify permissions** needed for this:

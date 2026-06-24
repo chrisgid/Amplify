@@ -82,8 +82,9 @@ runs. It also handles the in-progress and "access wasn't granted" states returne
 - [ ] Authorizing/verifying states disable the button (and the Client ID field) and show progress
       with accurate copy.
 - [ ] Denial shows the warning info bar and restores a working Connect button.
-- [ ] Premium requirement is communicated up front (helper text); a Free account can still connect,
-      but volume control is unavailable and an upgrade notice is shown (features 05/07).
+- [ ] Premium requirement is communicated up front (helper text). (Premium is enforced by Spotify
+      on the user's own developer app, so a Free user cannot connect a working app — see
+      [feature 03](./03-spotify-authentication.md); the app does not detect or branch on tier.)
 - [ ] Privacy/permissions info bar is present.
 
 ## Implementation guidance

@@ -39,11 +39,11 @@ machine with a real Spotify account:
    `settings.json` before the flow starts.
 3. **Denied path** — [ ] declining on Spotify shows the "Access wasn't granted" notice and a
    working retry.
-4. **Connected status** — [ ] Premium shows the green check + "Connected"; a **Free** account shows
-   the warning triangle, "Free" plan line, and the "Volume control unavailable" `InfoBar`.
+4. **Connected status** — [ ] a connected account shows the green check + "Connected" with the
+   active device; with **no active device** it shows the warning triangle and the "No active device"
+   `InfoBar`.
 5. **Volume — in-app** — [ ] the slider and ± buttons change the **active Spotify device's** volume
-   (confirm in the Spotify app); muted at 0; control is dimmed when there is no active device or on
-   a Free account.
+   (confirm in the Spotify app); muted at 0; control is dimmed when there is no active device.
 6. **Volume — global hotkeys** — [ ] with Amplify **minimised to the tray and another app
    focused**, the default `Ctrl+Alt+↑/↓` change Spotify's volume; the meter stays in sync.
 7. **Rebind** — [ ] recording a new combo persists it; it survives a restart and re-registers; a

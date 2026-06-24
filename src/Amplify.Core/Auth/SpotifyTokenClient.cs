@@ -60,8 +60,8 @@ public sealed class SpotifyTokenClient
         }, ct);
 
     /// <summary>
-    /// Reads the connected account's profile (display name and Premium status) from
-    /// <c>GET /v1/me</c>. A non-Premium account is mapped faithfully — it is not an error.
+    /// Reads the connected account's display name from <c>GET /v1/me</c> for the account card.
+    /// Subscription level is no longer exposed by the Web API, so none is read.
     /// </summary>
     public async Task<Account> GetAccountAsync(string accessToken, CancellationToken ct = default)
     {
@@ -76,8 +76,7 @@ public sealed class SpotifyTokenClient
 
         UserProfile? profile = await response.Content.ReadFromJsonAsync<UserProfile>(ct).ConfigureAwait(false);
         string displayName = string.IsNullOrWhiteSpace(profile?.DisplayName) ? "Spotify user" : profile.DisplayName;
-        bool isPremium = string.Equals(profile?.Product, "premium", StringComparison.OrdinalIgnoreCase);
-        return new Account(displayName, isPremium ? "Premium" : "Free", isPremium, Initials(displayName));
+        return new Account(displayName, Initials(displayName));
     }
 
     private async Task<TokenSet> RequestTokenAsync(Dictionary<string, string> form, CancellationToken ct)
@@ -156,6 +155,5 @@ public sealed class SpotifyTokenClient
         [property: JsonPropertyName("expires_in")] int ExpiresIn);
 
     private sealed record UserProfile(
-        [property: JsonPropertyName("display_name")] string? DisplayName,
-        [property: JsonPropertyName("product")] string? Product);
+        [property: JsonPropertyName("display_name")] string? DisplayName);
 }

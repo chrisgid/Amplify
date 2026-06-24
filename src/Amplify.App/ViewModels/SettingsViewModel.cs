@@ -152,9 +152,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         if (_auth.State == ConnectionState.Connected && _auth.CurrentAccount is Account account)
         {
             AccountTitle = account.DisplayName;
-            AccountSubtitle = account.IsPremium
-                ? account.Plan
-                : _strings.GetString("Settings_Account_FreeSubtitle");
+            AccountSubtitle = _strings.GetString("Settings_Account_PremiumSubtitle");
         }
         else
         {

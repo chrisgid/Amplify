@@ -14,9 +14,9 @@ public static class SpotifyOAuthConstants
     public const string TokenEndpoint = "https://accounts.spotify.com/api/token";
 
     /// <summary>
-    /// Web API endpoint for the current user's profile, read once on connect to record the display
-    /// name and Premium status. The profile is owned by authentication; the Web API client does not
-    /// expose a separate profile call.
+    /// Web API endpoint for the current user's profile, read once on connect for the display name.
+    /// The profile is owned by authentication; the Web API client does not expose a separate profile
+    /// call.
     /// </summary>
     public const string CurrentUserEndpoint = "https://api.spotify.com/v1/me";
 

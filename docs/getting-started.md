@@ -82,8 +82,11 @@ under an OSI-approved **permissive** licence compatible with MIT:
 ## 4. Configuration & the per-user Client ID model
 
 **Amplify does not ship a Spotify Client ID.** A single shipped app would hit Spotify's
-**development-mode 25-user limit**, so instead **each user registers their own Spotify app** and
-provides their **own Client ID** (model "a"). The Client ID is **not a secret** under PKCE.
+**Development-mode user limit** (a small per-app cap, 5 users at time of writing), so instead **each
+user registers their own Spotify app** and provides their **own Client ID** (model "a"). The Client
+ID is **not a secret** under PKCE. A side effect of this model: Spotify requires a Development-mode
+app's **owner** to have active **Premium**, and here the owner *is* the user — so every Amplify user
+is necessarily Premium (a Free user can't run a working app), which is exactly Amplify's audience.
 
 - The user enters their Client ID **during onboarding**; it is persisted in local settings
   (`settings.json`) — not committed to source, not in the Credential Locker (it isn't secret, but
@@ -134,8 +137,9 @@ Spotify app**:
    (Loopback IP only — not `localhost`, no wildcards; see the redirect-URI rule in
    [`specification.md` §6](./specification.md#6-spotify-web-api-client-standards).)
 4. Under API access, the app uses the **Web API**; request only the two scopes in §4.
-5. A **Spotify Premium** account is required to actually change volume; have one available for
-   end-to-end testing.
+5. A **Spotify Premium** account is required — both to change volume *and* because Spotify requires
+   the owner of a Development-mode app to have active Premium (the app stops working if it lapses).
+   Have one available for end-to-end testing.
 
 > Because each user supplies their own Client ID, Amplify is never bound by another app's
 > development-mode user quota.
@@ -167,8 +171,7 @@ volume from the app**, using only a sliver of a few features:
 - a packaged (MSIX) app that launches with the DI host — minimal
   [01](./features/01-application-shell.md) (no Mica/title-bar polish yet);
 - happy-path [03](./features/03-spotify-authentication.md): PKCE connect on the real
-  `127.0.0.1:49737` loopback, store the token, `GetAccessTokenAsync()` — no refresh/rotation or
-  Free-state nuance yet;
+  `127.0.0.1:49737` loopback, store the token, `GetAccessTokenAsync()` — no refresh/rotation yet;
 - happy-path [07](./features/07-volume-control.md): `GET /v1/me/player` + one `PUT .../volume`
   wired to a button, then to a single hard-coded `RegisterHotKey`.
 
@@ -181,7 +184,7 @@ Phase 1.
 ### Phase 1 — complete the features (dependency order)
 
 Flesh out each feature to its full doc: shell (01) + settings (10) + theming (11), then finish auth
-(03: refresh/rotation, Premium/Free), onboarding/status (04/05), hotkeys/volume (06/07: recording
+(03: refresh/rotation), onboarding/status (04/05), hotkeys/volume (06/07: recording
 UI, gating, optimistic UI), tray/notifications (08/09), reset/icon (12/13).
 
 **PR-tests CI (feature 02)** is stood up **as soon as the skeleton scaffolds the solution + test

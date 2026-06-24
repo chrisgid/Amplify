@@ -38,7 +38,6 @@ public sealed partial class OnboardingPage : Page
             AuthResult result = await _authService.ConnectAsync();
             StatusText.Text = result switch
             {
-                { Success: true, NotPremium: true } => "Connected (Free — volume control needs Premium).",
                 { Success: true } => "Connected.",
                 { Denied: true } => "Access not granted. You can try again.",
                 _ => result.Error ?? "Connection failed.",

@@ -140,3 +140,48 @@ Phase 0 deferred list.
   - `AddHttpClient<SpotifyTokenClient>()` activates the **public** `(HttpClient)` constructor;
     the second `(HttpClient, Func<…>)` constructor is `internal` (test-only delay seam, reachable via
     the existing `InternalsVisibleTo("Amplify.Tests")` on Core) and is not chosen by DI.
+
+## 2026-06-24 — Remove Premium detection (Spotify Feb-2026 API change) · feat/03-spotify-authentication
+
+Scope: strip in-app Premium/Free detection entirely (code + contracts + docs). Found during manual
+testing that `Account.IsPremium` was always `false`.
+
+- **Why:** Spotify's **February 2026** Web API changes **removed the `product` field** from
+  `GET /v1/me` (along with `country`/`email`/`explicit_content`/`followers`), with **no replacement**
+  — there is no API way to read subscription tier anymore. Separately, the same release now **requires
+  the owner of a Development-mode app to have active Premium** (the app stops working otherwise).
+  Because Amplify uses the per-user self-registration model (each user owns their own dev app), the
+  user *is* the owner, so **every connectable account is necessarily Premium** and a Free user can't
+  run a working app at all. The Free-account branch the contracts/docs described was therefore both
+  undetectable *and* unreachable. Verified via the [Feb-2026 migration guide](https://developer.spotify.com/documentation/web-api/tutorials/february-2026-migration-guide)
+  and [changelog](https://developer.spotify.com/documentation/web-api/references/changes/february-2026).
+
+- **Contract changes (in `contracts.md`):**
+  - `Account` dropped `Plan` and `IsPremium` → now `(string DisplayName, string Initials)`.
+  - `AuthResult` dropped `NotPremium` → now `(bool Success, bool Denied, string? Error)`.
+  - `IVolumeController.CanControl` comment: "connected + Premium + HasActiveDevice" → "connected +
+    HasActiveDevice".
+  - The `ConnectionState` note that "a Free account is `Connected` + `IsPremium == false`" replaced
+    with "there is no Free-vs-Premium distinction in the app".
+
+- **Decisions:**
+  - **Premium requirement is retained, enforcement is delegated to Spotify.** The app no longer
+    pre-checks tier; a rejected volume call (`403`) is the only signal, handled reactively by feature
+    07 (it already maps `403`/`404` to the no-controllable-device guidance). Documented this reframing
+    in spec §1/§6, getting-started §4/§6, and features 03/04/05/07/12.
+  - **`GetAccountAsync` simplified** to read only `display_name` (+ derived initials); the `product`
+    JSON field and the premium-mapping test were removed, replaced by display-name/initials tests.
+  - **Settings account subtitle** now a static `Settings_Account_PremiumSubtitle` = "Premium"
+    (renamed from `Settings_Account_FreeSubtitle`); feature 12's account row shows the same.
+  - Feature 05 rewritten: the connected state no longer has Premium/Free variants — the only
+    "connected but can't control" presentation is **no active device** (driven by
+    `PlayerState.HasActiveDevice`), unchanged in ownership.
+
+- **Manual/integration checks:**
+  - `dotnet build Amplify.slnx -c Release -p:Platform=x64` → **0 warnings, 0 errors**.
+  - `dotnet test … --filter "Category!=RequiresSpotify"` → **74 passed** (was 75; the 3-case premium
+    theory replaced by two display-name facts).
+  - `dotnet format --verify-no-changes` → clean.
+
+- **Note:** earlier entries above still describe the Premium-detection implementation — they are
+  left intact (append-only log); this entry supersedes them.

@@ -100,7 +100,7 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
         string clientId = _settings.Current.SpotifyClientId;
         if (string.IsNullOrWhiteSpace(clientId))
         {
-            return new AuthResult(false, false, false, "Enter your Spotify Client ID first.");
+            return new AuthResult(false, false, "Enter your Spotify Client ID first.");
         }
 
         SetState(ConnectionState.Connecting);
@@ -117,7 +117,7 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
         {
             LogListenerStartFailed(ex, _options.RedirectPort);
             SetState(ConnectionState.Error);
-            return new AuthResult(false, false, false,
+            return new AuthResult(false, false,
                 $"The callback port {_options.RedirectPort} is in use. Close whatever is using it and try again.");
         }
 
@@ -127,7 +127,7 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
             if (!await Launcher.LaunchUriAsync(new Uri(authorizeUrl)))
             {
                 SetState(ConnectionState.Error);
-                return new AuthResult(false, false, false, "Couldn't open the browser to sign in to Spotify.");
+                return new AuthResult(false, false, "Couldn't open the browser to sign in to Spotify.");
             }
 
             using var timeout = new CancellationTokenSource(_consentTimeout);
@@ -137,17 +137,17 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
             {
                 case OAuthCallbackOutcome.StateMismatch:
                     SetState(ConnectionState.Error);
-                    return new AuthResult(false, false, false,
+                    return new AuthResult(false, false,
                         "The sign-in response didn't match this request. Please try again.");
 
                 case OAuthCallbackOutcome.Denied:
                     // Denial is a normal, retryable outcome — return to disconnected rather than error.
                     SetState(ConnectionState.Disconnected);
-                    return new AuthResult(false, Denied: true, false, null);
+                    return new AuthResult(false, Denied: true, null);
 
                 case OAuthCallbackOutcome.MissingCode:
                     SetState(ConnectionState.Error);
-                    return new AuthResult(false, false, false,
+                    return new AuthResult(false, false,
                         "Spotify didn't return an authorization code. Please try again.");
             }
 
@@ -156,13 +156,13 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
         catch (OperationCanceledException)
         {
             SetState(ConnectionState.Disconnected);
-            return new AuthResult(false, false, false, "Sign-in timed out before it was completed.");
+            return new AuthResult(false, false, "Sign-in timed out before it was completed.");
         }
         catch (HttpRequestException ex)
         {
             LogConnectFailed(ex);
             SetState(ConnectionState.Error);
-            return new AuthResult(false, false, false, "Couldn't complete sign-in with Spotify. Please try again.");
+            return new AuthResult(false, false, "Couldn't complete sign-in with Spotify. Please try again.");
         }
     }
 
@@ -265,7 +265,7 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
 
         CurrentAccount = await _tokenClient.GetAccountAsync(_accessToken!, ct).ConfigureAwait(false);
         SetState(ConnectionState.Connected);
-        return new AuthResult(true, false, NotPremium: !CurrentAccount.IsPremium, null);
+        return new AuthResult(true, false, null);
     }
 
     private bool TokenIsFresh() =>

@@ -30,8 +30,11 @@ change settings.
 - **Audience:** Spotify **Premium** users who want quick, system-wide volume control without
   alt-tabbing to Spotify.
 - **Requirement:** Volume control via the Web API is a **Premium-only** capability and needs an
-  active playback device. A **Free account can still sign in** — it reaches the main screen and is
-  shown a clear "upgrade to Premium" notice, with volume control disabled rather than hard-blocked.
+  active playback device. Premium is effectively **guaranteed**: each user runs their own Spotify
+  developer app, and Spotify requires a Development-mode app's owner to have active Premium — so a
+  Free user cannot connect a working app in the first place. The Web API no longer exposes
+  subscription level (the `product` field was removed), so Amplify does **not** detect or branch on
+  it; a `403` on a volume call is surfaced reactively as the "can't control" guidance.
 - **Affiliation:** Amplify is **not affiliated with Spotify**. Spotify is a trademark of
   Spotify AB.
 
@@ -278,8 +281,10 @@ The Spotify integration (features [03](./features/03-spotify-authentication.md) 
   - **Personal, non-commercial.** Amplify is free and non-commercial — no selling access, no
     in-app payments, no advertising.
   - **Premium-gated.** Controlling a background Spotify app counts as "Streaming" under the Terms
-    and requires **Premium**; Free accounts connect but volume control is disabled (features
-    05/07).
+    and requires **Premium**. Spotify enforces this upstream — a Development-mode app requires its
+    owner to have active Premium, and each user owns their own app — so a Free user cannot connect a
+    working app. The Web API no longer reports subscription level, so the app doesn't detect it;
+    a rejected volume call (`403`) is surfaced as "can't control" guidance (features 05/07).
   - **Independent value.** Amplify is a companion/remote (system-wide hotkeys + tray), not a
     replacement player — it adds value rather than replicating the Spotify client.
   - **Data handling.** Don't cache Spotify content beyond immediate use; always attribute content
@@ -289,7 +294,8 @@ The Spotify integration (features [03](./features/03-spotify-authentication.md) 
     [`PRIVACY.md`](../PRIVACY.md).
 
 **Endpoints used by Amplify** (confirm exact shapes against the OpenAPI spec):
-- `GET /v1/me` — read profile incl. `product` to confirm Premium.
+- `GET /v1/me` — read profile for the account's display name. (Subscription level is no longer
+  available: the `product` field was removed from this endpoint.)
 - `GET /v1/me/player` — current playback state / active device / current volume. **Returns
   `204 No Content` (empty body) when there is no active device** — treat 204 as
   `HasActiveDevice == false`, not an error.
@@ -311,7 +317,7 @@ features, then an integration pass) — see the phased plan in
 | --- | --- | --- | --- |
 | 01 | [Application shell & window](./features/01-application-shell.md) | Main window, Mica, custom title bar, navigation/routing, caption buttons | — |
 | 02 | [CI — PR tests](./features/02-ci-pr-tests.md) | GitHub Actions: build + run unit tests on every PR | 01 |
-| 03 | [Spotify authentication](./features/03-spotify-authentication.md) | PKCE OAuth, local callback, token storage & refresh, Premium status, sign-out | 01 |
+| 03 | [Spotify authentication](./features/03-spotify-authentication.md) | PKCE OAuth, local callback, token storage & refresh, sign-out | 01 |
 | 04 | [Onboarding / first run](./features/04-onboarding.md) | Welcome screen, connect flow, denied handling | 01, 03 |
 | 05 | [Connection status & account](./features/05-connection-status.md) | Connected/connecting/error states, account card, reconnect | 03 |
 | 06 | [Global hotkeys](./features/06-global-hotkeys.md) | Bind/record combos, global registration, conflicts, persistence | 01, 10 |

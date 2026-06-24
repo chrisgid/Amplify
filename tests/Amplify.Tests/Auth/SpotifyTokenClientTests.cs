@@ -80,27 +80,31 @@ public sealed class SpotifyTokenClientTests
         Assert.Equal(TimeSpan.FromSeconds(2), Assert.Single(delays));
     }
 
-    [Theory]
-    [InlineData("premium", true, "Premium")]
-    [InlineData("free", false, "Free")]
-    [InlineData("open", false, "Free")]
-    public async Task GetAccountMapsProductToPremiumStatus(string product, bool expectedPremium, string expectedPlan)
+    [Fact]
+    public async Task GetAccountReadsDisplayNameAndDerivesInitials()
     {
-        SpotifyTokenClient client = CreateClient(
-            Ok($$"""{ "display_name": "Jane Doe", "product": "{{product}}" }"""));
+        SpotifyTokenClient client = CreateClient(Ok("""{ "display_name": "Jane Doe" }"""));
 
         Account account = await client.GetAccountAsync("token");
 
-        Assert.Equal(expectedPremium, account.IsPremium);
-        Assert.Equal(expectedPlan, account.Plan);
         Assert.Equal("Jane Doe", account.DisplayName);
         Assert.Equal("JD", account.Initials);
     }
 
     [Fact]
+    public async Task GetAccountFallsBackWhenDisplayNameMissing()
+    {
+        SpotifyTokenClient client = CreateClient(Ok("""{ }"""));
+
+        Account account = await client.GetAccountAsync("token");
+
+        Assert.Equal("Spotify user", account.DisplayName);
+    }
+
+    [Fact]
     public async Task GetAccountSendsBearerToken()
     {
-        StubHttpMessageHandler handler = Ok("""{ "display_name": "A", "product": "premium" }""");
+        StubHttpMessageHandler handler = Ok("""{ "display_name": "A" }""");
         SpotifyTokenClient client = CreateClient(handler);
 
         await client.GetAccountAsync("tok-xyz");

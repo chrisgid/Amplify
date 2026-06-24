@@ -146,8 +146,8 @@
   <data name="Settings_Account_NotConnectedHint" xml:space="preserve">
     <value>Connect from the main screen to control volume</value>
   </data>
-  <data name="Settings_Account_FreeSubtitle" xml:space="preserve">
-    <value>Free · Volume control unavailable</value>
+  <data name="Settings_Account_PremiumSubtitle" xml:space="preserve">
+    <value>Premium</value>
   </data>
 
   <!-- Spotify Client ID -->

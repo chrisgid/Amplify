@@ -1,9 +1,7 @@
 namespace Amplify.Core.Auth;
 
 /// <summary>
-/// The Spotify connection lifecycle exposed by <see cref="IAuthService"/>. A Free (non-Premium)
-/// account is <see cref="Connected"/> with the account flagged non-Premium — it is not a separate
-/// state and not a failure.
+/// The Spotify connection lifecycle exposed by <see cref="IAuthService"/>.
 /// </summary>
 public enum ConnectionState
 {
