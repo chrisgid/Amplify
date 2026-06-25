@@ -9,35 +9,129 @@
 
     <ScrollViewer Padding="24,16,24,24">
         <StackPanel
-            MaxWidth="420"
+            MaxWidth="520"
             HorizontalAlignment="Stretch"
             Spacing="12">
-            <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Amplify" />
+
+            <!-- Welcome -->
+            <TextBlock x:Uid="Onboarding_Title" Style="{StaticResource TitleTextBlockStyle}" />
             <TextBlock
+                x:Uid="Onboarding_Tagline"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                 Style="{StaticResource BodyTextBlockStyle}"
-                Text="Control Spotify's volume with hotkeys of your choice."
                 TextWrapping="Wrap" />
 
-            <!--
-                TEMPORARY connect controls migrated from the walking skeleton so the app stays usable
-                end to end. The full onboarding flow (guided Spotify app setup, Client-ID capture into
-                settings) replaces this whole screen later.
-            -->
-            <TextBox
-                x:Name="ClientIdBox"
+            <!-- Setup guide -->
+            <Border
                 Margin="0,8,0,0"
-                Header="Spotify Client ID"
-                PlaceholderText="Paste your Spotify app's Client ID" />
-            <Button
-                x:Name="ConnectButton"
-                Click="OnConnectClick"
-                Content="Connect Spotify account"
-                Style="{StaticResource AccentButtonStyle}" />
+                Padding="16"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <StackPanel Spacing="10">
+                    <TextBlock Style="{StaticResource BodyTextBlockStyle}" TextWrapping="Wrap">
+                        <Run x:Uid="Onboarding_Step1_Prefix" /><Hyperlink NavigateUri="{x:Bind ViewModel.DashboardUri}"><Run x:Uid="Onboarding_Step1_Link" /></Hyperlink><Run x:Uid="Onboarding_Step1_Suffix" />
+                    </TextBlock>
+                    <TextBlock x:Uid="Onboarding_Step2" Style="{StaticResource BodyTextBlockStyle}" TextWrapping="Wrap" />
+                    <TextBlock x:Uid="Onboarding_Step3" Style="{StaticResource BodyTextBlockStyle}" TextWrapping="Wrap" />
+                    <TextBlock x:Uid="Onboarding_Step4" Style="{StaticResource BodyTextBlockStyle}" TextWrapping="Wrap" />
+
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Border
+                            Grid.Column="0"
+                            Padding="10,6"
+                            Background="{ThemeResource ControlFillColorDefaultBrush}"
+                            CornerRadius="4">
+                            <TextBlock
+                                FontFamily="Consolas"
+                                IsTextSelectionEnabled="True"
+                                Text="{x:Bind ViewModel.RedirectUri}"
+                                TextWrapping="Wrap" />
+                        </Border>
+                        <Button
+                            x:Uid="Onboarding_CopyRedirectUri"
+                            Grid.Column="1"
+                            Command="{x:Bind ViewModel.CopyRedirectUriCommand}">
+                            <Grid>
+                                <FontIcon
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    Glyph="&#xE8C8;"
+                                    Visibility="{x:Bind ViewModel.RedirectUriNotCopied, Mode=OneWay}" />
+                                <FontIcon
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    Glyph="&#xE73E;"
+                                    Visibility="{x:Bind ViewModel.RedirectUriCopied, Mode=OneWay}" />
+                            </Grid>
+                        </Button>
+                    </Grid>
+
+                    <TextBlock x:Uid="Onboarding_Step5" Style="{StaticResource BodyTextBlockStyle}" TextWrapping="Wrap" />
+                    <TextBlock x:Uid="Onboarding_Step6" Style="{StaticResource BodyTextBlockStyle}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <!-- Own-app / terms note -->
             <TextBlock
-                x:Name="StatusText"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource BodyTextBlockStyle}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                TextWrapping="Wrap">
+                <Run x:Uid="Onboarding_OwnApp_Caption" /><Hyperlink NavigateUri="{x:Bind ViewModel.TermsUri}"><Run x:Uid="Onboarding_Terms_Link" /></Hyperlink>
+            </TextBlock>
+
+            <!-- Client ID -->
+            <TextBox
+                x:Uid="Onboarding_ClientId"
+                Margin="0,8,0,0"
+                IsEnabled="{x:Bind ViewModel.IsClientIdEditable, Mode=OneWay}"
+                Text="{x:Bind ViewModel.ClientId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+            <!-- Denied -->
+            <InfoBar
+                x:Uid="Onboarding_Denied"
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.Denied, Mode=OneWay}"
+                Severity="Warning"
+                Visibility="{x:Bind ViewModel.Denied, Mode=OneWay}" />
+
+            <!-- Other connect failure -->
+            <InfoBar
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+                Severity="Error"
+                Visibility="{x:Bind ViewModel.HasError, Mode=OneWay}" />
+
+            <!-- Connect -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Button
+                    x:Name="ConnectButton"
+                    Grid.Column="0"
+                    HorizontalAlignment="Stretch"
+                    Command="{x:Bind ViewModel.ConnectCommand}"
+                    Content="{x:Bind ViewModel.ConnectButtonText, Mode=OneWay}"
+                    Style="{StaticResource AccentButtonStyle}" />
+                <Button
+                    x:Uid="Onboarding_Cancel"
+                    Grid.Column="1"
+                    Margin="8,0,0,0"
+                    Command="{x:Bind ViewModel.CancelCommand}"
+                    Style="{StaticResource SubtleButtonStyle}"
+                    Visibility="{x:Bind ViewModel.IsAuthorizing, Mode=OneWay}" />
+            </Grid>
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="{x:Bind ViewModel.HelperText, Mode=OneWay}"
+                TextAlignment="Center"
                 TextWrapping="Wrap" />
         </StackPanel>
     </ScrollViewer>

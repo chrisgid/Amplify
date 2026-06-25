@@ -47,15 +47,6 @@ public sealed partial class ShellViewModel : ObservableObject
         RouteChanged?.Invoke(this, route);
     }
 
-    private void OnConnectionStateChanged(object? sender, ConnectionState state)
-    {
-        if (_dispatcher is null || _dispatcher.HasThreadAccess)
-        {
-            _router.OnConnectionStateChanged(state);
-        }
-        else
-        {
-            _dispatcher.TryEnqueue(() => _router.OnConnectionStateChanged(state));
-        }
-    }
+    private void OnConnectionStateChanged(object? sender, ConnectionState state) =>
+        _dispatcher.RunOnUi(() => _router.OnConnectionStateChanged(state));
 }

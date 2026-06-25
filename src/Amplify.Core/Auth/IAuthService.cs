@@ -22,8 +22,13 @@ public interface IAuthService
     /// </summary>
     Task<bool> RestoreSessionAsync();
 
-    /// <summary>Runs the interactive PKCE flow in the system browser and connects the account.</summary>
-    Task<AuthResult> ConnectAsync();
+    /// <summary>
+    /// Runs the interactive PKCE flow in the system browser and connects the account. Honours
+    /// <paramref name="cancellationToken"/> for callers that want to abandon a stuck attempt (e.g.
+    /// the user closed the browser tab); a cancelled attempt resolves to a non-success
+    /// <see cref="AuthResult"/> rather than throwing, alongside the method's own internal timeout.
+    /// </summary>
+    Task<AuthResult> ConnectAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Returns a currently-valid access token, refreshing it transparently when needed.</summary>
     Task<string> GetAccessTokenAsync();

@@ -131,14 +131,14 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     private void OnSettingsChanged(object? sender, AppSettings e) =>
-        RunOnUi(() =>
+        _dispatcher.RunOnUi(() =>
         {
             LoadFromSettings();
             OnPropertyChanged(nameof(SpotifyClientIdDisplay));
         });
 
     private void OnConnectionStateChanged(object? sender, ConnectionState e) =>
-        RunOnUi(() =>
+        _dispatcher.RunOnUi(() =>
         {
             RefreshAccount();
             OnPropertyChanged(nameof(SpotifyClientIdDisplay));
@@ -148,18 +148,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         AccountTitle = _auth.State == ConnectionState.Connected && _auth.CurrentAccount is Account account
             ? account.DisplayName
             : _strings.GetString("Settings_Account_NotConnected");
-
-    private void RunOnUi(Action action)
-    {
-        if (_dispatcher is null || _dispatcher.HasThreadAccess)
-        {
-            action();
-        }
-        else
-        {
-            _dispatcher.TryEnqueue(() => action());
-        }
-    }
 
     // A leading space separates the version from the preceding brand hyperlink in the footer line.
     private string BuildFooterText() =>

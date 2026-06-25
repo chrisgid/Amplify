@@ -1,6 +1,7 @@
 using Amplify.App.Auth;
 using Amplify.App.Dev;
 using Amplify.App.Logging;
+using Amplify.App.Onboarding;
 using Amplify.App.Settings;
 using Amplify.App.Spotify;
 using Amplify.App.Theming;
@@ -62,6 +63,7 @@ public partial class App : Application
         builder.Services.AddTheming();
         builder.Services.AddSpotifyAuth();
         builder.Services.AddSpotifyClient();
+        builder.Services.AddOnboarding();
 
         // Shell: the routing view-model, the window, and the temporary playback slice the window and
         // the main screen share to keep the end-to-end volume flow working.
