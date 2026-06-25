@@ -4,6 +4,7 @@ using Amplify.Core.Onboarding;
 using Amplify.Core.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.UI.Dispatching;
 using Microsoft.Windows.ApplicationModel.Resources;
@@ -21,20 +22,15 @@ namespace Amplify.App.ViewModels;
 /// </summary>
 public sealed partial class OnboardingViewModel : ObservableObject
 {
+    // How long the copy-to-clipboard chip shows its "Copied" glyph before reverting.
+    private static readonly TimeSpan _copyFeedbackDuration = TimeSpan.FromSeconds(1.5);
+
     private readonly IAuthService _auth;
     private readonly ISettingsService _settings;
     private readonly OnboardingFlow _flow = new();
     private readonly DispatcherQueue? _dispatcher;
     private readonly ResourceLoader _strings = new();
-
-    // Bumped by every connect attempt and by Cancel, so a result that arrives after the user
-    // cancelled (or started a fresh attempt) is recognised as stale and discarded rather than
-    // overwriting state that has already moved on.
-    private int _connectAttempt;
-
-    // The in-flight attempt's cancellation source, so Cancel can actually abort ConnectAsync rather
-    // than merely ignore its eventual result. Null when no attempt is running.
-    private CancellationTokenSource? _connectCts;
+    private readonly ILogger<OnboardingViewModel> _logger;
 
     [ObservableProperty]
     public partial string ClientId { get; set; } = string.Empty;
@@ -43,24 +39,42 @@ public sealed partial class OnboardingViewModel : ObservableObject
     public partial bool RedirectUriCopied { get; set; }
 
     /// <summary>The inverse of <see cref="RedirectUriCopied"/>, for the chip's idle-glyph visibility.</summary>
+    /// <remarks>
+    /// Kept as a real property rather than negating <see cref="RedirectUriCopied"/> inline in XAML —
+    /// <c>x:Bind</c>'s parser does not accept a leading <c>!</c> in a property path (confirmed: it
+    /// fails to compile), so there is no shorter equivalent here.
+    /// </remarks>
     public bool RedirectUriNotCopied => !RedirectUriCopied;
 
-    public OnboardingViewModel(IAuthService auth, ISettingsService settings, IOptions<SpotifyOptions> spotifyOptions)
+    public OnboardingViewModel(
+        IAuthService auth,
+        ISettingsService settings,
+        IOptions<SpotifyOptions> spotifyOptions,
+        ILogger<OnboardingViewModel> logger)
     {
         _auth = auth;
         _settings = settings;
+        _logger = logger;
         RedirectUri = SpotifyOAuthConstants.RedirectUri(spotifyOptions.Value.RedirectPort);
+        DashboardUri = new Uri(OnboardingLinks.DeveloperDashboardUrl);
+        TermsUri = new Uri(OnboardingLinks.DeveloperTermsUrl);
 
         // Captured on the UI thread (the view-model is resolved while the screen is built), so the
         // continuation after ConnectAsync can safely touch bindable state from whichever thread it
         // resumes on.
         _dispatcher = DispatcherQueue.GetForCurrentThread();
 
-        _flow.Changed += (_, _) => RunOnUi(NotifyFlowChanged);
+        _flow.Changed += (_, _) => _dispatcher.RunOnUi(NotifyFlowChanged);
     }
 
     /// <summary>The loopback redirect URI shown in the copy-to-clipboard chip.</summary>
     public string RedirectUri { get; }
+
+    /// <summary>The Spotify Developer Dashboard link shown in the setup guide.</summary>
+    public Uri DashboardUri { get; }
+
+    /// <summary>Spotify's Developer Terms link shown in the own-app note.</summary>
+    public Uri TermsUri { get; }
 
     /// <summary>The screen currently being shown.</summary>
     public OnboardingPhase Phase => _flow.Phase;
@@ -96,54 +110,53 @@ public sealed partial class OnboardingViewModel : ObservableObject
 
     public bool CanConnect => _flow.CanBeginConnect(ClientId);
 
-    [RelayCommand(CanExecute = nameof(CanConnect))]
-    private async Task ConnectAsync()
+    /// <summary>Whether Cancel is meaningful right now — only while an attempt is actually running.</summary>
+    public bool CanCancel => IsAuthorizing;
+
+    /// <summary>
+    /// Runs the connect attempt. <c>IncludeCancelCommand</c> generates <see cref="ConnectCancelCommand"/>
+    /// (an <c>ICommand</c> wrapping <c>ConnectCommand.Cancel()</c>) and has the MVVM Toolkit manage the
+    /// underlying <see cref="CancellationTokenSource"/>'s lifetime — including refusing a new execution
+    /// while one is already running — so this view-model doesn't need to hand-roll either.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanConnect), IncludeCancelCommand = true)]
+    private async Task ConnectAsync(CancellationToken cancellationToken)
     {
         string trimmed = ClientId.Trim();
         _settings.Update(s => s.SpotifyClientId = trimmed);
 
-        int attempt = ++_connectAttempt;
         _flow.BeginConnect();
-
-        using var cts = new CancellationTokenSource();
-        _connectCts = cts;
 
         AuthResult result;
         try
         {
-            result = await _auth.ConnectAsync(cts.Token);
+            result = await _auth.ConnectAsync(cancellationToken);
         }
-        finally
+        catch (Exception ex)
         {
-            // Only clear the field if it's still pointing at this attempt's source — a newer attempt
-            // may already have replaced it (see the attempt-number guard below).
-            if (ReferenceEquals(_connectCts, cts))
-            {
-                _connectCts = null;
-            }
+            // IAuthService.ConnectAsync is documented to convert every failure (including
+            // cancellation) into a non-success AuthResult rather than throwing, but guard against an
+            // unexpected escape so a bug there can never leave the screen stuck on Authorizing with no
+            // way to retry.
+            LogConnectFailed(ex);
+            result = new AuthResult(false, false, _strings.GetString("Onboarding_Helper_UnexpectedError"));
         }
 
-        // A result can still arrive after Cancel() if it raced with the cancellation taking effect;
-        // the attempt-number guard discards it the same way as before.
-        RunOnUi(() =>
-        {
-            if (attempt == _connectAttempt)
-            {
-                _flow.OnConnectResult(result);
-            }
-        });
+        // OnboardingFlow.OnConnectResult ignores this if Cancel (or a later attempt) already moved the
+        // phase on, so a result from an abandoned attempt can never resurrect stale state.
+        _dispatcher.RunOnUi(() => _flow.OnConnectResult(result));
     }
 
     /// <summary>
     /// Abandons an in-flight connect attempt — e.g. the user closed the browser tab the system
-    /// opened and wants to retry rather than wait out the underlying timeout. Actually cancels
-    /// <see cref="IAuthService.ConnectAsync"/> rather than merely discarding its result.
+    /// opened — for instant UI feedback. <see cref="ConnectCancelCommand"/> (generated alongside
+    /// <see cref="ConnectCommand"/>) separately requests cancellation of the actual
+    /// <see cref="IAuthService.ConnectAsync"/> call.
     /// </summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanCancel))]
     private void Cancel()
     {
-        _connectAttempt++;
-        _connectCts?.Cancel();
+        ConnectCommand.Cancel();
         _flow.Cancel();
     }
 
@@ -155,7 +168,7 @@ public sealed partial class OnboardingViewModel : ObservableObject
         Clipboard.SetContent(package);
 
         RedirectUriCopied = true;
-        await Task.Delay(TimeSpan.FromSeconds(1.5));
+        await Task.Delay(_copyFeedbackDuration);
         RedirectUriCopied = false;
     }
 
@@ -179,18 +192,11 @@ public sealed partial class OnboardingViewModel : ObservableObject
         OnPropertyChanged(nameof(HelperText));
         OnPropertyChanged(nameof(ConnectButtonText));
         OnPropertyChanged(nameof(CanConnect));
+        OnPropertyChanged(nameof(CanCancel));
         ConnectCommand.NotifyCanExecuteChanged();
+        CancelCommand.NotifyCanExecuteChanged();
     }
 
-    private void RunOnUi(Action action)
-    {
-        if (_dispatcher is null || _dispatcher.HasThreadAccess)
-        {
-            action();
-        }
-        else
-        {
-            _dispatcher.TryEnqueue(() => action());
-        }
-    }
+    [LoggerMessage(Level = LogLevel.Error, Message = "Onboarding connect attempt failed unexpectedly.")]
+    private partial void LogConnectFailed(Exception exception);
 }

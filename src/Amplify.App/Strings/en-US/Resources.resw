@@ -268,6 +268,9 @@
   <data name="Onboarding_Connecting_ButtonText" xml:space="preserve">
     <value>Waiting for Spotify…</value>
   </data>
+  <data name="Onboarding_Helper_UnexpectedError" xml:space="preserve">
+    <value>Something went wrong connecting to Spotify. Please try again.</value>
+  </data>
   <data name="Onboarding_Step1_Prefix.Text" xml:space="preserve">
     <value>1. Open the </value>
   </data>

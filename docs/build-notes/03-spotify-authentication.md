@@ -236,3 +236,33 @@ while the underlying attempt keeps running until its own timeout.
   matching the existing behaviour for the internal timeout.
 - **Deferred / known gaps:** None — this closes the gap noted when feature 04's Cancel button was
   first added (it previously only discarded results client-side).
+
+## 2026-06-25 — Code-review fixes (credential leak + message accuracy) · feat/04-onboarding
+
+Two findings from review of the cancellation support added above:
+
+- **Cancelling after the token exchange leaked a connectable credential (was high).**
+  `CompleteConnectAsync` calls `ApplyTokens` (which persists the refresh token to the Credential
+  Locker immediately) before reading the account via `GetAccountAsync`. If the caller cancelled in
+  that window, the outer `catch (OperationCanceledException)` reported the attempt as cancelled, but
+  the refresh token was already on disk — the next launch's `RestoreSessionAsync` would silently
+  reconnect using it, contradicting the "cancelled" outcome the user was shown. Fixed by wrapping
+  `GetAccountAsync` in its own `try`/`catch (OperationCanceledException)` that calls `ClearTokens()`
+  and `_refreshTokenStore.Clear()` before rethrowing, so a cancelled attempt never leaves a usable
+  session behind. This path only became reachable once Cancel started actually cancelling the call
+  (previously it only discarded the result while the attempt kept running to completion in the
+  background, so the credential would always end up persisted regardless of "cancelling").
+- **Cancel-vs-timeout message picked the wrong source on a near-simultaneous race (was low).**
+  The `OperationCanceledException` catch used `cancellationToken.IsCancellationRequested` (the
+  external/caller token) to decide between "cancelled" and "timed out", which could mislabel a
+  timeout that fired in the same tick the caller also cancelled. Switched to checking the internal
+  `timeout` `CancellationTokenSource`'s own flag directly — required moving its declaration (and the
+  linked source's) above the `try` block it was previously scoped inside, since the `catch` needs to
+  read it.
+- **Manual/integration checks:**
+  - `dotnet build Amplify.slnx -c Debug -p:Platform=x64` → **0 warnings, 0 errors**.
+  - `dotnet test tests/Amplify.Tests` → **91 passed**.
+  - No `SpotifyAuthService`-specific unit tests cover the Credential-Locker rollback path directly
+    (it requires a real `IRefreshTokenStore`/loopback/browser interaction, same as the rest of
+    `ConnectAsync` — see the Phase 0/1 entries above on why this method's happy/cancel paths are
+    manual-only). Re-verify via the feature 04 manual Cancel walk next time a desktop is available.

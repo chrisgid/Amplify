@@ -132,4 +132,38 @@ public class OnboardingFlowTests
         Assert.Equal(OnboardingPhase.Welcome, flow.Phase);
         Assert.False(raised);
     }
+
+    [Fact]
+    public void OnConnectResultIsIgnoredWhenNotAuthorizing()
+    {
+        var flow = new OnboardingFlow();
+        var raised = false;
+        flow.Changed += (_, _) => raised = true;
+
+        // Never began an attempt, so Phase is already Welcome — a result arriving here is stale.
+        flow.OnConnectResult(new AuthResult(Success: false, Denied: true, Error: null));
+
+        Assert.Equal(OnboardingPhase.Welcome, flow.Phase);
+        Assert.False(flow.Denied);
+        Assert.False(raised);
+    }
+
+    [Fact]
+    public void OnConnectResultAfterCancelIsDiscarded()
+    {
+        var flow = new OnboardingFlow();
+        flow.BeginConnect();
+        flow.Cancel();
+        var raised = false;
+        flow.Changed += (_, _) => raised = true;
+
+        // The abandoned attempt's result arrives after Cancel already reset the phase; it must not
+        // resurrect Denied/ErrorMessage the user already dismissed.
+        flow.OnConnectResult(new AuthResult(Success: false, Denied: false, Error: "Network unreachable."));
+
+        Assert.Equal(OnboardingPhase.Welcome, flow.Phase);
+        Assert.False(flow.Denied);
+        Assert.Null(flow.ErrorMessage);
+        Assert.False(raised);
+    }
 }

@@ -124,6 +124,11 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
                 $"The callback port {_options.RedirectPort} is in use. Close whatever is using it and try again.");
         }
 
+        // Declared outside the try block (rather than just before its first use) so the catch below
+        // can check which source actually fired.
+        using var timeout = new CancellationTokenSource(_consentTimeout);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
+
         try
         {
             string authorizeUrl = BuildAuthorizeUrl(clientId, redirectUri, codes, _options.Scopes);
@@ -133,8 +138,6 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
                 return new AuthResult(false, false, "Couldn't open the browser to sign in to Spotify.");
             }
 
-            using var timeout = new CancellationTokenSource(_consentTimeout);
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
             OAuthCallback callback = await listener.WaitForCallbackAsync(linkedCts.Token);
 
             switch (OAuthCallbackEvaluator.Evaluate(callback.Code, callback.State, callback.Error, codes.State))
@@ -160,12 +163,15 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
         catch (OperationCanceledException)
         {
             SetState(ConnectionState.Disconnected);
-            // Distinguish the caller cancelling (e.g. the user gave up waiting) from the method's own
-            // timeout firing — both surface as a non-success AuthResult rather than throwing, but with
-            // a message that matches what actually happened.
-            return cancellationToken.IsCancellationRequested
-                ? new AuthResult(false, false, "Sign-in was cancelled.")
-                : new AuthResult(false, false, "Sign-in timed out before it was completed.");
+            // Distinguish the method's own timeout firing from the caller cancelling (e.g. the user
+            // gave up waiting) — both surface as a non-success AuthResult rather than throwing, but
+            // with a message that matches what actually happened. Checked against the timeout source's
+            // own flag (not the external token) so a near-simultaneous cancel + timeout still reports
+            // "timed out" whenever the deadline genuinely elapsed, rather than depending on which of
+            // the two tokens happened to be queried.
+            return timeout.IsCancellationRequested
+                ? new AuthResult(false, false, "Sign-in timed out before it was completed.")
+                : new AuthResult(false, false, "Sign-in was cancelled.");
         }
         catch (HttpRequestException ex)
         {
@@ -273,9 +279,23 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
     {
         TokenSet tokens = await _tokenClient.ExchangeCodeAsync(clientId, redirectUri, code, verifier, ct)
             .ConfigureAwait(false);
+        // ApplyTokens persists the refresh token immediately (needed so a connect followed straight by
+        // app exit still leaves a usable session). If the attempt is cancelled before the account read
+        // below completes, undo that persistence — otherwise a cancelled attempt would silently leave a
+        // connectable credential behind for the next launch's RestoreSessionAsync to pick up.
         ApplyTokens(tokens);
 
-        CurrentAccount = await _tokenClient.GetAccountAsync(_accessToken!, ct).ConfigureAwait(false);
+        try
+        {
+            CurrentAccount = await _tokenClient.GetAccountAsync(_accessToken!, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            ClearTokens();
+            _refreshTokenStore.Clear();
+            throw;
+        }
+
         SetState(ConnectionState.Connected);
         return new AuthResult(true, false, null);
     }

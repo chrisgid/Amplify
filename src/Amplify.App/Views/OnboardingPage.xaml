@@ -31,7 +31,7 @@
                 CornerRadius="8">
                 <StackPanel Spacing="10">
                     <TextBlock Style="{StaticResource BodyTextBlockStyle}" TextWrapping="Wrap">
-                        <Run x:Uid="Onboarding_Step1_Prefix" /><Hyperlink NavigateUri="https://developer.spotify.com/dashboard"><Run x:Uid="Onboarding_Step1_Link" /></Hyperlink><Run x:Uid="Onboarding_Step1_Suffix" />
+                        <Run x:Uid="Onboarding_Step1_Prefix" /><Hyperlink NavigateUri="{x:Bind ViewModel.DashboardUri}"><Run x:Uid="Onboarding_Step1_Link" /></Hyperlink><Run x:Uid="Onboarding_Step1_Suffix" />
                     </TextBlock>
                     <TextBlock x:Uid="Onboarding_Step2" Style="{StaticResource BodyTextBlockStyle}" TextWrapping="Wrap" />
                     <TextBlock x:Uid="Onboarding_Step3" Style="{StaticResource BodyTextBlockStyle}" TextWrapping="Wrap" />
@@ -80,7 +80,7 @@
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                 Style="{StaticResource CaptionTextBlockStyle}"
                 TextWrapping="Wrap">
-                <Run x:Uid="Onboarding_OwnApp_Caption" /><Hyperlink NavigateUri="https://developer.spotify.com/terms"><Run x:Uid="Onboarding_Terms_Link" /></Hyperlink>
+                <Run x:Uid="Onboarding_OwnApp_Caption" /><Hyperlink NavigateUri="{x:Bind ViewModel.TermsUri}"><Run x:Uid="Onboarding_Terms_Link" /></Hyperlink>
             </TextBlock>
 
             <!-- Client ID -->

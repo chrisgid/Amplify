@@ -45,12 +45,20 @@ public sealed class OnboardingFlow
     }
 
     /// <summary>
-    /// Applies the outcome of <see cref="IAuthService.ConnectAsync"/>. Success leaves the phase
-    /// unchanged (see remarks); denial and other failures both return to
+    /// Applies the outcome of <see cref="IAuthService.ConnectAsync"/>. Ignored outside
+    /// <see cref="OnboardingPhase.Authorizing"/> — a result that arrives after <see cref="Cancel"/>
+    /// (or, since only one attempt can ever be in flight, after a later attempt has already moved the
+    /// phase on) is stale and must not overwrite state the user has since moved past. Otherwise,
+    /// success leaves the phase unchanged (see remarks); denial and other failures both return to
     /// <see cref="OnboardingPhase.Welcome"/> so the user can retry.
     /// </summary>
     public void OnConnectResult(AuthResult result)
     {
+        if (Phase != OnboardingPhase.Authorizing)
+        {
+            return;
+        }
+
         if (result.Success)
         {
             return;

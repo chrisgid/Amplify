@@ -65,3 +65,59 @@
   → Connect → browser consent → approve) routes to Main on return; Cancel mid-Authorizing returns to
   Welcome and a subsequent retry connects cleanly; declining consent on Spotify shows the Denied
   `InfoBar` and leaves Connect usable again. All three passed.
+
+## 2026-06-25 — Code-review fixes
+
+Eight review findings, all addressed:
+
+- **`OnboardingViewModel.ConnectAsync` could escape unhandled (was high).** Only the underlying
+  `IAuthService.ConnectAsync` converted failures to `AuthResult`; any other exception (e.g. a
+  malformed-JSON edge case) would propagate out of the view-model with nothing to reset
+  `OnboardingFlow.Phase`, leaving the screen stuck on Authorizing with no way to retry short of
+  restarting the app. Wrapped the await in a `catch (Exception ex)` that logs
+  (`ILogger<OnboardingViewModel>`, newly injected) and converts to a generic
+  `Onboarding_Helper_UnexpectedError` `AuthResult` instead.
+- **Replaced the hand-rolled cancellation/staleness tracking with CommunityToolkit.Mvvm's built-in
+  support (was medium — maintainability/bug-surface).** `[RelayCommand(IncludeCancelCommand = true)]`
+  on `ConnectAsync(CancellationToken)` generates `ConnectCancelCommand` and has the toolkit manage the
+  `CancellationTokenSource` lifetime, including refusing a new execution while one is still running —
+  removing the manual `_connectAttempt`/`_connectCts`/`ReferenceEquals` bookkeeping entirely. The
+  "stale result" guard moved into `OnboardingFlow.OnConnectResult` itself (ignored outside
+  `Authorizing`), which is simpler *and* better-placed: it's now impossible for a result to resurrect
+  state after `Cancel()`, in Core, covered by `OnboardingFlowTests`, rather than relying on App-side
+  counter bookkeeping with no direct test coverage.
+- **`Cancel` had no `CanExecute` guard (was low-medium).** Unlike `ConnectCommand`, `CancelCommand`
+  was invocable any time the button happened to be reachable, with `OnboardingFlow.Cancel()`'s no-op
+  as the only safety net. Added `CanCancel => IsAuthorizing` and
+  `[RelayCommand(CanExecute = nameof(CanCancel))]` so the "impossible" state is unreachable via the
+  command itself, not just hidden by XAML `Visibility`.
+- **Extracted the duplicated dispatcher-marshalling helper (was low — maintainability).**
+  `OnboardingViewModel.RunOnUi`, `SettingsViewModel.RunOnUi`, and an inlined copy in
+  `ShellViewModel.OnConnectionStateChanged` were three identical
+  `_dispatcher is null || _dispatcher.HasThreadAccess` checks. Replaced all three with a shared
+  `DispatcherQueue.RunOnUi(Action)` extension method (`ViewModels/DispatcherQueueExtensions.cs`).
+- **Credential persisted before a cancelled attempt was observed (was high — feature 03's file; see
+  its own 2026-06-25 entry).** `CompleteConnectAsync` now rolls back the just-persisted refresh token
+  if cancelled between the token exchange and the account read.
+- **Cancel-vs-timeout message accuracy (was low — feature 03's file).** Switched to checking the
+  timeout `CancellationTokenSource`'s own flag directly rather than inferring from the external
+  token, and fixed a variable-scoping bug introduced by the same change (`timeout` was declared
+  inside the `try` it needed to be read from in the `catch`).
+- **Magic-value cleanup (was low).** The Spotify Developer Dashboard/Terms URLs were hardcoded in
+  `OnboardingPage.xaml`; moved to a new `Amplify.Core.Onboarding.OnboardingLinks` (mirroring
+  `SpotifyOAuthConstants`), exposed as `Uri`-typed view-model properties (`DashboardUri`/`TermsUri`)
+  and bound via `x:Bind` to `Hyperlink.NavigateUri` — confirmed `x:Bind` supports binding a `Uri`
+  property directly to `NavigateUri`. The 1.5s clipboard-feedback delay became a named
+  `_copyFeedbackDuration` static field, matching `SpotifyAuthService`'s `_consentTimeout`/
+  `_refreshSkew` convention.
+- **`RedirectUriNotCopied` — investigated, kept as-is.** The suggested simplification
+  (`Visibility="{x:Bind !ViewModel.RedirectUriCopied}"`) was tried directly: the WinUI 3 `x:Bind`
+  parser rejects a leading `!` in a property path (`token recognition error at: '!'`). No converter
+  exists in the codebase to introduce instead, so the dedicated property + change-handler stays;
+  documented why in a `<remarks>` on the property so it isn't "simplified" again without checking.
+- **Manual/integration checks:**
+  - `dotnet build Amplify.slnx -c Debug -p:Platform=x64` → **0 warnings, 0 errors**.
+  - `dotnet test tests/Amplify.Tests` → **91 passed** (+2 new `OnboardingFlow` staleness tests).
+  - Live manual re-walk (Connect / Cancel-mid-Authorizing / deny) not repeated this session — no
+    behavioural change to the user-visible flow, only to its internals and to two latent bugs that
+    needed a race to trigger.
