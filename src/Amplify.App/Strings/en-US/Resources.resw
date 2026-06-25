@@ -212,13 +212,7 @@
     <value>Amplify</value>
   </data>
   <data name="Onboarding_Tagline.Text" xml:space="preserve">
-    <value>Control Spotify's volume with hotkeys of your choice.</value>
-  </data>
-  <data name="Onboarding_Setup_Header.Text" xml:space="preserve">
     <value>Set up your Spotify connection</value>
-  </data>
-  <data name="Onboarding_Step2.Text" xml:space="preserve">
-    <value>2. Click Create app</value>
   </data>
   <data name="Onboarding_Step3.Text" xml:space="preserve">
     <value>3. Give it any name and description you like (e.g. Amplify)</value>
@@ -239,7 +233,7 @@
     <value>Copy redirect URI</value>
   </data>
   <data name="Onboarding_OwnApp_Caption.Text" xml:space="preserve">
-    <value>You're creating your own private Spotify developer app, so Amplify runs entirely on your device with no shared servers. Setting it up means agreeing to </value>
+    <value>Due to the unlikelihood of Spotify ever approving Amplify to move out of development mode, you are required to set up your own development mode app registration inside Spotify's developer dashboard. By doing so you are agreeing to </value>
   </data>
   <data name="Onboarding_Terms_Link.Text" xml:space="preserve">
     <value>Spotify's Developer Terms</value>
@@ -258,12 +252,6 @@
   </data>
   <data name="Onboarding_Helper_Authorizing" xml:space="preserve">
     <value>Finish signing in on the page that opened in your browser.</value>
-  </data>
-  <data name="Onboarding_Privacy.Title" xml:space="preserve">
-    <value>Your privacy</value>
-  </data>
-  <data name="Onboarding_Privacy.Message" xml:space="preserve">
-    <value>Amplify only requests permission to read and change playback state. You can revoke access from your Spotify account at any time. Amplify runs locally and stores nothing off-device.</value>
   </data>
   <data name="Onboarding_Denied.Title" xml:space="preserve">
     <value>Access wasn't granted</value>
@@ -285,5 +273,8 @@
   </data>
   <data name="Onboarding_Step1_Suffix.Text" xml:space="preserve">
     <value> and sign in</value>
+  </data>
+  <data name="Onboarding_Step2.Text" xml:space="preserve">
+    <value>2. Click Create app</value>
   </data>
 </root>

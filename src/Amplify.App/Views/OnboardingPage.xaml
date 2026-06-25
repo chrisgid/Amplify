@@ -9,7 +9,7 @@
 
     <ScrollViewer Padding="24,16,24,24">
         <StackPanel
-            MaxWidth="420"
+            MaxWidth="520"
             HorizontalAlignment="Stretch"
             Spacing="12">
 
@@ -30,8 +30,6 @@
                 BorderThickness="1"
                 CornerRadius="8">
                 <StackPanel Spacing="10">
-                    <TextBlock x:Uid="Onboarding_Setup_Header" Style="{StaticResource BodyStrongTextBlockStyle}" />
-
                     <TextBlock Style="{StaticResource BodyTextBlockStyle}" TextWrapping="Wrap">
                         <Run x:Uid="Onboarding_Step1_Prefix" /><Hyperlink NavigateUri="https://developer.spotify.com/dashboard"><Run x:Uid="Onboarding_Step1_Link" /></Hyperlink><Run x:Uid="Onboarding_Step1_Suffix" />
                     </TextBlock>
@@ -92,13 +90,6 @@
                 IsEnabled="{x:Bind ViewModel.IsClientIdEditable, Mode=OneWay}"
                 Text="{x:Bind ViewModel.ClientId, Mode=TwoWay}" />
 
-            <!-- Privacy -->
-            <InfoBar
-                x:Uid="Onboarding_Privacy"
-                IsClosable="False"
-                IsOpen="True"
-                Severity="Informational" />
-
             <!-- Denied -->
             <InfoBar
                 x:Uid="Onboarding_Denied"
@@ -135,6 +126,7 @@
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                 Style="{StaticResource CaptionTextBlockStyle}"
                 Text="{x:Bind ViewModel.HelperText, Mode=OneWay}"
+                TextAlignment="Center"
                 TextWrapping="Wrap" />
         </StackPanel>
     </ScrollViewer>
