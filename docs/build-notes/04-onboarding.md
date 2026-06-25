@@ -60,3 +60,8 @@
   and, since `IAuthService.ConnectAsync` now accepts a `CancellationToken` (see the 2026-06-25 entry
   in `build-notes/03-spotify-authentication.md`), actually cancels the in-flight attempt rather than
   just ignoring its eventual result.
+- **Manual/integration checks (closing the gap left open above):** run on a dev desktop with a real
+  Spotify Client ID and Premium account. Connect (6-step guide → copy redirect URI → paste Client ID
+  → Connect → browser consent → approve) routes to Main on return; Cancel mid-Authorizing returns to
+  Welcome and a subsequent retry connects cleanly; declining consent on Spotify shows the Denied
+  `InfoBar` and leaves Connect usable again. All three passed.
