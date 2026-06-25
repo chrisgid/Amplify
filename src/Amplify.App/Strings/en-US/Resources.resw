@@ -262,6 +262,9 @@
   <data name="Onboarding_Connect_ButtonText" xml:space="preserve">
     <value>Connect Spotify account</value>
   </data>
+  <data name="Onboarding_Cancel.Content" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
   <data name="Onboarding_Connecting_ButtonText" xml:space="preserve">
     <value>Waiting for Spotify…</value>
   </data>

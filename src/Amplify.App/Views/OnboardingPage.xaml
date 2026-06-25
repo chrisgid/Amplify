@@ -88,22 +88,26 @@
                 x:Uid="Onboarding_ClientId"
                 Margin="0,8,0,0"
                 IsEnabled="{x:Bind ViewModel.IsClientIdEditable, Mode=OneWay}"
-                Text="{x:Bind ViewModel.ClientId, Mode=TwoWay}" />
+                Text="{x:Bind ViewModel.ClientId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
             <!-- Denied -->
             <InfoBar
                 x:Uid="Onboarding_Denied"
+                IsClosable="False"
                 IsOpen="{x:Bind ViewModel.Denied, Mode=OneWay}"
-                Severity="Warning" />
+                Severity="Warning"
+                Visibility="{x:Bind ViewModel.Denied, Mode=OneWay}" />
 
             <!-- Other connect failure -->
             <InfoBar
+                IsClosable="False"
                 IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
                 Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
-                Severity="Error" />
+                Severity="Error"
+                Visibility="{x:Bind ViewModel.HasError, Mode=OneWay}" />
 
             <!-- Connect -->
-            <Grid ColumnSpacing="12">
+            <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -115,12 +119,13 @@
                     Command="{x:Bind ViewModel.ConnectCommand}"
                     Content="{x:Bind ViewModel.ConnectButtonText, Mode=OneWay}"
                     Style="{StaticResource AccentButtonStyle}" />
-                <ProgressRing
+                <Button
+                    x:Uid="Onboarding_Cancel"
                     Grid.Column="1"
-                    Width="20"
-                    Height="20"
-                    IsActive="{x:Bind ViewModel.IsConnecting, Mode=OneWay}"
-                    Visibility="{x:Bind ViewModel.IsConnecting, Mode=OneWay}" />
+                    Margin="8,0,0,0"
+                    Command="{x:Bind ViewModel.CancelCommand}"
+                    Style="{StaticResource SubtleButtonStyle}"
+                    Visibility="{x:Bind ViewModel.IsAuthorizing, Mode=OneWay}" />
             </Grid>
             <TextBlock
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"

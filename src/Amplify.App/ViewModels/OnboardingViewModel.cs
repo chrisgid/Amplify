@@ -27,6 +27,15 @@ public sealed partial class OnboardingViewModel : ObservableObject
     private readonly DispatcherQueue? _dispatcher;
     private readonly ResourceLoader _strings = new();
 
+    // Bumped by every connect attempt and by Cancel, so a result that arrives after the user
+    // cancelled (or started a fresh attempt) is recognised as stale and discarded rather than
+    // overwriting state that has already moved on.
+    private int _connectAttempt;
+
+    // The in-flight attempt's cancellation source, so Cancel can actually abort ConnectAsync rather
+    // than merely ignore its eventual result. Null when no attempt is running.
+    private CancellationTokenSource? _connectCts;
+
     [ObservableProperty]
     public partial string ClientId { get; set; } = string.Empty;
 
@@ -73,8 +82,8 @@ public sealed partial class OnboardingViewModel : ObservableObject
     /// <summary>Whether the Client ID field should accept input (disabled mid-attempt).</summary>
     public bool IsClientIdEditable => Phase == OnboardingPhase.Welcome;
 
-    /// <summary>Whether the connect spinner should be shown.</summary>
-    public bool IsConnecting => Phase != OnboardingPhase.Welcome;
+    /// <summary>Whether the Cancel button (for an in-flight attempt) should be shown.</summary>
+    public bool IsAuthorizing => Phase == OnboardingPhase.Authorizing;
 
     /// <summary>The helper text shown beneath the Connect button.</summary>
     public string HelperText => Phase switch
@@ -93,11 +102,49 @@ public sealed partial class OnboardingViewModel : ObservableObject
         string trimmed = ClientId.Trim();
         _settings.Update(s => s.SpotifyClientId = trimmed);
 
+        int attempt = ++_connectAttempt;
         _flow.BeginConnect();
 
-        AuthResult result = await _auth.ConnectAsync();
+        using var cts = new CancellationTokenSource();
+        _connectCts = cts;
 
-        RunOnUi(() => _flow.OnConnectResult(result));
+        AuthResult result;
+        try
+        {
+            result = await _auth.ConnectAsync(cts.Token);
+        }
+        finally
+        {
+            // Only clear the field if it's still pointing at this attempt's source — a newer attempt
+            // may already have replaced it (see the attempt-number guard below).
+            if (ReferenceEquals(_connectCts, cts))
+            {
+                _connectCts = null;
+            }
+        }
+
+        // A result can still arrive after Cancel() if it raced with the cancellation taking effect;
+        // the attempt-number guard discards it the same way as before.
+        RunOnUi(() =>
+        {
+            if (attempt == _connectAttempt)
+            {
+                _flow.OnConnectResult(result);
+            }
+        });
+    }
+
+    /// <summary>
+    /// Abandons an in-flight connect attempt — e.g. the user closed the browser tab the system
+    /// opened and wants to retry rather than wait out the underlying timeout. Actually cancels
+    /// <see cref="IAuthService.ConnectAsync"/> rather than merely discarding its result.
+    /// </summary>
+    [RelayCommand]
+    private void Cancel()
+    {
+        _connectAttempt++;
+        _connectCts?.Cancel();
+        _flow.Cancel();
     }
 
     [RelayCommand]
@@ -128,7 +175,7 @@ public sealed partial class OnboardingViewModel : ObservableObject
         OnPropertyChanged(nameof(ErrorMessage));
         OnPropertyChanged(nameof(HasError));
         OnPropertyChanged(nameof(IsClientIdEditable));
-        OnPropertyChanged(nameof(IsConnecting));
+        OnPropertyChanged(nameof(IsAuthorizing));
         OnPropertyChanged(nameof(HelperText));
         OnPropertyChanged(nameof(ConnectButtonText));
         OnPropertyChanged(nameof(CanConnect));

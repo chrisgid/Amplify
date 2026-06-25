@@ -98,7 +98,7 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
         }
     }
 
-    public async Task<AuthResult> ConnectAsync()
+    public async Task<AuthResult> ConnectAsync(CancellationToken cancellationToken = default)
     {
         string clientId = _settings.Current.SpotifyClientId;
         if (string.IsNullOrWhiteSpace(clientId))
@@ -134,7 +134,8 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
             }
 
             using var timeout = new CancellationTokenSource(_consentTimeout);
-            OAuthCallback callback = await listener.WaitForCallbackAsync(timeout.Token);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
+            OAuthCallback callback = await listener.WaitForCallbackAsync(linkedCts.Token);
 
             switch (OAuthCallbackEvaluator.Evaluate(callback.Code, callback.State, callback.Error, codes.State))
             {
@@ -154,12 +155,17 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
                         "Spotify didn't return an authorization code. Please try again.");
             }
 
-            return await CompleteConnectAsync(clientId, redirectUri, callback.Code!, codes.Verifier, timeout.Token);
+            return await CompleteConnectAsync(clientId, redirectUri, callback.Code!, codes.Verifier, linkedCts.Token);
         }
         catch (OperationCanceledException)
         {
             SetState(ConnectionState.Disconnected);
-            return new AuthResult(false, false, "Sign-in timed out before it was completed.");
+            // Distinguish the caller cancelling (e.g. the user gave up waiting) from the method's own
+            // timeout firing — both surface as a non-success AuthResult rather than throwing, but with
+            // a message that matches what actually happened.
+            return cancellationToken.IsCancellationRequested
+                ? new AuthResult(false, false, "Sign-in was cancelled.")
+                : new AuthResult(false, false, "Sign-in timed out before it was completed.");
         }
         catch (HttpRequestException ex)
         {

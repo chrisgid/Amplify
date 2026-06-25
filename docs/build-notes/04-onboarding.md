@@ -40,3 +40,23 @@
 - **Verified facts:** WinUI/UWP's implicit bool→`Visibility` x:Bind conversion (Microsoft Learn,
   "{x:Bind} markup extension" + "Data binding in depth" docs) — works for property-path bindings on
   builds targeting SDK 14393+, which Amplify's `net10.0-windows10.0.26100.0` far exceeds.
+
+## 2026-06-25 — Bug fixes + Cancel button
+
+- **Bug:** the Connect button stayed disabled after typing a Client ID. Root cause: `{x:Bind}`'s
+  default `UpdateSourceTrigger` for `TextBox.Text` is `LostFocus`, not `PropertyChanged` (unlike
+  every other property, where `x:Bind` TwoWay defaults to `PropertyChanged` — confirmed via
+  Microsoft Learn's "{x:Bind} markup extension" and "Data binding in depth" docs). Since the
+  disabled button can't take focus on click, there was no way to trigger the commit. Fixed by adding
+  `UpdateSourceTrigger=PropertyChanged` to the Client ID `TextBox` binding.
+- **Removed the connect spinner** (`ProgressRing`/`IsConnecting`) per request — the Connect button's
+  text already communicates the waiting state via `ConnectButtonText`.
+- **Layout:** the Denied/error `InfoBar`s were leaving a gap in the `StackPanel` even while closed;
+  added an explicit `Visibility` binding alongside `IsOpen` so a closed bar takes no `StackPanel`
+  spacing.
+- **Added a Cancel button**, shown only during `OnboardingPhase.Authorizing`, so a user who closed
+  the browser tab can retry without waiting out the connect timeout. `OnboardingFlow.Cancel()`
+  (Core) resets the phase; the view-model also bumps an attempt counter (to discard any late result)
+  and, since `IAuthService.ConnectAsync` now accepts a `CancellationToken` (see the 2026-06-25 entry
+  in `build-notes/03-spotify-authentication.md`), actually cancels the in-flight attempt rather than
+  just ignoring its eventual result.

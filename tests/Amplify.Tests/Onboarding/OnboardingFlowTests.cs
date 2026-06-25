@@ -102,4 +102,34 @@ public class OnboardingFlowTests
         Assert.False(flow.Denied);
         Assert.Equal("Network unreachable.", flow.ErrorMessage);
     }
+
+    [Fact]
+    public void CancelWhileAuthorizingReturnsToWelcomeAndRaisesChanged()
+    {
+        var flow = new OnboardingFlow();
+        flow.BeginConnect();
+        var raised = false;
+        flow.Changed += (_, _) => raised = true;
+
+        flow.Cancel();
+
+        Assert.Equal(OnboardingPhase.Welcome, flow.Phase);
+        Assert.False(flow.Denied);
+        Assert.Null(flow.ErrorMessage);
+        Assert.True(raised);
+        Assert.True(flow.CanBeginConnect("abc123"));
+    }
+
+    [Fact]
+    public void CancelWhileWelcomeIsANoOp()
+    {
+        var flow = new OnboardingFlow();
+        var raised = false;
+        flow.Changed += (_, _) => raised = true;
+
+        flow.Cancel();
+
+        Assert.Equal(OnboardingPhase.Welcome, flow.Phase);
+        Assert.False(raised);
+    }
 }

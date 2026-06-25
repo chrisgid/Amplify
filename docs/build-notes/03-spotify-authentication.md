@@ -217,3 +217,22 @@ Five review findings on the Phase 1 work, all addressed:
   - `dotnet build Amplify.slnx -c Release -p:Platform=x64` → **0 warnings, 0 errors**.
   - `dotnet test … --filter "Category!=RequiresSpotify"` → **76 passed** (+2 new).
   - `dotnet format --verify-no-changes` → clean.
+
+## 2026-06-25 — Add cancellation support to ConnectAsync · feat/04-onboarding
+
+Driven by feature 04: onboarding wanted a Cancel button for the "Authorizing" state (e.g. the user
+closed the browser tab) that actually aborts the wait, not just one that discards a stale result
+while the underlying attempt keeps running until its own timeout.
+
+- **Contract change (in `contracts.md`):** `IAuthService.ConnectAsync()` →
+  `ConnectAsync(CancellationToken cancellationToken = default)`. No other signatures changed; no
+  other call sites existed outside `OnboardingViewModel`.
+- **Implementation:** `SpotifyAuthService.ConnectAsync` links the caller's token with its existing
+  internal 5-minute consent timeout via `CancellationTokenSource.CreateLinkedTokenSource`, and passes
+  the linked token through to both the loopback wait and the code-exchange call. The
+  `OperationCanceledException` catch now distinguishes the two causes via
+  `cancellationToken.IsCancellationRequested` so the returned `AuthResult.Error` message says
+  "cancelled" vs "timed out" accurately — both still resolve to a normal (non-throwing) `AuthResult`,
+  matching the existing behaviour for the internal timeout.
+- **Deferred / known gaps:** None — this closes the gap noted when feature 04's Cancel button was
+  first added (it previously only discarded results client-side).

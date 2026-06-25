@@ -61,4 +61,23 @@ public sealed class OnboardingFlow
         ErrorMessage = result.Denied ? null : result.Error;
         Changed?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <summary>
+    /// Abandons an in-flight connect attempt (e.g. the user closed the browser tab) and returns to
+    /// <see cref="OnboardingPhase.Welcome"/> so they can retry immediately, without waiting for
+    /// <see cref="IAuthService.ConnectAsync"/> to eventually time out on its own. A no-op outside
+    /// <see cref="OnboardingPhase.Authorizing"/>.
+    /// </summary>
+    public void Cancel()
+    {
+        if (Phase != OnboardingPhase.Authorizing)
+        {
+            return;
+        }
+
+        Phase = OnboardingPhase.Welcome;
+        Denied = false;
+        ErrorMessage = null;
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
 }

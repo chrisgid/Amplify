@@ -141,12 +141,15 @@ public interface IAuthService
     event EventHandler<ConnectionState> ConnectionStateChanged;
 
     Task<bool> RestoreSessionAsync();           // silent, from stored refresh token
-    Task<AuthResult> ConnectAsync();            // interactive PKCE flow
+    Task<AuthResult> ConnectAsync(CancellationToken cancellationToken = default); // interactive PKCE flow
     Task<string> GetAccessTokenAsync();         // valid token, auto-refreshing
     Task DisconnectAsync();                      // clear tokens + account
 }
 
-// Denied (user declined consent) and a non-null Error are the failure cases.
+// Denied (user declined consent) and a non-null Error are the failure cases. A caller-cancelled
+// attempt (cancellationToken) is also surfaced this way — Success: false, Denied: false, with an
+// Error describing the cancellation — rather than throwing OperationCanceledException, so callers
+// don't need a try/catch for the common "user gave up waiting" case.
 public sealed record AuthResult(bool Success, bool Denied, string? Error);
 
 // feature 07 — Spotify Web API (typed HttpClient, no SDK)
