@@ -19,6 +19,9 @@ public sealed partial class MainPage : Page
 
     public MainPage()
     {
+        // Resolve the view-model before InitializeComponent so x:Bind sees it as the bindings are
+        // wired up.
+        StatusViewModel = App.Services.GetRequiredService<StatusViewModel>();
         InitializeComponent();
         _playback = App.Services.GetRequiredService<DevPlaybackSlice>();
         _shell = App.Services.GetRequiredService<ShellViewModel>();
@@ -26,6 +29,9 @@ public sealed partial class MainPage : Page
         // Keep this page's instance alive across a trip to settings so its state is preserved.
         NavigationCacheMode = NavigationCacheMode.Required;
     }
+
+    /// <summary>The bound connection-status view-model; public so generated <c>x:Bind</c> code can read it.</summary>
+    public StatusViewModel StatusViewModel { get; }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {

@@ -7,18 +7,99 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid>
-        <ScrollViewer Padding="24,16,24,24">
+    <ScrollViewer Padding="24,16,24,24">
+        <Grid>
             <StackPanel
-                MaxWidth="420"
+                MaxWidth="520"
                 HorizontalAlignment="Stretch"
                 Spacing="16">
                 <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Amplify" />
 
+                <!-- Connected status card -->
+                <Border
+                    Padding="14,12"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Visibility="{x:Bind StatusViewModel.ShowConnectedCard, Mode=OneWay}">
+                    <Grid ColumnSpacing="13">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border
+                            Grid.Column="0"
+                            Width="38"
+                            Height="38"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}"
+                            CornerRadius="19">
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                Text="{x:Bind StatusViewModel.Account.Initials, Mode=OneWay}" />
+                        </Border>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock
+                                    MaxWidth="220"
+                                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                                    Text="{x:Bind StatusViewModel.Account.DisplayName, Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <FontIcon
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    FontSize="14"
+                                    Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                    Glyph="&#xE73E;" />
+                            </StackPanel>
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind StatusViewModel.DeviceLineText, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+
+                        <TextBlock
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            FontWeight="SemiBold"
+                            Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind StatusViewModel.ConnectedLabelText, Mode=OneWay}" />
+                    </Grid>
+                </Border>
+
+                <!-- Connecting -->
+                <InfoBar
+                    x:Uid="Status_Connecting"
+                    IsClosable="False"
+                    IsOpen="{x:Bind StatusViewModel.IsConnecting, Mode=OneWay}"
+                    Severity="Informational"
+                    Visibility="{x:Bind StatusViewModel.IsConnecting, Mode=OneWay}" />
+
+                <!-- Error -->
+                <InfoBar
+                    x:Uid="Status_Error"
+                    IsClosable="False"
+                    IsOpen="{x:Bind StatusViewModel.IsError, Mode=OneWay}"
+                    Severity="Error"
+                    Visibility="{x:Bind StatusViewModel.IsError, Mode=OneWay}">
+                    <InfoBar.ActionButton>
+                        <Button
+                            x:Uid="Status_Error_Reconnect"
+                            Command="{x:Bind StatusViewModel.ReconnectCommand}" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
+
                 <!--
                     TEMPORARY volume controls migrated from the walking skeleton: they read and change
                     the active device's volume and mirror the global hotkeys, proving the slice end to
-                    end. The live status card, hotkey list, and volume meter replace this later.
+                    end. The hotkey list and volume meter replace this later.
                 -->
                 <TextBlock
                     x:Name="VolumeText"
@@ -53,6 +134,7 @@
                     Click="OnSettingsClick"
                     Content="Settings" />
             </StackPanel>
-        </ScrollViewer>
-    </Grid>
+        </Grid>
+    </ScrollViewer>
+
 </Page>
