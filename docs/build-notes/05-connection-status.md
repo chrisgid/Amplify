@@ -101,3 +101,35 @@ treatment, and one functional gap:
   --verify-no-changes` all clean. **Not yet re-walked live** — minimising/restoring the window to
   confirm polling actually stops/resumes (e.g. via a log line or a debugger breakpoint on the timer
   tick) is still outstanding.
+
+## 2026-06-26 — Connecting InfoBar: drop the spinner instead of aligning it
+
+- Tried aligning the connecting `InfoBar`'s `ProgressRing` inline with the title/message by moving
+  both into custom `Content` (`InfoBar.Content` always renders on its own line below `Title`/
+  `Message` by design, per the official docs, so that was the only way to get them side by side).
+  On reflection the spinner wasn't worth the extra layout indirection, so it's removed instead:
+  the bar reverted to the plain `x:Uid="Status_Connecting"`/`Title`/`Message` form (the
+  `Status_Connecting.Title`/`.Message` resw keys are unchanged from Phase 1), with no custom
+  `Content` and no `ProgressRing`. `Severity="Informational"` already gives the bar its icon, so
+  the connecting state is still visually distinct from the error state without it.
+- **Manual/integration checks:** `dotnet build` (0 warnings/errors), `dotnet test` (100 passed),
+  `dotnet format --verify-no-changes` all clean.
+
+## 2026-06-26 — Centre the main page content (real fix: nest a Grid inside the ScrollViewer)
+
+- **Bug fix:** the status block/volume controls sat slightly right of centre once the window was
+  wider than ~520px. First tried (and reverted) switching the outer `StackPanel` from
+  `HorizontalAlignment="Stretch"` to `Center` — per the official alignment docs, `Stretch` on a
+  `MaxWidth`-capped element is supposed to already behave like `Center`, so that wasn't the right
+  fix and was reverted. The actual cause: the `StackPanel` sat directly inside the `ScrollViewer`
+  with no intermediate `Grid`. `SettingsPage.xaml` already wraps its own `MaxWidth` `StackPanel` in
+  a `Grid` between the `ScrollViewer` and the panel, with a comment noting it avoids a layout
+  glitch — `MainPage` didn't have that wrapping `Grid` in the right place (it had a `Grid` at the
+  `Page` root, outside the `ScrollViewer`, which doesn't help). Moving the `Grid` to wrap the
+  `StackPanel` *inside* the `ScrollViewer`, matching `SettingsPage` exactly, fixed the offset.
+  `HorizontalAlignment="Stretch"` on the `StackPanel` was correct all along and is unchanged.
+  `OnboardingPage.xaml` doesn't wrap its `StackPanel` in a `Grid` either — worth checking there too
+  if the same offset is ever noticed on that screen.
+- **Manual/integration checks:** `dotnet build` (0 warnings/errors), `dotnet test` (100 passed),
+  `dotnet format --verify-no-changes` all clean. Centring confirmed live by resizing/snapping the
+  running app to several widths.

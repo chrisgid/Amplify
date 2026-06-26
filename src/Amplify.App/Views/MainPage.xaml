@@ -7,8 +7,13 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid>
-        <ScrollViewer Padding="24,16,24,24">
+    <ScrollViewer Padding="24,16,24,24">
+        <!--
+            A Grid wrapping the MaxWidth StackPanel avoids a layout glitch where the column was
+            offset slightly right of centre when the StackPanel sat directly in the ScrollViewer —
+            same fix as SettingsPage.
+        -->
+        <Grid>
             <StackPanel
                 MaxWidth="520"
                 HorizontalAlignment="Stretch"
@@ -80,13 +85,7 @@
                     IsClosable="False"
                     IsOpen="{x:Bind StatusViewModel.IsConnecting, Mode=OneWay}"
                     Severity="Informational"
-                    Visibility="{x:Bind StatusViewModel.IsConnecting, Mode=OneWay}">
-                    <ProgressRing
-                        Width="16"
-                        Height="16"
-                        HorizontalAlignment="Left"
-                        IsActive="{x:Bind StatusViewModel.IsConnecting, Mode=OneWay}" />
-                </InfoBar>
+                    Visibility="{x:Bind StatusViewModel.IsConnecting, Mode=OneWay}" />
 
                 <!-- Error -->
                 <InfoBar
@@ -140,6 +139,7 @@
                     Click="OnSettingsClick"
                     Content="Settings" />
             </StackPanel>
-        </ScrollViewer>
-    </Grid>
+        </Grid>
+    </ScrollViewer>
+
 </Page>
