@@ -34,6 +34,11 @@ public sealed partial class StatusViewModel : ObservableObject
 
     private PlayerState? _playerState;
 
+    // Whether the main window is currently visible. Set by the shell via Suspend()/Resume() (driven
+    // by Window.VisibilityChanged — e.g. minimised) so polling stops when nobody can see the result.
+    // Defaults to true: the window is visible when this view-model is first resolved.
+    private bool _windowVisible = true;
+
     public StatusViewModel(IAuthService auth, ISpotifyClient spotifyClient, ILogger<StatusViewModel> logger)
     {
         _auth = auth;
@@ -58,8 +63,9 @@ public sealed partial class StatusViewModel : ObservableObject
         if (_auth.State == ConnectionState.Connected)
         {
             _ = RefreshPlayerStateAsync();
-            _pollTimer?.Start();
         }
+
+        UpdatePollingState();
     }
 
     // All the state-combination rules (which card/InfoBar to show) live in StatusPresentation
@@ -113,6 +119,33 @@ public sealed partial class StatusViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Stops polling while the main window isn't visible (e.g. minimised) — there's no point
+    /// reading Spotify's player state on a timer when nobody can see the result. Called by the
+    /// shell from <c>Window.VisibilityChanged</c>.
+    /// </summary>
+    public void Suspend()
+    {
+        _windowVisible = false;
+        UpdatePollingState();
+    }
+
+    /// <summary>
+    /// Resumes polling when the main window becomes visible again, with an immediate refresh so the
+    /// card catches up on anything that changed while suspended (e.g. playback was started on a
+    /// device while Amplify was minimised). Called by the shell from <c>Window.VisibilityChanged</c>.
+    /// </summary>
+    public void Resume()
+    {
+        _windowVisible = true;
+        if (_auth.State == ConnectionState.Connected)
+        {
+            _ = RefreshPlayerStateAsync();
+        }
+
+        UpdatePollingState();
+    }
+
     private void OnConnectionStateChanged(object? sender, ConnectionState state) =>
         _dispatcher.RunOnUi(() => HandleStateChanged(state));
 
@@ -122,13 +155,27 @@ public sealed partial class StatusViewModel : ObservableObject
         {
             NotifyStateChanged();
             _ = RefreshPlayerStateAsync();
+        }
+        else
+        {
+            _playerState = null;
+            NotifyStateChanged();
+        }
+
+        UpdatePollingState();
+    }
+
+    // The timer should only run while both connected and visible — either condition failing means
+    // polling would either be useless (not connected) or wasted (not visible).
+    private void UpdatePollingState()
+    {
+        if (_auth.State == ConnectionState.Connected && _windowVisible)
+        {
             _pollTimer?.Start();
         }
         else
         {
             _pollTimer?.Stop();
-            _playerState = null;
-            NotifyStateChanged();
         }
     }
 

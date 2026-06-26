@@ -79,3 +79,25 @@ treatment, and one functional gap:
   live on a real account in this session — that re-check (start Spotify playback after connecting,
   confirm the card picks up the device within one poll interval without a manual refresh) is still
   outstanding before this is considered fully verified.
+
+## 2026-06-26 — Pause polling while the window is minimised
+
+- **Added `StatusViewModel.Suspend()`/`Resume()`**, called from `MainWindow.OnVisibilityChanged`
+  (`Window.VisibilityChanged`, `Microsoft.UI.Xaml`) so the 5-second poll stops while the window is
+  minimised (`args.Visible == false`) instead of continuing to hit the Web API for a screen nobody
+  can see. `Resume()` does an immediate refresh on top of restarting the timer, so the card catches
+  up on anything that changed while suspended (e.g. playback started while minimised) without
+  waiting out a full interval. `MainWindow` took a new `StatusViewModel` constructor parameter
+  (resolved via DI like its other dependencies) to wire this.
+- **Consideration for feature 08 (system tray & background):** this only covers OS-minimise.
+  Feature 08 adds minimise-**to-tray**, which fully hides the window rather than just minimising it
+  — check whether `Window.VisibilityChanged` already fires for that case (it may, since hiding the
+  window is presumably implemented via the same `Visible` mechanism) before adding separate
+  plumbing; if it doesn't, `ITrayService`'s `HideToTray()`/`ShowWindow()` will need to call
+  `StatusViewModel.Suspend()`/`Resume()` too so polling actually stops once the window is in the
+  tray, not just when it's minimised. Left a comment to this effect in
+  `MainWindow.OnVisibilityChanged`.
+- **Manual/integration checks:** `dotnet build`/`dotnet test` (100 passed)/`dotnet format
+  --verify-no-changes` all clean. **Not yet re-walked live** — minimising/restoring the window to
+  confirm polling actually stops/resumes (e.g. via a log line or a debugger breakpoint on the timer
+  tick) is still outstanding.

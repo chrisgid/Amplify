@@ -35,17 +35,21 @@ public sealed partial class MainWindow : Window, IDisposable
     private readonly IAuthService _authService;
     private readonly DevPlaybackSlice _playback;
     private readonly ThemeService _theme;
+    private readonly StatusViewModel _status;
     private readonly DispatcherQueue _dispatcher;
 
     private GlobalHotkeyWindow? _hotkeys;
     private bool _disposed;
 
-    public MainWindow(ShellViewModel shell, IAuthService authService, DevPlaybackSlice playback, ThemeService theme)
+    public MainWindow(
+        ShellViewModel shell, IAuthService authService, DevPlaybackSlice playback, ThemeService theme,
+        StatusViewModel status)
     {
         _shell = shell;
         _authService = authService;
         _playback = playback;
         _theme = theme;
+        _status = status;
         InitializeComponent();
         _dispatcher = DispatcherQueue;
 
@@ -55,6 +59,7 @@ public sealed partial class MainWindow : Window, IDisposable
         _shell.RouteChanged += OnShellRouteChanged;
         _authService.ConnectionStateChanged += OnConnectionStateChanged;
         _theme.ThemeChanged += OnThemeChanged;
+        VisibilityChanged += OnVisibilityChanged;
         Closed += OnClosed;
 
         // Show the screen the shell picked for the current connection state.
@@ -176,6 +181,23 @@ public sealed partial class MainWindow : Window, IDisposable
         }
     }
 
+    // Minimising fires this with Visible=false (and restoring with true) — used to pause the status
+    // card's Spotify polling while nobody can see it. Note: this only covers OS-minimise; once
+    // feature 08 adds minimise-to-tray, a fully tray-hidden window is a separate non-visible state
+    // that this same Suspend()/Resume() pair will need to cover too (check whether
+    // VisibilityChanged already fires for that case before adding new plumbing).
+    private void OnVisibilityChanged(object sender, WindowVisibilityChangedEventArgs args)
+    {
+        if (args.Visible)
+        {
+            _status.Resume();
+        }
+        else
+        {
+            _status.Suspend();
+        }
+    }
+
     private void OnClosed(object sender, WindowEventArgs args) => Dispose();
 
     /// <summary>Releases the global hotkey registration and window hook.</summary>
@@ -190,6 +212,7 @@ public sealed partial class MainWindow : Window, IDisposable
         _shell.RouteChanged -= OnShellRouteChanged;
         _authService.ConnectionStateChanged -= OnConnectionStateChanged;
         _theme.ThemeChanged -= OnThemeChanged;
+        VisibilityChanged -= OnVisibilityChanged;
         _hotkeys?.Dispose();
         _hotkeys = null;
     }
