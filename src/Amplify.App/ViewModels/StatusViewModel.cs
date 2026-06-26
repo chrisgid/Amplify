@@ -186,8 +186,11 @@ public sealed partial class StatusViewModel : ObservableObject
         {
             state = await _spotifyClient.GetPlayerStateAsync();
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
+            // TaskCanceledException covers HttpClient's own request timeout (there's no caller-supplied
+            // CancellationToken here, so it can't be a real cancellation) — both it and a failed
+            // request/token-refresh should just skip this poll, not fault the discarded Tick task.
             LogPlayerStateRefreshFailed(ex);
             return;
         }

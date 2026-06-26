@@ -133,3 +133,15 @@ treatment, and one functional gap:
 - **Manual/integration checks:** `dotnet build` (0 warnings/errors), `dotnet test` (100 passed),
   `dotnet format --verify-no-changes` all clean. Centring confirmed live by resizing/snapping the
   running app to several widths.
+
+## 2026-06-27 — Code review: catch HttpClient timeouts in the poll, not just HttpRequestException
+
+- **Bug fix:** `StatusViewModel.RefreshPlayerStateAsync` only caught `HttpRequestException`, so an
+  `HttpClient` request timeout — `TaskCanceledException`, not `HttpRequestException` — escaped the
+  fire-and-forget poll `Tick` task unobserved and unlogged, leaving the status card silently stuck
+  on stale data with no diagnostic trail. Broadened the catch to
+  `ex is HttpRequestException or TaskCanceledException`. Safe to catch unconditionally here because
+  this call path never receives a caller-supplied `CancellationToken`, so a `TaskCanceledException`
+  can only be `HttpClient`'s own timeout, never a real cancellation that should propagate.
+- **Manual/integration checks:** `dotnet build` (0 warnings/errors), `dotnet test` (100 passed),
+  `dotnet format --verify-no-changes` all clean.
