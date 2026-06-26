@@ -283,4 +283,22 @@
   <data name="Onboarding_Step2.Text" xml:space="preserve">
     <value>2. Click Create app</value>
   </data>
+  <data name="Status_Connected_Label" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="Status_DeviceLine_NoActiveDevice" xml:space="preserve">
+    <value>No active device</value>
+  </data>
+  <data name="Status_Connecting.Title" xml:space="preserve">
+    <value>Connecting to Spotify…</value>
+  </data>
+  <data name="Status_Connecting.Message" xml:space="preserve">
+    <value>Re-establishing the link to your account.</value>
+  </data>
+  <data name="Status_Error.Title" xml:space="preserve">
+    <value>Can't reach Spotify</value>
+  </data>
+  <data name="Status_Error_Reconnect.Content" xml:space="preserve">
+    <value>Reconnect</value>
+  </data>
 </root>

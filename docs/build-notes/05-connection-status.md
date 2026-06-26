@@ -1,0 +1,81 @@
+# Build notes — Feature 05: Connection Status & Account
+
+> Append a new dated entry each time a session works on this feature. Add to the end; don't
+> rewrite earlier entries.
+
+## 2026-06-26 — Phase 1 (full build)
+
+- **Deviations from spec/contracts:** None to `contracts.md` itself, but — mirroring how
+  `ShellRouter`/`OnboardingFlow` carry their feature's pure state rules — the state-combination
+  logic (which card/`InfoBar` to show for a given `ConnectionState` + last-known `PlayerState`)
+  was factored into a new `Amplify.Core.ConnectionStatus.StatusPresentation` (a small
+  `readonly record struct`), with `StatusViewModel` (`Amplify.App`) as a thin adapter that just
+  projects it for `x:Bind`. This wasn't optional: `tests/Amplify.Tests` only references
+  `Amplify.Core` (plain `net10.0`, no WinUI), so any logic worth unit-testing has to live there —
+  same constraint noted in the feature 04 build notes.
+- **Contract changes:** none. `IAuthService`/`ISpotifyClient`/`Account`/`PlayerState` consumed
+  verbatim.
+- **Assumptions:**
+  - **Reconnect calls `IAuthService.ConnectAsync()`.** `IAuthService` exposes no separate
+    "retry the refresh path" method — `ConnectAsync()` is the only user-initiated reconnect entry
+    point, and it already runs PKCE login or token refresh depending on whether a refresh token is
+    present, so this satisfies the doc's "re-runs the connect/refresh path."
+  - **Connecting spinner: a `ProgressRing` inside the `InfoBar`'s content area, not its
+    `IconSource`.** `InfoBar.IconSource` only accepts an `IconSource`-derived type
+    (`FontIconSource`/`SymbolIconSource`/etc.) — there's no built-in spinning one — so the
+    `ProgressRing` is placed as the `InfoBar`'s child content instead, which renders below the
+    title/message.
+  - **No active device yet vs. no active device confirmed are presented identically.**
+    `StatusPresentation` treats `Connected` + `PlayerState == null` (the read hasn't completed yet)
+    the same as `HasActiveDevice == false`, rather than briefly flashing the green-check card before
+    the real player-state read lands. Covered by
+    `ConnectedWithNoPlayerStateYetIsTreatedAsNoActiveDevice`.
+  - **No `IValueConverter` introduced** — same precedent as feature 04: every `Visibility` binding
+    uses WinUI's implicit bool→`Visibility` `x:Bind` conversion; the "Connected" label's
+    success/warning colour swap uses two `TextBlock`s toggled by `Visibility` rather than a bound
+    brush.
+  - **`DevPlaybackSlice` and its volume buttons in `MainPage.xaml` are untouched** — they're
+    feature 07's scope; this feature only adds the status block above them, replacing the
+    temporary raw `DeviceText`/`VolumeText` strings' connection-state half (volume display stays
+    as-is until 07 lands).
+  - **`StatusViewModel` is registered as a DI singleton**, matching `OnboardingViewModel`/
+    `ShellViewModel`/`SettingsViewModel`'s lifetime.
+- **Deferred / known gaps:** none specific to this feature — the account/no-device/error/
+  connecting states are all implemented per the doc.
+- **Manual/integration checks:**
+  - `dotnet build Amplify.slnx -c Debug -p:Platform=x64` → **0 warnings, 0 errors**.
+  - `dotnet test tests/Amplify.Tests` → **100 passed** (7 new `StatusPresentation` tests).
+  - `dotnet format Amplify.slnx --verify-no-changes` → clean.
+  - **Live manual walk (connected/no-device/error/reconnect) not run this session** — needs a real
+    per-user Spotify Client ID + Premium account + active device, same constraint noted in the
+    feature 04 and 07 build notes. Should be re-verified against a real account before the Phase 2
+    integration pass.
+- **Verified facts:** `InfoBar` accepts arbitrary child content (rendered below the title/message
+  text) distinct from `IconSource`/`ActionButton` — used here to host the connecting spinner.
+
+## 2026-06-26 — Manual-check feedback: no-active-device is not a warning + live polling
+
+Manual check on a real account surfaced two UX issues with the doc's "no active device = warning"
+treatment, and one functional gap:
+
+- **Deviation from the feature doc (user-requested):** "connected, no active device" is **no
+  longer presented as a warning**. It's a perfectly normal state (the user just hasn't started
+  playback anywhere yet), not something gone wrong, so the card now always shows the green check +
+  green "Connected" label regardless of device presence, and the separate "No active device"
+  warning `InfoBar` was removed entirely. `StatusPresentation.ShowNoActiveDeviceWarning` and the
+  `Status_NoActiveDevice.Title`/`.Message` resw entries were deleted (the device-line hint text,
+  `Status_DeviceLine_NoActiveDevice`, is kept — there's still a "No active device" caption under
+  the name when there's no device, just not styled as a warning).
+- **Functional gap fixed: detecting a device becoming active.** The original implementation only
+  read player state once on becoming `Connected`, so starting Spotify playback *after* connecting
+  never updated the card — Spotify has no push event for "a device became active." Added a
+  `DispatcherQueueTimer` (`Microsoft.UI.Dispatching`) in `StatusViewModel` that polls
+  `ISpotifyClient.GetPlayerStateAsync()` every 5 seconds while `ConnectionState.Connected`,
+  started/stopped alongside the existing connect-triggered refresh. Confirmed via Microsoft Learn:
+  `DispatcherQueue.CreateTimer()` / `DispatcherQueueTimer.Interval`/`IsRepeating`/`Tick`/`Start`/
+  `Stop` is exactly this API.
+- **Manual/integration checks:** `dotnet build`/`dotnet test` (100 passed)/`dotnet format
+  --verify-no-changes` all clean after the change. The polling fix has **not** yet been re-walked
+  live on a real account in this session — that re-check (start Spotify playback after connecting,
+  confirm the card picks up the device within one poll interval without a manual refresh) is still
+  outstanding before this is considered fully verified.
