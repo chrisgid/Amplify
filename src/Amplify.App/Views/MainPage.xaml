@@ -8,11 +8,6 @@
     mc:Ignorable="d">
 
     <ScrollViewer Padding="24,16,24,24">
-        <!--
-            A Grid wrapping the MaxWidth StackPanel avoids a layout glitch where the column was
-            offset slightly right of centre when the StackPanel sat directly in the ScrollViewer —
-            same fix as SettingsPage.
-        -->
         <Grid>
             <StackPanel
                 MaxWidth="520"
