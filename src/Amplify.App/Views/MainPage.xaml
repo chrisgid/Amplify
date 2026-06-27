@@ -119,13 +119,12 @@
                 </InfoBar>
 
                 <!-- Keyboard shortcuts: two rebindable rows in cards + a shared status line below. -->
-                <StackPanel Spacing="6">
+                <StackPanel Spacing="4">
                     <TextBlock
                         x:Uid="Hotkey_SectionTitle"
-                        Margin="2,8,2,0"
+                        Margin="1,18,0,6"
                         FontWeight="SemiBold"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Style="{StaticResource CaptionTextBlockStyle}" />
+                        Style="{StaticResource BodyStrongTextBlockStyle}" />
 
                     <tk:SettingsCard
                         Description="{x:Bind HotkeysViewModel.Up.SubText, Mode=OneWay}"

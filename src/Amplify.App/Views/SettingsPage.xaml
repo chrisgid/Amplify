@@ -39,7 +39,7 @@
                 <!-- General -->
                 <TextBlock
                     x:Uid="Settings_General_Header"
-                    Margin="2,12,2,4"
+                    Margin="1,12,0,6"
                     Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <tk:SettingsCard x:Uid="Settings_LaunchStartup">
                     <tk:SettingsCard.HeaderIcon>
@@ -63,7 +63,7 @@
                 <!-- Appearance -->
                 <TextBlock
                     x:Uid="Settings_Appearance_Header"
-                    Margin="2,12,2,4"
+                    Margin="1,12,0,6"
                     Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <tk:SettingsCard x:Uid="Settings_Theme">
                     <tk:SettingsCard.HeaderIcon>
@@ -81,7 +81,7 @@
                 <!-- Volume -->
                 <TextBlock
                     x:Uid="Settings_Volume_Header"
-                    Margin="2,12,2,4"
+                    Margin="1,12,0,6"
                     Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <!-- The slider is wide, so this card always lays its content out below the header. -->
                 <tk:SettingsCard
@@ -115,7 +115,7 @@
                 <!-- Account -->
                 <TextBlock
                     x:Uid="Settings_Account_Header"
-                    Margin="2,12,2,4"
+                    Margin="1,12,0,6"
                     Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <tk:SettingsCard Header="{x:Bind ViewModel.AccountTitle, Mode=OneWay}">
                     <tk:SettingsCard.HeaderIcon>
@@ -138,7 +138,7 @@
                 <!-- Reset -->
                 <TextBlock
                     x:Uid="Settings_Reset_Header"
-                    Margin="2,12,2,4"
+                    Margin="1,12,0,6"
                     Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <tk:SettingsCard x:Uid="Settings_Reset">
                     <tk:SettingsCard.HeaderIcon>
