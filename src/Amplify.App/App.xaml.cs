@@ -1,6 +1,7 @@
 using Amplify.App.Auth;
 using Amplify.App.ConnectionStatus;
 using Amplify.App.Dev;
+using Amplify.App.Hotkeys;
 using Amplify.App.Logging;
 using Amplify.App.Onboarding;
 using Amplify.App.Settings;
@@ -66,11 +67,14 @@ public partial class App : Application
         builder.Services.AddSpotifyClient();
         builder.Services.AddOnboarding();
         builder.Services.AddConnectionStatus();
+        builder.Services.AddHotkeys();
 
         // Shell: the routing view-model, the window, and the temporary playback slice the window and
-        // the main screen share to keep the end-to-end volume flow working.
+        // the main screen share to keep the end-to-end volume flow working. The bridge from hotkey
+        // presses to volume nudges is temporary scaffolding until the volume controller lands.
         builder.Services.AddSingleton<ShellViewModel>();
         builder.Services.AddSingleton<DevPlaybackSlice>();
+        builder.Services.AddSingleton<IStartupInitializer, DevHotkeyVolumeBridge>();
         builder.Services.AddSingleton<MainWindow>();
 
         return builder.Build();

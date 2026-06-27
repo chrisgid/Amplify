@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using Amplify.App.Dev;
-using Amplify.App.Interop;
 using Amplify.App.Theming;
 using Amplify.App.ViewModels;
 using Amplify.App.Views;
@@ -17,8 +16,7 @@ namespace Amplify.App;
 /// <summary>
 /// The single main window. It owns the window chrome (Mica backdrop, custom title bar, sensible
 /// size/min-size) and the content <see cref="Frame"/>, and drives it from the shell view-model's
-/// route. It also owns the lifetime of the global volume hotkeys, arming them once an account is
-/// connected and releasing them when the window closes.
+/// route. Global hotkeys are owned by the hotkey service, independent of this window.
 /// </summary>
 public sealed partial class MainWindow : Window, IDisposable
 {
@@ -38,7 +36,6 @@ public sealed partial class MainWindow : Window, IDisposable
     private readonly StatusViewModel _status;
     private readonly DispatcherQueue _dispatcher;
 
-    private GlobalHotkeyWindow? _hotkeys;
     private bool _disposed;
 
     public MainWindow(
@@ -66,8 +63,8 @@ public sealed partial class MainWindow : Window, IDisposable
         NavigateTo(_shell.CurrentRoute);
 
         // A session restored before this window existed won't re-raise ConnectionStateChanged, so the
-        // initial connected state has to be handled here too — otherwise the global hotkeys would
-        // never arm on a launch that opens straight on the main screen.
+        // initial connected state has to be handled here too — otherwise a launch that opens straight
+        // on the main screen wouldn't do the first playback refresh.
         if (_authService.State == ConnectionState.Connected)
         {
             OnConnected();
@@ -144,42 +141,14 @@ public sealed partial class MainWindow : Window, IDisposable
     {
         if (state == ConnectionState.Connected)
         {
-            // Connection-state changes can arrive off the UI thread; arming hotkeys touches the window.
+            // Connection-state changes can arrive off the UI thread; the refresh touches bindable state.
             _dispatcher.TryEnqueue(OnConnected);
         }
     }
 
-    // Arms the global hotkeys (idempotent) and refreshes the playback state once an account is
-    // connected — whether that connection was just made or restored at launch. Runs on the UI thread.
-    private void OnConnected()
-    {
-        ArmHotkeys();
-        _ = _playback.RefreshAsync();
-    }
-
-    private void ArmHotkeys()
-    {
-        if (_hotkeys is not null)
-        {
-            return;
-        }
-
-        nint hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        _hotkeys = new GlobalHotkeyWindow(hwnd);
-        // Hotkey messages arrive on the window's UI thread, so the nudge can run directly.
-        _hotkeys.VolumeNudged += (_, direction) => _ = _playback.NudgeAsync(direction);
-        try
-        {
-            _hotkeys.Register();
-        }
-        catch (InvalidOperationException)
-        {
-            // Another app may own the combo; the on-screen buttons still work. A real hotkey service
-            // surfaces conflicts to the user later.
-            _hotkeys.Dispose();
-            _hotkeys = null;
-        }
-    }
+    // Refreshes the playback state once an account is connected — whether that connection was just
+    // made or restored at launch. Runs on the UI thread.
+    private void OnConnected() => _ = _playback.RefreshAsync();
 
     // Minimising fires this with Visible=false (and restoring with true) — used to pause the status
     // card's Spotify polling while nobody can see it. Note: this only covers OS-minimise; once
@@ -200,7 +169,7 @@ public sealed partial class MainWindow : Window, IDisposable
 
     private void OnClosed(object sender, WindowEventArgs args) => Dispose();
 
-    /// <summary>Releases the global hotkey registration and window hook.</summary>
+    /// <summary>Detaches the window's event subscriptions.</summary>
     public void Dispose()
     {
         if (_disposed)
@@ -213,8 +182,6 @@ public sealed partial class MainWindow : Window, IDisposable
         _authService.ConnectionStateChanged -= OnConnectionStateChanged;
         _theme.ThemeChanged -= OnThemeChanged;
         VisibilityChanged -= OnVisibilityChanged;
-        _hotkeys?.Dispose();
-        _hotkeys = null;
     }
 
     [DllImport("user32.dll")]

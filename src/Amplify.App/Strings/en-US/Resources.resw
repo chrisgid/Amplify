@@ -301,4 +301,36 @@
   <data name="Status_Error_Reconnect.Content" xml:space="preserve">
     <value>Reconnect</value>
   </data>
+  <data name="Hotkey_VolumeUp_Label" xml:space="preserve">
+    <value>Volume up</value>
+  </data>
+  <data name="Hotkey_VolumeDown_Label" xml:space="preserve">
+    <value>Volume down</value>
+  </data>
+  <data name="Hotkey_VolumeUp_SubText" xml:space="preserve">
+    <value>Raises Spotify volume by {0}%</value>
+    <comment>{0} is the volume step percentage, e.g. 5</comment>
+  </data>
+  <data name="Hotkey_VolumeDown_SubText" xml:space="preserve">
+    <value>Lowers Spotify volume by {0}%</value>
+    <comment>{0} is the volume step percentage, e.g. 5</comment>
+  </data>
+  <data name="Hotkey_Recording_Helper" xml:space="preserve">
+    <value>Press any key combination · Esc to cancel</value>
+  </data>
+  <data name="Hotkey_Conflict_Duplicate" xml:space="preserve">
+    <value>That combination is already used by the other shortcut.</value>
+  </data>
+  <data name="Hotkey_Conflict_InUse" xml:space="preserve">
+    <value>Couldn't register that shortcut. The previous one was kept.</value>
+  </data>
+  <data name="Hotkey_Footer_Hint" xml:space="preserve">
+    <value>Shortcuts work globally, even when Amplify is in the background.</value>
+  </data>
+  <data name="Hotkey_SectionTitle.Text" xml:space="preserve">
+    <value>Keyboard shortcuts</value>
+  </data>
+  <data name="Hotkey_Listening.Text" xml:space="preserve">
+    <value>Listening…</value>
+  </data>
 </root>
