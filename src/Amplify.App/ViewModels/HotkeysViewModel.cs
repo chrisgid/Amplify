@@ -16,6 +16,7 @@ namespace Amplify.App.ViewModels;
 /// </summary>
 public sealed partial class HotkeysViewModel : ObservableObject
 {
+    private readonly IHotkeyService _hotkeys;
     private readonly ISettingsService _settings;
     private readonly DispatcherQueue? _dispatcher;
     private readonly ResourceLoader _strings = new();
@@ -24,6 +25,7 @@ public sealed partial class HotkeysViewModel : ObservableObject
 
     public HotkeysViewModel(IHotkeyService hotkeys, ISettingsService settings)
     {
+        _hotkeys = hotkeys;
         _settings = settings;
 
         // Captured on the UI thread (resolved while the page is built) so settings changes raised on
@@ -74,6 +76,8 @@ public sealed partial class HotkeysViewModel : ObservableObject
     {
         if (e.PropertyName == nameof(HotkeyRowViewModel.IsRecording))
         {
+            // Mute hotkey actions while recording so the combo being captured doesn't also fire.
+            _hotkeys.IsSuspended = IsRecording;
             NotifyStatusLine();
         }
     }

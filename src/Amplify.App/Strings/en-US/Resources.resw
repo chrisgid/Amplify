@@ -321,8 +321,8 @@
   <data name="Hotkey_Conflict_Duplicate" xml:space="preserve">
     <value>That combination is already used by the other shortcut.</value>
   </data>
-  <data name="Hotkey_Conflict_InUse" xml:space="preserve">
-    <value>Couldn't register that shortcut. The previous one was kept.</value>
+  <data name="Hotkey_RegisterFailed" xml:space="preserve">
+    <value>Keyboard shortcuts are unavailable right now, so the previous binding was kept.</value>
   </data>
   <data name="Hotkey_Footer_Hint" xml:space="preserve">
     <value>Shortcuts work globally, even when Amplify is in the background.</value>

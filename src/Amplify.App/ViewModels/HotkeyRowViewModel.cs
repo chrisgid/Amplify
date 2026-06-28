@@ -106,8 +106,10 @@ public sealed partial class HotkeyRowViewModel : ObservableObject
         }
         else
         {
+            // With the keyboard-hook backend, registration only fails if the hook can't be installed
+            // (an all-or-nothing condition) — not because the combo is used elsewhere.
             IsRecording = false;
-            _setStatus(_strings.GetString("Hotkey_Conflict_InUse"));
+            _setStatus(_strings.GetString("Hotkey_RegisterFailed"));
         }
     }
 

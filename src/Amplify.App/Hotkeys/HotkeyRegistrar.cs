@@ -1,7 +1,9 @@
+using Amplify.App.ViewModels;
 using Amplify.Core.Hotkeys;
 using Amplify.Core.Settings;
 using Amplify.Core.Startup;
 using Microsoft.Extensions.Logging;
+using Microsoft.UI.Dispatching;
 
 namespace Amplify.App.Hotkeys;
 
@@ -17,6 +19,12 @@ public sealed partial class HotkeyRegistrar : IStartupInitializer
     private readonly ISettingsService _settings;
     private readonly ILogger<HotkeyRegistrar> _logger;
 
+    // Captured on the UI thread (this initialiser is constructed there). ISettingsService.Changed can
+    // be raised on any thread, so registration is marshalled back here — the hotkey service's
+    // registration state is touched by the keyboard-hook callback on the UI thread and isn't
+    // synchronised, so all of its mutations must stay on that thread.
+    private readonly DispatcherQueue? _dispatcher = DispatcherQueue.GetForCurrentThread();
+
     public HotkeyRegistrar(IHotkeyService hotkeys, ISettingsService settings, ILogger<HotkeyRegistrar> logger)
     {
         _hotkeys = hotkeys;
@@ -30,12 +38,14 @@ public sealed partial class HotkeyRegistrar : IStartupInitializer
     /// <inheritdoc />
     public Task OnLaunchedAsync(CancellationToken ct)
     {
+        // Runs on the UI thread already (the launch sequence), so apply directly.
         ApplyFromSettings();
         _settings.Changed += OnSettingsChanged;
         return Task.CompletedTask;
     }
 
-    private void OnSettingsChanged(object? sender, AppSettings settings) => ApplyFromSettings();
+    private void OnSettingsChanged(object? sender, AppSettings settings) =>
+        _dispatcher.RunOnUi(ApplyFromSettings);
 
     private void ApplyFromSettings()
     {

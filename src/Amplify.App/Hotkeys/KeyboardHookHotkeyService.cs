@@ -36,8 +36,9 @@ public sealed class KeyboardHookHotkeyService : IHotkeyService, IDisposable
     // The specific modifier keys (incl. left/right variants) currently held, so the combo's modifier
     // set can be reconstructed when a non-modifier key is pressed.
     private readonly HashSet<uint> _modifiersDown = [];
-    // Non-modifier keys currently held that already matched, so auto-repeat fires the action only once.
-    private readonly HashSet<uint> _heldMatched = [];
+    // Non-modifier keys currently held, so auto-repeat fires once and a key still held when recording
+    // ends doesn't fire until it's released and pressed again.
+    private readonly HashSet<uint> _heldKeys = [];
 
     private nint _hookHandle;
     private bool _disposed;
@@ -83,6 +84,9 @@ public sealed class KeyboardHookHotkeyService : IHotkeyService, IDisposable
     /// <inheritdoc />
     public void Unregister(HotkeyAction action) => _registered.Remove(action);
 
+    /// <inheritdoc />
+    public bool IsSuspended { get; set; }
+
     private bool EnsureHook()
     {
         if (_hookHandle != 0)
@@ -121,7 +125,7 @@ public sealed class KeyboardHookHotkeyService : IHotkeyService, IDisposable
                 }
                 else
                 {
-                    _heldMatched.Remove(vk);
+                    _heldKeys.Remove(vk);
                 }
             }
         }
@@ -132,8 +136,16 @@ public sealed class KeyboardHookHotkeyService : IHotkeyService, IDisposable
 
     private void HandleKeyDown(uint vk)
     {
-        // Collapse auto-repeat so a held combo fires once.
-        if (_heldMatched.Contains(vk))
+        // Track the held key; a repeat of an already-held key is auto-repeat and is ignored.
+        if (!_heldKeys.Add(vk))
+        {
+            return;
+        }
+
+        // While recording a new combination the press is captured by the UI; don't also fire its
+        // action. The key is still tracked above (so it won't fire on release-less hold once recording
+        // ends) and is still passed through to the foreground app.
+        if (IsSuspended)
         {
             return;
         }
@@ -143,7 +155,6 @@ public sealed class KeyboardHookHotkeyService : IHotkeyService, IDisposable
         {
             if (combo == pressed)
             {
-                _heldMatched.Add(vk);
                 // Defer so the hook callback returns immediately; the handler runs on the next UI tick.
                 _dispatcher.TryEnqueue(() => HotkeyPressed?.Invoke(this, action));
                 break;
@@ -189,7 +200,7 @@ public sealed class KeyboardHookHotkeyService : IHotkeyService, IDisposable
 
         _registered.Clear();
         _modifiersDown.Clear();
-        _heldMatched.Clear();
+        _heldKeys.Clear();
     }
 
     private delegate nint HookProc(int nCode, nint wParam, nint lParam);

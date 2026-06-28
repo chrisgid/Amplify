@@ -103,3 +103,28 @@
   is the WinUI 3 modifier-state API; Segoe Fluent `ECC8`/`ECC9` = AddTo/RemoveFrom. Build is
   `-p:Platform=x64` (the packaged app exposes no AnyCPU), `Nullable`/`TreatWarningsAsErrors` clean,
   `dotnet format` clean.
+
+### Code-review follow-ups (same PR)
+
+- **Hook registration state must stay single-threaded.** The hook callback enumerates the service's
+  `_registered` map on the UI thread, so all registration mutations must too. `HotkeyRegistrar` now
+  marshals its `ISettingsService.Changed` handling onto the UI dispatcher (mirroring
+  `HotkeysViewModel`), since `SettingsService.Update` raises `Changed` synchronously on the caller's
+  thread — a future off-UI-thread settings write (e.g. reset/disconnect) would otherwise race the
+  hook callback. Documented the single-thread expectation on `IHotkeyService`.
+- **Contract docs corrected for the hook backend.** `IHotkeyService` (and the `contracts.md` comment)
+  previously promised `RegisterHotKey`-style cross-app conflict detection; reworded to "observed, not
+  consumed — registration fails only if the shortcut mechanism can't be set up." The rebind failure
+  message/key was renamed `Hotkey_Conflict_InUse` → `Hotkey_RegisterFailed` and reworded, since the
+  only path that reaches it is a hook-install failure (all shortcuts down), not a per-combo conflict.
+- **Declined:** extracting the two near-identical hotkey-row blocks in `MainPage.xaml` into a
+  templated control — for two static rows the DP/template indirection costs more than the duplication
+  saves, and the codebase consistently inlines such rows (`SettingsPage`). Revisit if a third row appears.
+- **Recording no longer triggers the action (`IsSuspended` added to `IHotkeyService`).** The global
+  hook is independent of the WinUI capture, so the combo pressed to *set* a binding also matched a live
+  binding and fired its volume nudge. `HotkeysViewModel` now sets `IHotkeyService.IsSuspended` to the
+  aggregate recording state. Suspend only mutes raising `HotkeyPressed`; the hook stays installed
+  (pass-through unaffected). The held-key set also tracks keys pressed while suspended, so a combo
+  still physically held when recording ends doesn't fire on auto-repeat until released. (Named
+  `IsSuspended` rather than `Suspend()`/`Resume()` — `Resume` trips analyzer CA1716 as a VB keyword.)
+  Contract updated in `contracts.md`.

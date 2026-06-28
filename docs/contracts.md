@@ -160,11 +160,15 @@ public interface ISpotifyClient
 }
 
 // feature 06 — global hotkeys
+// Shortcuts are observed, not consumed (a bound key still reaches the foreground app), so the
+// service does not detect cross-app conflicts; Register/TryRegister fail only if the shortcut
+// mechanism can't be set up. Not thread-safe — call registration from one thread (the UI thread).
 public interface IHotkeyService
 {
-    void Register(HotkeyAction action, Hotkey combo);   // throws/returns false on conflict
-    bool TryRegister(HotkeyAction action, Hotkey combo);
+    void Register(HotkeyAction action, Hotkey combo);   // replaces existing; throws if it can't be set up
+    bool TryRegister(HotkeyAction action, Hotkey combo); // false only if it can't be set up
     void Unregister(HotkeyAction action);
+    bool IsSuspended { get; set; }   // when true, HotkeyPressed isn't raised (e.g. while recording a new combo)
     event EventHandler<HotkeyAction> HotkeyPressed;
 }
 
