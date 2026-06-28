@@ -53,12 +53,10 @@ Refer to each project's repository for its exact copyright lines.
 These components are licensed under the Apache License, Version 2.0. You may obtain a copy of the
 licence at: http://www.apache.org/licenses/LICENSE-2.0
 
-Apache-2.0 requires that any `NOTICE` text supplied by these projects be reproduced. Copy the
-upstream `NOTICE` contents here when packaging a release:
-
-```
-(Insert the upstream NOTICE files from xunit and Castle.Core here, if present.)
-```
+Apache-2.0 §4(d) only requires reproducing an upstream `NOTICE` file when one is distributed. As of
+the referenced versions, neither xunit nor Castle.Core ships a `NOTICE` file — each provides only the
+Apache-2.0 `LICENSE` (Castle.Core additionally restates it as `ASL - Apache Software Foundation
+License.txt`) — so there is no additional NOTICE text to reproduce. Re-check on upgrade.
 
 ---
 
