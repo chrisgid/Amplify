@@ -5,7 +5,29 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:tk="using:CommunityToolkit.WinUI.Controls"
     mc:Ignorable="d">
+
+    <Page.Resources>
+        <!-- One keycap in a hotkey combination, e.g. "Ctrl" or "↑". -->
+        <DataTemplate x:Key="KeycapTemplate" x:DataType="x:String">
+            <Border
+                MinWidth="28"
+                Height="28"
+                Padding="7,0"
+                Background="{ThemeResource ControlFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="4">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    FontWeight="SemiBold"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind}" />
+            </Border>
+        </DataTemplate>
+    </Page.Resources>
 
     <ScrollViewer Padding="24,16,24,24">
         <Grid>
@@ -17,11 +39,11 @@
 
                 <!-- Connected status card -->
                 <Border
-                    Padding="14,12"
+                    Padding="16"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
-                    CornerRadius="8"
+                    CornerRadius="4"
                     Visibility="{x:Bind StatusViewModel.ShowConnectedCard, Mode=OneWay}">
                     <Grid ColumnSpacing="13">
                         <Grid.ColumnDefinitions>
@@ -96,6 +118,118 @@
                     </InfoBar.ActionButton>
                 </InfoBar>
 
+                <!-- Keyboard shortcuts: two rebindable rows in cards + a shared status line below. -->
+                <StackPanel Spacing="4">
+                    <TextBlock
+                        x:Uid="Hotkey_SectionTitle"
+                        Margin="1,18,0,6"
+                        FontWeight="SemiBold"
+                        Style="{StaticResource BodyStrongTextBlockStyle}" />
+
+                    <tk:SettingsCard
+                        Description="{x:Bind HotkeysViewModel.Up.SubText, Mode=OneWay}"
+                        Header="{x:Bind HotkeysViewModel.Up.ActionLabel}">
+                        <tk:SettingsCard.HeaderIcon>
+                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xECC8;" />
+                        </tk:SettingsCard.HeaderIcon>
+                        <!-- Focusable, non-button host so combo keys (incl. Space/Enter) don't activate anything. -->
+                        <ContentControl
+                            x:Name="UpHotkeyRow"
+                            IsTabStop="True"
+                            KeyDown="OnRowKeyDown"
+                            LostFocus="OnRowLostFocus"
+                            Tag="{x:Bind HotkeysViewModel.Up}"
+                            UseSystemFocusVisuals="False">
+                            <StackPanel
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Spacing="8">
+                                <ItemsControl
+                                    ItemTemplate="{StaticResource KeycapTemplate}"
+                                    ItemsSource="{x:Bind HotkeysViewModel.Up.DisplayTokens, Mode=OneWay}"
+                                    Visibility="{x:Bind HotkeysViewModel.Up.ShowKeycaps, Mode=OneWay}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" Spacing="4" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                                <TextBlock
+                                    x:Uid="Hotkey_Listening"
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Visibility="{x:Bind HotkeysViewModel.Up.IsRecording, Mode=OneWay}" />
+                                <Button Click="OnUpEditClick" ToolTipService.ToolTip="Change shortcut">
+                                    <FontIcon
+                                        FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                        FontSize="14"
+                                        Glyph="&#xE70F;" />
+                                </Button>
+                            </StackPanel>
+                        </ContentControl>
+                    </tk:SettingsCard>
+
+                    <tk:SettingsCard
+                        Description="{x:Bind HotkeysViewModel.Down.SubText, Mode=OneWay}"
+                        Header="{x:Bind HotkeysViewModel.Down.ActionLabel}">
+                        <tk:SettingsCard.HeaderIcon>
+                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xECC9;" />
+                        </tk:SettingsCard.HeaderIcon>
+                        <ContentControl
+                            x:Name="DownHotkeyRow"
+                            IsTabStop="True"
+                            KeyDown="OnRowKeyDown"
+                            LostFocus="OnRowLostFocus"
+                            Tag="{x:Bind HotkeysViewModel.Down}"
+                            UseSystemFocusVisuals="False">
+                            <StackPanel
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Spacing="8">
+                                <ItemsControl
+                                    ItemTemplate="{StaticResource KeycapTemplate}"
+                                    ItemsSource="{x:Bind HotkeysViewModel.Down.DisplayTokens, Mode=OneWay}"
+                                    Visibility="{x:Bind HotkeysViewModel.Down.ShowKeycaps, Mode=OneWay}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" Spacing="4" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                                <TextBlock
+                                    x:Uid="Hotkey_Listening"
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Visibility="{x:Bind HotkeysViewModel.Down.IsRecording, Mode=OneWay}" />
+                                <Button Click="OnDownEditClick" ToolTipService.ToolTip="Change shortcut">
+                                    <FontIcon
+                                        FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                        FontSize="14"
+                                        Glyph="&#xE70F;" />
+                                </Button>
+                            </StackPanel>
+                        </ContentControl>
+                    </tk:SettingsCard>
+
+                    <!-- Shared status line: secondary for hint/prompt, caution for a conflict message. -->
+                    <TextBlock
+                        Margin="2,4,2,0"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind HotkeysViewModel.StatusLineText, Mode=OneWay}"
+                        TextWrapping="Wrap"
+                        Visibility="{x:Bind HotkeysViewModel.StatusLineIsNormal, Mode=OneWay}" />
+                    <TextBlock
+                        Margin="2,4,2,0"
+                        Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind HotkeysViewModel.StatusLineText, Mode=OneWay}"
+                        TextWrapping="Wrap"
+                        Visibility="{x:Bind HotkeysViewModel.StatusLineIsCaution, Mode=OneWay}" />
+                </StackPanel>
+
                 <!--
                     TEMPORARY volume controls migrated from the walking skeleton: they read and change
                     the active device's volume and mirror the global hotkeys, proving the slice end to
@@ -123,11 +257,6 @@
                         ToolTipService.ToolTip="Volume up" />
                     <Button Click="OnRefreshClick" Content="Refresh" />
                 </StackPanel>
-                <TextBlock
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="Global hotkeys: Ctrl+Alt+Up / Ctrl+Alt+Down (work in the background)."
-                    TextWrapping="Wrap" />
 
                 <Button
                     Margin="0,8,0,0"
