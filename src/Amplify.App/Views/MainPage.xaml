@@ -244,92 +244,66 @@
                         Visibility="{x:Bind HotkeysViewModel.StatusLineIsCaution, Mode=OneWay}" />
                 </StackPanel>
 
-                <!--
-                    Volume card: the active device's level as a large percentage with a speaker glyph,
-                    a slider, and step nudge buttons. Dimmed/disabled (via IsEnabled) whenever there is
-                    nothing to control — disconnected or no active device; the status card above owns
-                    the "no active device" message.
-                -->
-                <Border
-                    Padding="16"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="4">
-                    <!-- A ContentControl (unlike Border/Panel) can be disabled, blocking interaction
-                         when there's no active device; the opacity binding dims the whole card. -->
-                    <ContentControl
-                        HorizontalContentAlignment="Stretch"
-                        IsEnabled="{x:Bind VolumeViewModel.CanControl, Mode=OneWay}"
-                        IsTabStop="False"
-                        Opacity="{x:Bind VolumeViewModel.CardOpacity, Mode=OneWay}">
-                        <StackPanel Spacing="12">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel
-                                Grid.Column="0"
-                                Orientation="Horizontal"
-                                VerticalAlignment="Center"
-                                Spacing="18">
-                                <FontIcon
-                                    Margin="4,0,0,0"
-                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                    FontSize="20"
-                                    Glyph="{x:Bind VolumeViewModel.VolumeGlyph, Mode=OneWay}" />
-                                <TextBlock
-                                    x:Uid="Volume_Header"
-                                    VerticalAlignment="Top"
-                                    Style="{StaticResource BodyTextBlockStyle}" />
-                            </StackPanel>
-                            <TextBlock
-                                Grid.Column="1"
-                                HorizontalAlignment="Right"
-                                VerticalAlignment="Center"
-                                Style="{StaticResource BodyStrongTextBlockStyle}"
-                                Text="{x:Bind VolumeViewModel.VolumeText, Mode=OneWay}" />
-                        </Grid>
+                <!-- Spotify section: the live volume control for the active device. -->
+                <StackPanel Spacing="4">
+                    <TextBlock
+                        x:Uid="Volume_SectionTitle"
+                        Margin="1,18,0,6"
+                        FontWeight="SemiBold"
+                        Style="{StaticResource BodyStrongTextBlockStyle}" />
 
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Button
-                                Grid.Column="0"
-                                VerticalAlignment="Center"
-                                Command="{x:Bind VolumeViewModel.NudgeDownCommand}"
-                                Style="{StaticResource VolumeNudgeButtonStyle}"
-                                ToolTipService.ToolTip="Volume down">
-                                <FontIcon
-                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                    FontSize="20"
-                                    Glyph="&#xECC9;" />
-                            </Button>
-                            <Slider
-                                Grid.Column="1"
-                                VerticalAlignment="Center"
-                                Maximum="100"
-                                Minimum="0"
-                                Value="{x:Bind VolumeViewModel.SliderValue, Mode=TwoWay}" />
-                            <Button
-                                Grid.Column="2"
-                                VerticalAlignment="Center"
-                                Command="{x:Bind VolumeViewModel.NudgeUpCommand}"
-                                Style="{StaticResource VolumeNudgeButtonStyle}"
-                                ToolTipService.ToolTip="Volume up">
-                                <FontIcon
-                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                    FontSize="20"
-                                    Glyph="&#xECC8;" />
-                            </Button>
-                        </Grid>
-                        </StackPanel>
-                    </ContentControl>
-                </Border>
+                    <!--
+                        Volume card: a native SettingsCard matching the hotkey rows above — "Volume"
+                        header, the live percentage as its description, and the slider with step nudge
+                        buttons as its content. Disabled (which dims it natively) whenever there is
+                        nothing to control; the status card above owns the "no active device" message.
+                    -->
+                    <tk:SettingsCard
+                        x:Uid="Volume_Header"
+                        ContentAlignment="Vertical"
+                        Description="{x:Bind VolumeViewModel.VolumeText, Mode=OneWay}"
+                        HorizontalContentAlignment="Stretch"
+                        IsEnabled="{x:Bind VolumeViewModel.CanControl, Mode=OneWay}">
+                    <!-- Vertical alignment always stacks the slider row beneath the header; the row
+                         stretches full width so the slider fills the space between the nudge buttons. -->
+                    <Grid HorizontalAlignment="Stretch" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Button
+                            Grid.Column="0"
+                            VerticalAlignment="Center"
+                            Command="{x:Bind VolumeViewModel.NudgeDownCommand}"
+                            Style="{StaticResource VolumeNudgeButtonStyle}"
+                            ToolTipService.ToolTip="Volume down">
+                            <FontIcon
+                                FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                FontSize="16"
+                                Glyph="&#xECC9;" />
+                        </Button>
+                        <Slider
+                            Grid.Column="1"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Center"
+                            Maximum="100"
+                            Minimum="0"
+                            Value="{x:Bind VolumeViewModel.SliderValue, Mode=TwoWay}" />
+                        <Button
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            Command="{x:Bind VolumeViewModel.NudgeUpCommand}"
+                            Style="{StaticResource VolumeNudgeButtonStyle}"
+                            ToolTipService.ToolTip="Volume up">
+                            <FontIcon
+                                FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                FontSize="16"
+                                Glyph="&#xECC8;" />
+                        </Button>
+                    </Grid>
+                    </tk:SettingsCard>
+                </StackPanel>
 
                 <Button
                     Margin="0,8,0,0"

@@ -333,7 +333,10 @@
   <data name="Hotkey_Listening.Text" xml:space="preserve">
     <value>Listening…</value>
   </data>
-  <data name="Volume_Header.Text" xml:space="preserve">
+  <data name="Volume_SectionTitle.Text" xml:space="preserve">
+    <value>Spotify</value>
+  </data>
+  <data name="Volume_Header.Header" xml:space="preserve">
     <value>Volume</value>
   </data>
 </root>
