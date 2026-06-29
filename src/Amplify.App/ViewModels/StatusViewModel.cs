@@ -13,59 +13,37 @@ namespace Amplify.App.ViewModels;
 /// Backs the status block at the top of the main screen: the connected account card (with or
 /// without an active device — neither is a warning) and the connecting/error <c>InfoBar</c>s.
 /// Connection state and the account come from <see cref="IAuthService"/> (already read during
-/// connect — this view-model never calls the profile endpoint itself); active-device
-/// presence/name comes from <see cref="ISpotifyClient.GetPlayerStateAsync"/>, read once on
-/// connect and then polled on <see cref="_pollInterval"/> while connected, since Spotify has no
-/// push notification for "a device became active".
+/// connect — this view-model never calls the profile endpoint itself); active-device presence/name
+/// comes from the shared <see cref="IPlayerStateProvider"/>, which this view-model only observes
+/// (the polling lives there, fed to every consumer from one set of requests).
 /// </summary>
 public sealed partial class StatusViewModel : ObservableObject
 {
-    // Spotify has no push notification for "a device became active" — polling on a short interval
-    // while connected is the only way to notice a device starting playback without a manual
-    // refresh. Chosen short enough to feel responsive, long enough not to hammer the Web API.
-    private static readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(5);
-
     private readonly IAuthService _auth;
-    private readonly ISpotifyClient _spotifyClient;
+    private readonly IPlayerStateProvider _playerStateProvider;
     private readonly DispatcherQueue? _dispatcher;
     private readonly ILogger<StatusViewModel> _logger;
     private readonly ResourceLoader _strings = new();
-    private readonly DispatcherQueueTimer? _pollTimer;
 
     private PlayerState? _playerState;
 
-    // Whether the main window is currently visible. Set by the shell via Suspend()/Resume() (driven
-    // by Window.VisibilityChanged — e.g. minimised) so polling stops when nobody can see the result.
-    // Defaults to true: the window is visible when this view-model is first resolved.
-    private bool _windowVisible = true;
-
-    public StatusViewModel(IAuthService auth, ISpotifyClient spotifyClient, ILogger<StatusViewModel> logger)
+    public StatusViewModel(
+        IAuthService auth, IPlayerStateProvider playerStateProvider, ILogger<StatusViewModel> logger)
     {
         _auth = auth;
-        _spotifyClient = spotifyClient;
+        _playerStateProvider = playerStateProvider;
         _logger = logger;
 
-        // Captured on the UI thread (the view-model is resolved while the main page is built), so
-        // the connection-state event (which can be raised off-thread during a background refresh)
-        // and the player-state read below can both safely touch bindable state.
+        // Captured on the UI thread (the view-model is resolved while the main page is built), so the
+        // connection-state event (which can be raised off-thread during a background refresh) can
+        // safely touch bindable state.
         _dispatcher = DispatcherQueue.GetForCurrentThread();
 
-        _pollTimer = _dispatcher?.CreateTimer();
-        if (_pollTimer is not null)
-        {
-            _pollTimer.Interval = _pollInterval;
-            _pollTimer.IsRepeating = true;
-            _pollTimer.Tick += (_, _) => _ = RefreshPlayerStateAsync();
-        }
+        // Seed from the provider's last-known state in case it read before this view-model existed.
+        _playerState = _playerStateProvider.Current;
 
         _auth.ConnectionStateChanged += OnConnectionStateChanged;
-
-        if (_auth.State == ConnectionState.Connected)
-        {
-            _ = RefreshPlayerStateAsync();
-        }
-
-        UpdatePollingState();
+        _playerStateProvider.PlayerStateChanged += OnPlayerStateChanged;
     }
 
     // All the state-combination rules (which card/InfoBar to show) live in StatusPresentation
@@ -119,88 +97,27 @@ public sealed partial class StatusViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Stops polling while the main window isn't visible (e.g. minimised) — there's no point
-    /// reading Spotify's player state on a timer when nobody can see the result. Called by the
-    /// shell from <c>Window.VisibilityChanged</c>.
-    /// </summary>
-    public void Suspend()
-    {
-        _windowVisible = false;
-        UpdatePollingState();
-    }
-
-    /// <summary>
-    /// Resumes polling when the main window becomes visible again, with an immediate refresh so the
-    /// card catches up on anything that changed while suspended (e.g. playback was started on a
-    /// device while Amplify was minimised). Called by the shell from <c>Window.VisibilityChanged</c>.
-    /// </summary>
-    public void Resume()
-    {
-        _windowVisible = true;
-        if (_auth.State == ConnectionState.Connected)
-        {
-            _ = RefreshPlayerStateAsync();
-        }
-
-        UpdatePollingState();
-    }
-
     private void OnConnectionStateChanged(object? sender, ConnectionState state) =>
         _dispatcher.RunOnUi(() => HandleStateChanged(state));
 
     private void HandleStateChanged(ConnectionState state)
     {
-        if (state == ConnectionState.Connected)
-        {
-            NotifyStateChanged();
-            _ = RefreshPlayerStateAsync();
-        }
-        else
+        // Drop any stale device immediately on disconnect; the provider also publishes null, but doing
+        // it here keeps the card consistent without waiting for that to arrive.
+        if (state != ConnectionState.Connected)
         {
             _playerState = null;
-            NotifyStateChanged();
         }
 
-        UpdatePollingState();
+        NotifyStateChanged();
     }
 
-    // The timer should only run while both connected and visible — either condition failing means
-    // polling would either be useless (not connected) or wasted (not visible).
-    private void UpdatePollingState()
-    {
-        if (_auth.State == ConnectionState.Connected && _windowVisible)
-        {
-            _pollTimer?.Start();
-        }
-        else
-        {
-            _pollTimer?.Stop();
-        }
-    }
-
-    private async Task RefreshPlayerStateAsync()
-    {
-        PlayerState? state;
-        try
-        {
-            state = await _spotifyClient.GetPlayerStateAsync();
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-        {
-            // TaskCanceledException covers HttpClient's own request timeout (there's no caller-supplied
-            // CancellationToken here, so it can't be a real cancellation) — both it and a failed
-            // request/token-refresh should just skip this poll, not fault the discarded Tick task.
-            LogPlayerStateRefreshFailed(ex);
-            return;
-        }
-
+    private void OnPlayerStateChanged(object? sender, PlayerState? state) =>
         _dispatcher.RunOnUi(() =>
         {
             _playerState = state;
             NotifyPlayerStateChanged();
         });
-    }
 
     private void NotifyStateChanged()
     {
@@ -218,9 +135,6 @@ public sealed partial class StatusViewModel : ObservableObject
         OnPropertyChanged(nameof(DeviceName));
         OnPropertyChanged(nameof(DeviceLineText));
     }
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Couldn't read Spotify player state for the status card.")]
-    private partial void LogPlayerStateRefreshFailed(Exception exception);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Reconnect attempt failed unexpectedly.")]
     private partial void LogReconnectFailed(Exception exception);

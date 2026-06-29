@@ -9,6 +9,20 @@
     mc:Ignorable="d">
 
     <Page.Resources>
+        <!-- Square, chromeless nudge button: no border/fill at rest, but BasedOn the default style so
+             the template's hover/pressed visual states still paint a themed background + border. -->
+        <Style
+            x:Key="VolumeNudgeButtonStyle"
+            BasedOn="{StaticResource DefaultButtonStyle}"
+            TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+
         <!-- One keycap in a hotkey combination, e.g. "Ctrl" or "↑". -->
         <DataTemplate x:Key="KeycapTemplate" x:DataType="x:String">
             <Border
@@ -231,32 +245,91 @@
                 </StackPanel>
 
                 <!--
-                    TEMPORARY volume controls migrated from the walking skeleton: they read and change
-                    the active device's volume and mirror the global hotkeys, proving the slice end to
-                    end. The hotkey list and volume meter replace this later.
+                    Volume card: the active device's level as a large percentage with a speaker glyph,
+                    a slider, and step nudge buttons. Dimmed/disabled (via IsEnabled) whenever there is
+                    nothing to control — disconnected or no active device; the status card above owns
+                    the "no active device" message.
                 -->
-                <TextBlock
-                    x:Name="VolumeText"
-                    Style="{StaticResource SubtitleTextBlockStyle}"
-                    Text="Volume —" />
-                <TextBlock
-                    x:Name="DeviceText"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    TextWrapping="Wrap" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button
-                        Click="OnVolumeDownClick"
-                        Content="&#xE71F;"
-                        FontFamily="{StaticResource SymbolThemeFontFamily}"
-                        ToolTipService.ToolTip="Volume down" />
-                    <Button
-                        Click="OnVolumeUpClick"
-                        Content="&#xE710;"
-                        FontFamily="{StaticResource SymbolThemeFontFamily}"
-                        ToolTipService.ToolTip="Volume up" />
-                    <Button Click="OnRefreshClick" Content="Refresh" />
-                </StackPanel>
+                <Border
+                    Padding="16"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4">
+                    <!-- A ContentControl (unlike Border/Panel) can be disabled, blocking interaction
+                         when there's no active device; the opacity binding dims the whole card. -->
+                    <ContentControl
+                        HorizontalContentAlignment="Stretch"
+                        IsEnabled="{x:Bind VolumeViewModel.CanControl, Mode=OneWay}"
+                        IsTabStop="False"
+                        Opacity="{x:Bind VolumeViewModel.CardOpacity, Mode=OneWay}">
+                        <StackPanel Spacing="12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel
+                                Grid.Column="0"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Spacing="18">
+                                <FontIcon
+                                    Margin="4,0,0,0"
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    FontSize="20"
+                                    Glyph="{x:Bind VolumeViewModel.VolumeGlyph, Mode=OneWay}" />
+                                <TextBlock
+                                    x:Uid="Volume_Header"
+                                    VerticalAlignment="Top"
+                                    Style="{StaticResource BodyTextBlockStyle}" />
+                            </StackPanel>
+                            <TextBlock
+                                Grid.Column="1"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Style="{StaticResource BodyStrongTextBlockStyle}"
+                                Text="{x:Bind VolumeViewModel.VolumeText, Mode=OneWay}" />
+                        </Grid>
+
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Button
+                                Grid.Column="0"
+                                VerticalAlignment="Center"
+                                Command="{x:Bind VolumeViewModel.NudgeDownCommand}"
+                                Style="{StaticResource VolumeNudgeButtonStyle}"
+                                ToolTipService.ToolTip="Volume down">
+                                <FontIcon
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    FontSize="20"
+                                    Glyph="&#xECC9;" />
+                            </Button>
+                            <Slider
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Maximum="100"
+                                Minimum="0"
+                                Value="{x:Bind VolumeViewModel.SliderValue, Mode=TwoWay}" />
+                            <Button
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Command="{x:Bind VolumeViewModel.NudgeUpCommand}"
+                                Style="{StaticResource VolumeNudgeButtonStyle}"
+                                ToolTipService.ToolTip="Volume up">
+                                <FontIcon
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    FontSize="20"
+                                    Glyph="&#xECC8;" />
+                            </Button>
+                        </Grid>
+                        </StackPanel>
+                    </ContentControl>
+                </Border>
 
                 <Button
                     Margin="0,8,0,0"

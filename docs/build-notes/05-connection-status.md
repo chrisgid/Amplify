@@ -145,3 +145,23 @@ treatment, and one functional gap:
   can only be `HttpClient`'s own timeout, never a real cancellation that should propagate.
 - **Manual/integration checks:** `dotnet build` (0 warnings/errors), `dotnet test` (100 passed),
   `dotnet format --verify-no-changes` all clean.
+
+## 2026-06-28 — Player-state polling moved out to a shared provider (feature 07 work)
+
+- **Why:** feature 07 needs the *same* active-device/volume reading the status card already polls;
+  having the volume controller read separately meant a device that became active while Amplify was
+  open lit up the status card (which polls) but not the volume control. Rather than a second poller,
+  the 5s poll moved into a shared `IPlayerStateProvider` (see [`contracts.md`](../contracts.md))
+  consumed by both.
+- **What changed in this feature's code:** `StatusViewModel` **no longer owns the
+  `DispatcherQueueTimer`, the `ISpotifyClient` read, or `Suspend()`/`Resume()`.** It now takes
+  `IPlayerStateProvider`, seeds `_playerState` from its `Current`, and updates on its
+  `PlayerStateChanged` event; the connection-state handling (card/InfoBar visibility, clearing the
+  device on disconnect) is unchanged. The poll/visibility logic that used to live here now lives
+  verbatim in `Amplify.App/Spotify/PlayerStateProvider.cs`, including the
+  `TaskCanceledException`-or-`HttpRequestException` catch from the 2026-06-27 fix.
+- **Suspend/Resume moved:** `MainWindow.OnVisibilityChanged` now calls
+  `PlayerStateProvider.Suspend()/Resume()` instead of `StatusViewModel`'s — same pause-while-hidden
+  behaviour, one owner. The provider runs as an `IStartupInitializer` (Order 250) so it begins
+  polling at launch independent of which screen is shown. `StatusPresentation` and its tests are
+  untouched.
