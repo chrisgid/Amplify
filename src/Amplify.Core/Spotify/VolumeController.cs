@@ -24,12 +24,17 @@ namespace Amplify.Core.Spotify;
 /// </remarks>
 public sealed partial class VolumeController : IVolumeController, IStartupInitializer, IDisposable
 {
+    // After a write Spotify accepts, briefly ignore a polled volume that disagrees with it: the poll may
+    // have read the device before it reflected the change, and applying it would snap the slider back.
+    private static readonly TimeSpan _writeSettleWindow = TimeSpan.FromSeconds(2);
+
     private readonly ISpotifyClient _client;
     private readonly IHotkeyService _hotkeys;
     private readonly ISettingsService _settings;
     private readonly IAuthService _auth;
     private readonly IPlayerStateProvider _playerState;
     private readonly ILogger<VolumeController> _logger;
+    private readonly TimeProvider _time;
 
     private readonly object _gate = new();
     private int _volume;            // last-known/optimistic level shown to the UI (0..100)
@@ -38,6 +43,7 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
     private int? _pendingTarget;    // latest target awaiting a write, collapsing a burst into one call
     private bool _writerRunning;
     private Task _writer = Task.CompletedTask;
+    private DateTimeOffset _lastWriteAt = DateTimeOffset.MinValue;
     private bool _disposed;
 
     public VolumeController(
@@ -46,7 +52,8 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
         ISettingsService settings,
         IAuthService auth,
         IPlayerStateProvider playerState,
-        ILogger<VolumeController> logger)
+        ILogger<VolumeController> logger,
+        TimeProvider? timeProvider = null)
     {
         _client = client;
         _hotkeys = hotkeys;
@@ -54,6 +61,7 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
         _auth = auth;
         _playerState = playerState;
         _logger = logger;
+        _time = timeProvider ?? TimeProvider.System;
     }
 
     public int Volume
@@ -165,16 +173,19 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
         bool hasDevice = state is { HasActiveDevice: true };
         int volume;
         bool volumeChanged;
+        bool controlChanged;
         lock (_gate)
         {
+            controlChanged = hasDevice != _hasActiveDevice;
             _hasActiveDevice = hasDevice;
             if (!hasDevice)
             {
                 _pendingTarget = null;
             }
 
-            // Don't let a reading clobber an optimistic value mid-write; the write is the newer truth.
-            if (hasDevice && !_writerRunning)
+            // Don't let a reading clobber an optimistic value mid-write, nor one that just landed
+            // before Spotify reflected a write we made — both would snap the slider to a stale value.
+            if (hasDevice && !_writerRunning && !WroteRecently())
             {
                 volumeChanged = _volume != state!.VolumePercent;
                 _volume = state.VolumePercent;
@@ -188,7 +199,13 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
             volume = _volume;
         }
 
-        StateChanged?.Invoke(this, EventArgs.Empty);
+        // Only announce a state change when control availability actually changed — otherwise every
+        // steady-state poll would spuriously notify.
+        if (controlChanged)
+        {
+            StateChanged?.Invoke(this, EventArgs.Empty);
+        }
+
         if (volumeChanged)
         {
             VolumeChanged?.Invoke(this, volume);
@@ -236,6 +253,7 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
                 lock (_gate)
                 {
                     _confirmedVolume = target;
+                    _lastWriteAt = _time.GetUtcNow();
                 }
             }
             catch (DeviceNotControllableException ex)
@@ -247,6 +265,20 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
             catch (HttpRequestException ex)
             {
                 LogVolumeWriteFailed(ex);
+
+                // If the user has since moved the volume again, let the loop send that newer target
+                // rather than reverting — a transient blip shouldn't discard their latest input.
+                bool hasNewerTarget;
+                lock (_gate)
+                {
+                    hasNewerTarget = _pendingTarget is not null;
+                }
+
+                if (hasNewerTarget)
+                {
+                    continue;
+                }
+
                 FailWrite(disableControl: false);
                 return;
             }
@@ -254,7 +286,8 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
     }
 
     // Rolls the optimistic value back to the last accepted level and stops the writer. A rejected
-    // device additionally flips control off until the next reading re-checks device presence.
+    // device additionally flips control off (and announces it) until the next reading re-checks
+    // device presence; a transient failure leaves control availability unchanged.
     private void FailWrite(bool disableControl)
     {
         int reverted;
@@ -272,8 +305,15 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
         }
 
         VolumeChanged?.Invoke(this, reverted);
-        StateChanged?.Invoke(this, EventArgs.Empty);
+        if (disableControl)
+        {
+            StateChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
+
+    // True while a just-accepted write may not yet be reflected by the device's reported volume. Called
+    // under _gate (reads _lastWriteAt).
+    private bool WroteRecently() => _time.GetUtcNow() - _lastWriteAt < _writeSettleWindow;
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Couldn't change the Spotify volume; reverted to the last known value.")]
     private partial void LogVolumeWriteFailed(Exception exception);

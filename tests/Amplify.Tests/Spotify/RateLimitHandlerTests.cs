@@ -40,7 +40,21 @@ public sealed class RateLimitHandlerTests
         using var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
         response.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(7));
 
-        Assert.Equal(TimeSpan.FromSeconds(7), RateLimitHandler.ComputeDelay(response, attempt: 0));
+        Assert.Equal(
+            TimeSpan.FromSeconds(7),
+            RateLimitHandler.ComputeDelay(response, attempt: 0, TimeProvider.System));
+    }
+
+    [Fact]
+    public void ComputeDelayHonoursRetryAfterDateAgainstTheProvidedClock()
+    {
+        var now = new DateTimeOffset(2026, 6, 30, 12, 0, 0, TimeSpan.Zero);
+        var time = new FakeTimeProvider(now);
+        using var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+        response.Headers.RetryAfter = new RetryConditionHeaderValue(now + TimeSpan.FromSeconds(3));
+
+        // Uses the injected clock's "now", not DateTimeOffset.UtcNow, so the delta is exactly 3s.
+        Assert.Equal(TimeSpan.FromSeconds(3), RateLimitHandler.ComputeDelay(response, attempt: 0, time));
     }
 
     [Theory]
@@ -51,7 +65,9 @@ public sealed class RateLimitHandlerTests
     {
         using var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
 
-        Assert.Equal(TimeSpan.FromMilliseconds(expectedMilliseconds), RateLimitHandler.ComputeDelay(response, attempt));
+        Assert.Equal(
+            TimeSpan.FromMilliseconds(expectedMilliseconds),
+            RateLimitHandler.ComputeDelay(response, attempt, TimeProvider.System));
     }
 
     private static HttpResponseMessage Throttled(DateTimeOffset retryAfter)

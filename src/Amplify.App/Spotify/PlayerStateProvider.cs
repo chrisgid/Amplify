@@ -179,8 +179,12 @@ public sealed partial class PlayerStateProvider : IPlayerStateProvider, IStartup
     private void Publish(PlayerState? state) =>
         _dispatcher.RunOnUi(() =>
         {
-            Current = state;
-            PlayerStateChanged?.Invoke(this, state);
+            // Re-checked on the UI thread, which is ordered with the connection-state handler: a
+            // disconnect that landed while a read was in flight must win, so never surface a device
+            // while disconnected even if the read completed afterwards.
+            PlayerState? published = _auth.State == ConnectionState.Connected ? state : null;
+            Current = published;
+            PlayerStateChanged?.Invoke(this, published);
         });
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Couldn't read Spotify player state.")]

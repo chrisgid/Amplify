@@ -180,3 +180,35 @@ connect/resume/after-write), so the control stayed disabled until a manual refre
   proving the gap is closed, and `RefreshDelegatesToTheSharedProvider`); `dotnet format
   --verify-no-changes` → clean. The live "start playback after opening Amplify → control enables
   within ~5s" path is part of the desktop smoke test (needs Premium + a device).
+
+## 2026-06-30 — Code review fixes (PR #18)
+
+Addressed six review findings; behaviour notes for future sessions:
+
+- **Transient write failure no longer discards the latest target.** During a burst, if the in-flight
+  write fails with a transient `HttpRequestException` while a newer target is queued, the writer now
+  retries the newer target instead of reverting two steps to the last confirmed value. Only when there
+  is no newer target does it revert (the documented optimistic-revert behaviour). A `403/404`
+  (`DeviceNotControllableException`) still reverts + disables immediately.
+- **`StateChanged` is gated on a real availability change.** `ApplyPlayerState` previously raised it on
+  every 5s poll; it now fires only when `_hasActiveDevice` actually flips (matching the contract), so
+  steady-state polling no longer spams the view-model. `FailWrite` likewise only raises it when it
+  disables control.
+- **Post-write snap-back closed with a settle window.** After a write Spotify accepts, a poll that read
+  the device before it reflected the change is ignored for `_writeSettleWindow` (2s) — previously
+  flagged as an accepted Option-C trade-off, now fixed. Uses an injected `TimeProvider` (defaulted via
+  an optional ctor param, so DI and the existing constructor calls are unaffected) for a virtual-time
+  unit test.
+- **Provider can't resurrect a device after disconnect.** `PlayerStateProvider.Publish` re-checks
+  `IAuthService.State` on the UI thread (ordered with the connection-state handler), so a read that
+  completes just after a disconnect publishes `null`, never a phantom device — keeping `Current`'s
+  documented "null when disconnected" invariant for any future consumer.
+- **One shared request clone.** Extracted `HttpRequestMessageExtensions.Clone()` (`Amplify.Core/Http`)
+  used by both `SpotifyAuthorizationHandler` and `RateLimitHandler`; the rate-limit path now copies the
+  request body too (previously dropped — harmless today as Spotify volume/player calls are body-less,
+  but correct for any future body-carrying request that hits a 429).
+- **`RateLimitHandler.ComputeDelay` takes the `TimeProvider`** so its `Retry-After`-date branch reads
+  "now" from the same clock the delay waits on (testable under a fake clock).
+- **Tests:** `dotnet test` → **170 passed, 0 skipped** (+4: transient-failure re-queue, steady-state
+  no-StateChanged, post-write suppression with a `FakeTimeProvider`, and a `Retry-After`-date delay
+  against the injected clock). App (x64) build and `dotnet format --verify-no-changes` clean.
