@@ -259,56 +259,54 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
             catch (DeviceNotControllableException ex)
             {
                 LogVolumeWriteRejected(ex);
-                FailWrite(disableControl: true);
+                RevertAndDisableControl();
                 return;
             }
             catch (HttpRequestException ex)
             {
                 LogVolumeWriteFailed(ex);
 
-                // If the user has since moved the volume again, let the loop send that newer target
-                // rather than reverting — a transient blip shouldn't discard their latest input.
-                bool hasNewerTarget;
+                // Decide whether to keep going or revert in a single critical section: if the check and
+                // the revert took the lock separately, a nudge landing between them would be nulled out
+                // and lost. Holding _gate across the decision blocks any concurrent RequestWrite.
+                int reverted;
                 lock (_gate)
                 {
-                    hasNewerTarget = _pendingTarget is not null;
+                    // A newer target means the user has moved on; leave the writer running and loop to
+                    // send it rather than reverting — a transient blip shouldn't discard their input.
+                    if (_pendingTarget is not null)
+                    {
+                        continue;
+                    }
+
+                    _writerRunning = false;
+                    _volume = _confirmedVolume;
+                    reverted = _volume;
                 }
 
-                if (hasNewerTarget)
-                {
-                    continue;
-                }
-
-                FailWrite(disableControl: false);
+                VolumeChanged?.Invoke(this, reverted);
                 return;
             }
         }
     }
 
-    // Rolls the optimistic value back to the last accepted level and stops the writer. A rejected
-    // device additionally flips control off (and announces it) until the next reading re-checks
-    // device presence; a transient failure leaves control availability unchanged.
-    private void FailWrite(bool disableControl)
+    // Rolls the optimistic value back to the last accepted level, stops the writer, and disables
+    // control after Spotify rejects the device (403/404). Control re-enables on the next reading that
+    // reports a controllable device.
+    private void RevertAndDisableControl()
     {
         int reverted;
         lock (_gate)
         {
             _pendingTarget = null;
             _writerRunning = false;
-            if (disableControl)
-            {
-                _hasActiveDevice = false;
-            }
-
+            _hasActiveDevice = false;
             _volume = _confirmedVolume;
             reverted = _volume;
         }
 
         VolumeChanged?.Invoke(this, reverted);
-        if (disableControl)
-        {
-            StateChanged?.Invoke(this, EventArgs.Empty);
-        }
+        StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     // True while a just-accepted write may not yet be reflected by the device's reported volume. Called

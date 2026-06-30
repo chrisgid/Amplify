@@ -212,3 +212,16 @@ Addressed six review findings; behaviour notes for future sessions:
 - **Tests:** `dotnet test` → **170 passed, 0 skipped** (+4: transient-failure re-queue, steady-state
   no-StateChanged, post-write suppression with a `FakeTimeProvider`, and a `Retry-After`-date delay
   against the injected clock). App (x64) build and `dotnet format --verify-no-changes` clean.
+
+### Follow-up: close a race the transient-failure re-queue introduced
+
+The first cut of the transient-failure re-queue read "is there a newer target?" and reverted under two
+separate `_gate` acquisitions, so a nudge landing in between (the write continuation runs off the UI
+thread via `ConfigureAwait(false)`) could be nulled out by the revert — losing exactly the input the
+re-queue was meant to preserve. Folded both into one critical section: the `HttpRequestException` catch
+now holds `_gate` once and either `continue`s the writer loop (when `_pendingTarget` is non-null) or
+reverts and stops inline, so no `RequestWrite` can interleave between the check and the stop. The
+device-rejected (403/404) path keeps its own `RevertAndDisableControl` (dropping any queued target is
+correct there — the device isn't controllable). No behavioural test (the window is a timing race);
+correctness is structural, and the existing `TransientFailureKeepsTheLatestTargetInsteadOfReverting`
+still covers the re-queue path.
