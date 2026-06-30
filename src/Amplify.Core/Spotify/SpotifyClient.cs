@@ -51,6 +51,14 @@ public sealed class SpotifyClient(HttpClient http) : ISpotifyClient
             HttpMethod.Put, $"v1/me/player/volume?volume_percent={clamped}");
 
         using HttpResponseMessage response = await http.SendAsync(request).ConfigureAwait(false);
+
+        // 404 "Device not found" and 403 (restriction) both mean there's no active, controllable
+        // device — a distinct, recoverable case rather than a generic failure.
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
+        {
+            throw new DeviceNotControllableException();
+        }
+
         response.EnsureSuccessStatusCode();
     }
 

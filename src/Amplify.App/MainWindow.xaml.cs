@@ -1,9 +1,8 @@
 using System.Runtime.InteropServices;
-using Amplify.App.Dev;
+using Amplify.App.Spotify;
 using Amplify.App.Theming;
 using Amplify.App.ViewModels;
 using Amplify.App.Views;
-using Amplify.Core.Auth;
 using Amplify.Core.Navigation;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
@@ -30,45 +29,29 @@ public sealed partial class MainWindow : Window, IDisposable
     private const int _minHeight = 480;
 
     private readonly ShellViewModel _shell;
-    private readonly IAuthService _authService;
-    private readonly DevPlaybackSlice _playback;
+    private readonly PlayerStateProvider _playerState;
     private readonly ThemeService _theme;
-    private readonly StatusViewModel _status;
-    private readonly DispatcherQueue _dispatcher;
 
     private bool _disposed;
 
-    public MainWindow(
-        ShellViewModel shell, IAuthService authService, DevPlaybackSlice playback, ThemeService theme,
-        StatusViewModel status)
+    public MainWindow(ShellViewModel shell, PlayerStateProvider playerState, ThemeService theme)
     {
         _shell = shell;
-        _authService = authService;
-        _playback = playback;
+        _playerState = playerState;
         _theme = theme;
-        _status = status;
         InitializeComponent();
-        _dispatcher = DispatcherQueue;
 
         ConfigureWindowChrome();
         ApplyTheme();
 
         _shell.RouteChanged += OnShellRouteChanged;
-        _authService.ConnectionStateChanged += OnConnectionStateChanged;
         _theme.ThemeChanged += OnThemeChanged;
         VisibilityChanged += OnVisibilityChanged;
         Closed += OnClosed;
 
-        // Show the screen the shell picked for the current connection state.
+        // Show the screen the shell picked for the current connection state. Player-state polling
+        // (which the status card and volume controller both consume) is paused/resumed with visibility.
         NavigateTo(_shell.CurrentRoute);
-
-        // A session restored before this window existed won't re-raise ConnectionStateChanged, so the
-        // initial connected state has to be handled here too — otherwise a launch that opens straight
-        // on the main screen wouldn't do the first playback refresh.
-        if (_authService.State == ConnectionState.Connected)
-        {
-            OnConnected();
-        }
     }
 
     private void ConfigureWindowChrome()
@@ -137,33 +120,21 @@ public sealed partial class MainWindow : Window, IDisposable
         }
     }
 
-    private void OnConnectionStateChanged(object? sender, ConnectionState state)
-    {
-        if (state == ConnectionState.Connected)
-        {
-            // Connection-state changes can arrive off the UI thread; the refresh touches bindable state.
-            _dispatcher.TryEnqueue(OnConnected);
-        }
-    }
-
-    // Refreshes the playback state once an account is connected — whether that connection was just
-    // made or restored at launch. Runs on the UI thread.
-    private void OnConnected() => _ = _playback.RefreshAsync();
-
-    // Minimising fires this with Visible=false (and restoring with true) — used to pause the status
-    // card's Spotify polling while nobody can see it. Note: this only covers OS-minimise; once
-    // feature 08 adds minimise-to-tray, a fully tray-hidden window is a separate non-visible state
-    // that this same Suspend()/Resume() pair will need to cover too (check whether
+    // Minimising fires this with Visible=false (and restoring with true) — used to pause the shared
+    // Spotify player-state polling while nobody can see it, and to read once on the way back so the
+    // status card and volume meter catch up on anything changed while hidden. Note: this only covers
+    // OS-minimise; once feature 08 adds minimise-to-tray, a fully tray-hidden window is a separate
+    // non-visible state that this same Suspend()/Resume() pair will need to cover too (check whether
     // VisibilityChanged already fires for that case before adding new plumbing).
     private void OnVisibilityChanged(object sender, WindowVisibilityChangedEventArgs args)
     {
         if (args.Visible)
         {
-            _status.Resume();
+            _playerState.Resume();
         }
         else
         {
-            _status.Suspend();
+            _playerState.Suspend();
         }
     }
 
@@ -179,7 +150,6 @@ public sealed partial class MainWindow : Window, IDisposable
 
         _disposed = true;
         _shell.RouteChanged -= OnShellRouteChanged;
-        _authService.ConnectionStateChanged -= OnConnectionStateChanged;
         _theme.ThemeChanged -= OnThemeChanged;
         VisibilityChanged -= OnVisibilityChanged;
     }

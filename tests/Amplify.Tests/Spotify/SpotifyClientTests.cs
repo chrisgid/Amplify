@@ -66,6 +66,16 @@ public sealed class SpotifyClientTests
         Assert.Equal($"?volume_percent={expected}", handler.LastRequest?.RequestUri?.Query);
     }
 
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.Forbidden)]
+    public async Task SetVolumeMapsNoControllableDeviceToTypedException(HttpStatusCode status)
+    {
+        (SpotifyClient client, _) = CreateClient(_ => new HttpResponseMessage(status));
+
+        await Assert.ThrowsAsync<DeviceNotControllableException>(() => client.SetVolumeAsync(40));
+    }
+
     private static (SpotifyClient Client, RecordingHandler Handler) CreateClient(
         Func<HttpRequestMessage, HttpResponseMessage> respond)
     {

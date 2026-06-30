@@ -159,6 +159,16 @@ public interface ISpotifyClient
     Task SetVolumeAsync(int percent);           // PUT /v1/me/player/volume (active device)
 }
 
+// Shared single source of player state (active device + volume). One App-layer implementation polls
+// GET /v1/me/player on a timer (while connected + window visible) and on demand; the status card (05)
+// and the volume controller (07) both observe it so there is exactly one set of polling requests.
+public interface IPlayerStateProvider
+{
+    PlayerState? Current { get; }                    // last reading, null when unread/disconnected
+    event EventHandler<PlayerState?> PlayerStateChanged;
+    Task RefreshAsync();                             // read now (e.g. on focus); coalesces overlaps
+}
+
 // feature 06 — global hotkeys
 // Shortcuts are observed, not consumed (a bound key still reaches the foreground app), so the
 // service does not detect cross-app conflicts; Register/TryRegister fail only if the shortcut
@@ -179,7 +189,9 @@ public interface IVolumeController
     bool CanControl { get; }                      // connected + HasActiveDevice
     Task SetVolumeAsync(int percent);
     Task NudgeAsync(int direction);              // +1 / -1 * step, clamped 0..100
+    Task RefreshAsync();                          // re-read player state (called on connect/focus)
     event EventHandler<int> VolumeChanged;        // for UI + notifications
+    event EventHandler? StateChanged;             // CanControl changed without a volume change
 }
 
 // feature 11 — theme/accent
@@ -228,6 +240,7 @@ public interface IStartupInitializer
 | --- | --- | --- |
 | `IAuthService.ConnectionStateChanged` | 03 | 01 (routing), 04, 05, 12 |
 | `IHotkeyService.HotkeyPressed` | 06 | 07 |
+| `IPlayerStateProvider.PlayerStateChanged` | 07 (shared provider) | 05 (status card), 07 (volume) |
 | `IVolumeController.VolumeChanged` | 07 | 07 UI, 09 (toast) |
 | `ISettingsService.Changed` | 10 | 06 (re-register), 07 (step), 08 (startup/tray), 09, 11 (theme) |
 | `IThemeService.ThemeChanged` | 11 | 01 (window) |

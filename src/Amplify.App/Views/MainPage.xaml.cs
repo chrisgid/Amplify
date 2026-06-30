@@ -1,4 +1,3 @@
-using Amplify.App.Dev;
 using Amplify.App.ViewModels;
 using Amplify.Core.Hotkeys;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,12 +14,10 @@ namespace Amplify.App.Views;
 
 /// <summary>
 /// The main control screen: the connection-status card, the two rebindable global-hotkey rows, and
-/// (temporarily) the volume controls from the walking skeleton. The live volume meter replaces the
-/// temporary controls later.
+/// the live volume card (meter, slider, step nudges).
 /// </summary>
 public sealed partial class MainPage : Page
 {
-    private readonly DevPlaybackSlice _playback;
     private readonly ShellViewModel _shell;
 
     public MainPage()
@@ -29,8 +26,8 @@ public sealed partial class MainPage : Page
         // wired up.
         StatusViewModel = App.Services.GetRequiredService<StatusViewModel>();
         HotkeysViewModel = App.Services.GetRequiredService<HotkeysViewModel>();
+        VolumeViewModel = App.Services.GetRequiredService<VolumeViewModel>();
         InitializeComponent();
-        _playback = App.Services.GetRequiredService<DevPlaybackSlice>();
         _shell = App.Services.GetRequiredService<ShellViewModel>();
 
         // Keep this page's instance alive across a trip to settings so its state is preserved.
@@ -43,38 +40,17 @@ public sealed partial class MainPage : Page
     /// <summary>The bound hotkeys view-model; public so generated <c>x:Bind</c> code can read it.</summary>
     public HotkeysViewModel HotkeysViewModel { get; }
 
-    protected override async void OnNavigatedTo(NavigationEventArgs e)
+    /// <summary>The bound volume view-model; public so generated <c>x:Bind</c> code can read it.</summary>
+    public VolumeViewModel VolumeViewModel { get; }
+
+    protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        _playback.Changed += OnPlaybackChanged;
-        UpdateUi();
-        await _playback.RefreshAsync();
+
+        // Reconcile the meter whenever the screen is shown (e.g. returning from settings); the card's
+        // bindings update from the view-model's change notifications.
+        _ = VolumeViewModel.RefreshAsync();
     }
-
-    protected override void OnNavigatedFrom(NavigationEventArgs e)
-    {
-        base.OnNavigatedFrom(e);
-        _playback.Changed -= OnPlaybackChanged;
-    }
-
-    private void OnPlaybackChanged(object? sender, EventArgs e) => DispatcherQueue.TryEnqueue(UpdateUi);
-
-    private void UpdateUi()
-    {
-        VolumeText.Text = _playback.HasActiveDevice ? $"Volume {_playback.Volume}%" : "Volume —";
-        DeviceText.Text = _playback switch
-        {
-            { LastError: { } error } => error,
-            { HasActiveDevice: true, DeviceName: { } name } => $"Now controlling: {name}",
-            _ => "No active Spotify device. Start playback in Spotify, then press Refresh.",
-        };
-    }
-
-    private void OnVolumeUpClick(object sender, RoutedEventArgs e) => _ = _playback.NudgeAsync(1);
-
-    private void OnVolumeDownClick(object sender, RoutedEventArgs e) => _ = _playback.NudgeAsync(-1);
-
-    private async void OnRefreshClick(object sender, RoutedEventArgs e) => await _playback.RefreshAsync();
 
     private void OnSettingsClick(object sender, RoutedEventArgs e) => _shell.GoToSettingsCommand.Execute(null);
 

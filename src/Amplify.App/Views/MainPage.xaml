@@ -9,6 +9,20 @@
     mc:Ignorable="d">
 
     <Page.Resources>
+        <!-- Square, chromeless nudge button: no border/fill at rest, but BasedOn the default style so
+             the template's hover/pressed visual states still paint a themed background + border. -->
+        <Style
+            x:Key="VolumeNudgeButtonStyle"
+            BasedOn="{StaticResource DefaultButtonStyle}"
+            TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+
         <!-- One keycap in a hotkey combination, e.g. "Ctrl" or "↑". -->
         <DataTemplate x:Key="KeycapTemplate" x:DataType="x:String">
             <Border
@@ -230,32 +244,65 @@
                         Visibility="{x:Bind HotkeysViewModel.StatusLineIsCaution, Mode=OneWay}" />
                 </StackPanel>
 
-                <!--
-                    TEMPORARY volume controls migrated from the walking skeleton: they read and change
-                    the active device's volume and mirror the global hotkeys, proving the slice end to
-                    end. The hotkey list and volume meter replace this later.
-                -->
-                <TextBlock
-                    x:Name="VolumeText"
-                    Style="{StaticResource SubtitleTextBlockStyle}"
-                    Text="Volume —" />
-                <TextBlock
-                    x:Name="DeviceText"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    TextWrapping="Wrap" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button
-                        Click="OnVolumeDownClick"
-                        Content="&#xE71F;"
-                        FontFamily="{StaticResource SymbolThemeFontFamily}"
-                        ToolTipService.ToolTip="Volume down" />
-                    <Button
-                        Click="OnVolumeUpClick"
-                        Content="&#xE710;"
-                        FontFamily="{StaticResource SymbolThemeFontFamily}"
-                        ToolTipService.ToolTip="Volume up" />
-                    <Button Click="OnRefreshClick" Content="Refresh" />
+                <!-- Spotify section: the live volume control for the active device. -->
+                <StackPanel Spacing="4">
+                    <TextBlock
+                        x:Uid="Volume_SectionTitle"
+                        Margin="1,18,0,6"
+                        FontWeight="SemiBold"
+                        Style="{StaticResource BodyStrongTextBlockStyle}" />
+
+                    <!--
+                        Volume card: a native SettingsCard matching the hotkey rows above — "Volume"
+                        header, the live percentage as its description, and the slider with step nudge
+                        buttons as its content. Disabled (which dims it natively) whenever there is
+                        nothing to control; the status card above owns the "no active device" message.
+                    -->
+                    <tk:SettingsCard
+                        x:Uid="Volume_Header"
+                        ContentAlignment="Vertical"
+                        Description="{x:Bind VolumeViewModel.VolumeText, Mode=OneWay}"
+                        HorizontalContentAlignment="Stretch"
+                        IsEnabled="{x:Bind VolumeViewModel.CanControl, Mode=OneWay}">
+                    <!-- Vertical alignment always stacks the slider row beneath the header; the row
+                         stretches full width so the slider fills the space between the nudge buttons. -->
+                    <Grid HorizontalAlignment="Stretch" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Button
+                            Grid.Column="0"
+                            VerticalAlignment="Center"
+                            Command="{x:Bind VolumeViewModel.NudgeDownCommand}"
+                            Style="{StaticResource VolumeNudgeButtonStyle}"
+                            ToolTipService.ToolTip="Volume down">
+                            <FontIcon
+                                FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                FontSize="16"
+                                Glyph="&#xECC9;" />
+                        </Button>
+                        <Slider
+                            Grid.Column="1"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Center"
+                            Maximum="100"
+                            Minimum="0"
+                            Value="{x:Bind VolumeViewModel.SliderValue, Mode=TwoWay}" />
+                        <Button
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            Command="{x:Bind VolumeViewModel.NudgeUpCommand}"
+                            Style="{StaticResource VolumeNudgeButtonStyle}"
+                            ToolTipService.ToolTip="Volume up">
+                            <FontIcon
+                                FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                FontSize="16"
+                                Glyph="&#xECC8;" />
+                        </Button>
+                    </Grid>
+                    </tk:SettingsCard>
                 </StackPanel>
 
                 <Button
