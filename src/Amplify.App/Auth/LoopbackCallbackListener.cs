@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Reflection;
-using System.Text;
 using Amplify.Core.Auth;
 
 namespace Amplify.App.Auth;
@@ -94,8 +93,9 @@ internal sealed class LoopbackCallbackListener : IDisposable
         Assembly assembly = typeof(LoopbackCallbackListener).Assembly;
         using Stream stream = assembly.GetManifestResourceStream(name)
             ?? throw new InvalidOperationException($"Embedded OAuth callback page '{name}' was not found.");
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-        return Encoding.UTF8.GetBytes(reader.ReadToEnd());
+        using var buffer = new MemoryStream();
+        stream.CopyTo(buffer);
+        return buffer.ToArray();
     });
 
     public void Dispose() => ((IDisposable)_listener).Dispose();
