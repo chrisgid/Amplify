@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Amplify — Not connected</title>
+  <style>
+    /* Dark-mode only: the page is served into the system browser after the Spotify
+       consent screen. Tokens mirror the app's dark theme (no accent — a static page
+       can't follow the user's live Windows accent). */
+    :root {
+      --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      --font: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      --page-bg: #202020;
+      --text-1: #ffffff;
+      --text-2: rgba(255, 255, 255, .786);
+      --warning: #fce100;
+      --warning-bg: rgba(67, 53, 25, .5);
+      --warning-stroke: rgba(252, 225, 0, .14);
+      --ease: cubic-bezier(.16, 1, .3, 1);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: var(--font);
+      background: var(--page-bg);
+      color: var(--text-1);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    .stage { position: relative; text-align: center; max-width: 460px; padding: 0 32px; }
+    .badge {
+      width: 84px; height: 84px; margin: 0 auto 22px;
+      border-radius: 50%;
+      background: var(--warning-bg);
+      border: 1px solid var(--warning-stroke);
+      display: grid; place-items: center;
+      animation: pop .5s var(--ease) both;
+    }
+    @keyframes pop { from { transform: translateY(10px) scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }
+    .title {
+      font-family: var(--font-display);
+      font-size: 32px; font-weight: 600; letter-spacing: -0.0076em;
+      color: var(--text-1);
+    }
+    .message { font-size: 16px; line-height: 150%; color: var(--text-2); margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <div class="badge">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--warning)"
+           stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18" />
+      </svg>
+    </div>
+    <h1 class="title">Access not granted</h1>
+    <p class="message">Amplify wasn't given permission to connect to your Spotify account. Nothing has changed - you can close this tab and try again from the app whenever you're ready.</p>
+  </main>
+</body>
+</html>
