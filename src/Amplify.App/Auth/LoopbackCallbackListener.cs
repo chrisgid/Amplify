@@ -1,5 +1,6 @@
+using System.Collections.Concurrent;
 using System.Net;
-using System.Text;
+using System.Reflection;
 using Amplify.Core.Auth;
 
 namespace Amplify.App.Auth;
@@ -72,30 +73,30 @@ internal sealed class LoopbackCallbackListener : IDisposable
         }
     }
 
+    // The pages are authored as standalone .html files under Auth/Pages and embedded at build time
+    // so they ship with the assembly; edit those files to change the post-consent browser page.
+    private const string _connectedPageResource = "Amplify.App.Auth.Pages.connected.html";
+    private const string _accessDeniedPageResource = "Amplify.App.Auth.Pages.access-denied.html";
+    private static readonly ConcurrentDictionary<string, byte[]> _pageCache = new();
+
     private static async Task WritePageAsync(HttpListenerResponse response, bool success)
     {
-        string title = success ? "You're connected" : "Access not granted";
-        string message = success
-            ? "Amplify is now connected to Spotify. You can close this tab and return to the app."
-            : "Amplify didn't receive permission. You can close this tab and try again from the app.";
-
-        string html = $"""
-            <!DOCTYPE html>
-            <html lang="en">
-            <head><meta charset="utf-8"><title>Amplify</title></head>
-            <body style="font-family:Segoe UI,system-ui,sans-serif;text-align:center;padding:3rem">
-              <h1>{title}</h1>
-              <p>{message}</p>
-            </body>
-            </html>
-            """;
-
-        byte[] body = Encoding.UTF8.GetBytes(html);
+        byte[] body = LoadPage(success ? _connectedPageResource : _accessDeniedPageResource);
         response.ContentType = "text/html; charset=utf-8";
         response.ContentLength64 = body.Length;
         await response.OutputStream.WriteAsync(body).ConfigureAwait(false);
         response.Close();
     }
+
+    private static byte[] LoadPage(string resourceName) => _pageCache.GetOrAdd(resourceName, static name =>
+    {
+        Assembly assembly = typeof(LoopbackCallbackListener).Assembly;
+        using Stream stream = assembly.GetManifestResourceStream(name)
+            ?? throw new InvalidOperationException($"Embedded OAuth callback page '{name}' was not found.");
+        using var buffer = new MemoryStream();
+        stream.CopyTo(buffer);
+        return buffer.ToArray();
+    });
 
     public void Dispose() => ((IDisposable)_listener).Dispose();
 }

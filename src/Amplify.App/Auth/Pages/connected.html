@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Amplify — Connected</title>
+  <style>
+    :root {
+      --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      --font: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      --page-bg: #202020;
+      --text-1: #ffffff;
+      --text-2: rgba(255, 255, 255, .786);
+      --success: #6ccb6c;
+      --success-bg: rgba(57, 61, 27, .5);
+      --success-stroke: rgba(108, 203, 108, .18);
+      --ease: cubic-bezier(.16, 1, .3, 1);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: var(--font);
+      background: var(--page-bg);
+      color: var(--text-1);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    .stage { position: relative; text-align: center; max-width: 460px; padding: 0 32px; }
+    .badge {
+      width: 84px; height: 84px; margin: 0 auto 22px;
+      border-radius: 50%;
+      background: var(--success-bg);
+      border: 1px solid var(--success-stroke);
+      display: grid; place-items: center;
+      animation: pop .5s var(--ease) both;
+    }
+    @keyframes pop { from { transform: translateY(10px) scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }
+    .title {
+      font-family: var(--font-display);
+      font-size: 32px; font-weight: 600; letter-spacing: -0.0076em;
+      color: var(--text-1);
+    }
+    .message { font-size: 16px; line-height: 150%; color: var(--text-2); margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <div class="badge">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--success)"
+           stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4.5 12.5l5 5 10-11" />
+      </svg>
+    </div>
+    <h1 class="title">You're connected</h1>
+    <p class="message">Amplify is now linked to your Spotify account. You can close this tab and return to the app.</p>
+  </main>
+</body>
+</html>

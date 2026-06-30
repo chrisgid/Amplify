@@ -266,3 +266,33 @@ Two findings from review of the cancellation support added above:
     (it requires a real `IRefreshTokenStore`/loopback/browser interaction, same as the rest of
     `ConnectAsync` — see the Phase 0/1 entries above on why this method's happy/cancel paths are
     manual-only). Re-verify via the feature 04 manual Cancel walk next time a desktop is available.
+
+## 2026-06-30 — OAuth callback pages restyled to match the design (dark only)
+
+The Phase 0 success/denied browser pages were a bare `<h1>`/`<p>` placeholder built inline as a C#
+string in `LoopbackCallbackListener`. Reworked them to match the prototype's OAuth result pages.
+
+- **Moved out of code:** the two pages are now standalone files under
+  `src/Amplify.App/Auth/Pages/` (`connected.html`, `access-denied.html`), embedded via
+  `<EmbeddedResource>` with explicit `LogicalName`s (`Amplify.App.Auth.Pages.connected.html` /
+  `…access-denied.html`). `LoopbackCallbackListener.WritePageAsync` reads the matching resource
+  through `Assembly.GetManifestResourceStream` and caches the bytes in a static
+  `ConcurrentDictionary`. Editing the `.html` files (previewable directly in a browser) is now the
+  way to change the pages — no C# edit needed.
+- **Dark-mode only, by request.** The pages are static HTML served into the *system* browser, which
+  can't read the app's live WinUI theme/accent, so a single variant was chosen. Tokens are hardcoded
+  from the design's dark theme. A light variant was explicitly out of scope.
+- **No accent colour, pared back to essentials.** Because these static pages can't follow the user's
+  real Windows accent (the design's default `#0078D4` would just be a fixed guess), the accent was
+  dropped entirely — and the design's accent-tinted top glow and the Amplify-mark footer were removed
+  too. Each page is now a minimal centred card on a flat dark background (`#202020`): just the status
+  badge, title, and message, with no accent-coloured chrome.
+- **Based on `design/project/components/success.jsx`:** badge circle (success-green check /
+  warning-yellow ✕), large display-font title, and body copy. The prototype's "Return to Amplify"
+  button was intentionally omitted — a served web page can't reliably focus the desktop app, so a dead
+  control was avoided.
+- **No contract/behaviour change:** the listener still serves success vs denied off
+  `callback.Error is null`; no tests depend on page markup.
+- **Checks:** `dotnet build src/Amplify.App` → **0 warnings, 0 errors**; `dotnet test
+  tests/Amplify.Tests` → **170 passed**; verified both resource names are present in the built
+  assembly via reflection. Visual rendering is manual (open the `.html` files in a browser).

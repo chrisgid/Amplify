@@ -21,6 +21,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- OAuth callback pages served to the system browser; embedded so they ship with the assembly. -->
+    <EmbeddedResource Include="Auth\Pages\connected.html" LogicalName="Amplify.App.Auth.Pages.connected.html" />
+    <EmbeddedResource Include="Auth\Pages\access-denied.html" LogicalName="Amplify.App.Auth.Pages.access-denied.html" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="Assets\SplashScreen.scale-200.png" />
     <Content Include="Assets\LockScreenLogo.scale-200.png" />
     <Content Include="Assets\Square150x150Logo.scale-200.png" />
