@@ -1,6 +1,7 @@
 using System.Globalization;
 using Amplify.Core.Auth;
 using Amplify.Core.Settings;
+using Amplify.Core.Tray;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Dispatching;
 using Microsoft.Windows.ApplicationModel.Resources;
@@ -18,6 +19,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly ISettingsService _settings;
     private readonly IAuthService _auth;
+    private readonly IStartupTaskManager _startupTasks;
     private readonly DispatcherQueue? _dispatcher;
     private readonly ResourceLoader _strings = new();
 
@@ -32,6 +34,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     public partial bool StartMinimizedToTray { get; set; }
 
     [ObservableProperty]
+    public partial bool MinimizeToTrayOnClose { get; set; }
+
+    [ObservableProperty]
     public partial bool NotifyOnVolumeChange { get; set; }
 
     [ObservableProperty]
@@ -43,10 +48,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string AccountTitle { get; set; } = string.Empty;
 
-    public SettingsViewModel(ISettingsService settings, IAuthService auth)
+    public SettingsViewModel(ISettingsService settings, IAuthService auth, IStartupTaskManager startupTasks)
     {
         _settings = settings;
         _auth = auth;
+        _startupTasks = startupTasks;
 
         // Captured on the UI thread (the view-model is resolved while the screen is built) so changes
         // raised on other threads can be marshalled back before touching bindable state.
@@ -90,6 +96,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _suppressPersist = true;
         LaunchAtStartup = s.LaunchAtStartup;
         StartMinimizedToTray = s.StartMinimizedToTray;
+        MinimizeToTrayOnClose = s.MinimizeToTrayOnClose;
         NotifyOnVolumeChange = s.NotifyOnVolumeChange;
         VolumeStep = s.VolumeStep;
         SelectedThemeIndex = (int)s.ThemeMode;
@@ -99,9 +106,36 @@ public sealed partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(SpotifyClientIdDisplay));
     }
 
-    partial void OnLaunchAtStartupChanged(bool value) => Persist(s => s.LaunchAtStartup = value);
+    // Launch-at-startup is owned by the OS: enabling it can be refused (a user disabled it in Task
+    // Manager, or policy pins it), so apply the change and then reflect whatever the OS actually reports
+    // back into the toggle and the stored setting.
+    partial void OnLaunchAtStartupChanged(bool value)
+    {
+        if (_suppressPersist)
+        {
+            return;
+        }
+
+        _ = ApplyLaunchAtStartupAsync(value);
+    }
+
+    private async Task ApplyLaunchAtStartupAsync(bool desired)
+    {
+        StartupState state = desired ? await _startupTasks.TryEnableAsync() : await _startupTasks.DisableAsync();
+        bool actual = StartupTaskReconciler.ToToggleValue(state);
+
+        _settings.Update(s => s.LaunchAtStartup = actual);
+        _dispatcher.RunOnUi(() =>
+        {
+            _suppressPersist = true;
+            LaunchAtStartup = actual;
+            _suppressPersist = false;
+        });
+    }
 
     partial void OnStartMinimizedToTrayChanged(bool value) => Persist(s => s.StartMinimizedToTray = value);
+
+    partial void OnMinimizeToTrayOnCloseChanged(bool value) => Persist(s => s.MinimizeToTrayOnClose = value);
 
     partial void OnNotifyOnVolumeChangeChanged(bool value) => Persist(s => s.NotifyOnVolumeChange = value);
 

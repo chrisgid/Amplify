@@ -6,15 +6,18 @@ using Amplify.App.Onboarding;
 using Amplify.App.Settings;
 using Amplify.App.Spotify;
 using Amplify.App.Theming;
+using Amplify.App.Tray;
 using Amplify.App.ViewModels;
 using Amplify.Core.Auth;
 using Amplify.Core.Configuration;
 using Amplify.Core.Settings;
 using Amplify.Core.Startup;
+using Amplify.Core.Tray;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
+using Microsoft.Windows.AppLifecycle;
 
 namespace Amplify.App;
 
@@ -69,6 +72,7 @@ public partial class App : Application
         builder.Services.AddOnboarding();
         builder.Services.AddConnectionStatus();
         builder.Services.AddHotkeys();
+        builder.Services.AddSystemTray();
 
         // Shell: the routing view-model and the window.
         builder.Services.AddSingleton<ShellViewModel>();
@@ -78,10 +82,10 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// Runs the fixed launch sequence, then shows the main window. The window derives its initial
-    /// screen from the connection state restored above. Pre-steps that other features own
-    /// (single-instance redirect, settings load) slot in where marked as those features land; for now
-    /// the sequence only runs the (currently empty) ordered <see cref="IStartupInitializer"/> set.
+    /// Runs the fixed launch sequence — load settings, restore the session, run the ordered
+    /// <see cref="IStartupInitializer"/> set (theme → tray/window → hotkeys) — then shows the main
+    /// window unless the user opted to start minimised to the tray. The window derives its initial
+    /// screen from the connection state restored above.
     /// </summary>
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
@@ -90,7 +94,7 @@ public partial class App : Application
         // arrives with the shell UI; for now logging plus a fail-fast is the honest behaviour.)
         try
         {
-            // Future pre-step: single-instance redirect before the window is created.
+            // Single-instancing is already decided in Program.Main (before the host is built).
             // Load settings first so features initialise against persisted preferences.
             await _host.Services.GetRequiredService<ISettingsService>().LoadAsync();
 
@@ -104,7 +108,16 @@ public partial class App : Application
 
             _window = _host.Services.GetRequiredService<MainWindow>();
             _window.Closed += OnMainWindowClosed;
-            _window.Activate();
+
+            // A second launch redirects its activation here; surface the existing window in response.
+            AppInstance.GetCurrent().Activated += OnAppInstanceActivated;
+
+            // The tray icon is already up (tray initializer). Honour "start minimized to the tray" by
+            // leaving the window unshown — the app lives in the tray until the user opens it.
+            if (!_host.Services.GetRequiredService<ISettingsService>().Current.StartMinimizedToTray)
+            {
+                _window.Activate();
+            }
         }
         catch (Exception ex)
         {
@@ -114,6 +127,12 @@ public partial class App : Application
             throw;
         }
     }
+
+    // Raised on a background thread when another instance redirects its activation to us; marshal to the
+    // UI thread and reopen the window via the tray service (which owns show/hide).
+    private void OnAppInstanceActivated(object? sender, AppActivationArguments args) =>
+        _window?.DispatcherQueue.TryEnqueue(() =>
+            _host.Services.GetRequiredService<ITrayService>().ShowWindow());
 
     private void OnMainWindowClosed(object sender, WindowEventArgs args) => _host.Dispose();
 
