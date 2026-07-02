@@ -69,19 +69,26 @@ public static class Program
     private static void RedirectActivationTo(AppActivationArguments args, AppInstance keyInstance)
     {
         nint eventHandle = CreateEvent(nint.Zero, bManualReset: true, bInitialState: false, lpName: null);
-        Task.Run(() =>
+        try
         {
-            keyInstance.RedirectActivationToAsync(args).AsTask().Wait();
-            SetEvent(eventHandle);
-        });
+            Task.Run(() =>
+            {
+                keyInstance.RedirectActivationToAsync(args).AsTask().Wait();
+                SetEvent(eventHandle);
+            });
 
-        const uint cwmoDefault = 0;
-        const uint infinite = 0xFFFFFFFF;
-        _ = CoWaitForMultipleObjects(cwmoDefault, infinite, 1, [eventHandle], out _);
+            const uint cwmoDefault = 0;
+            const uint infinite = 0xFFFFFFFF;
+            _ = CoWaitForMultipleObjects(cwmoDefault, infinite, 1, [eventHandle], out _);
 
-        // Nudge the existing instance's window to the foreground for good measure.
-        using Process process = Process.GetProcessById((int)keyInstance.ProcessId);
-        SetForegroundWindow(process.MainWindowHandle);
+            // Nudge the existing instance's window to the foreground for good measure.
+            using Process process = Process.GetProcessById((int)keyInstance.ProcessId);
+            SetForegroundWindow(process.MainWindowHandle);
+        }
+        finally
+        {
+            CloseHandle(eventHandle);
+        }
     }
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
@@ -91,6 +98,10 @@ public static class Program
     [DllImport("kernel32.dll")]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     private static extern bool SetEvent(nint hEvent);
+
+    [DllImport("kernel32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static extern bool CloseHandle(nint hObject);
 
     [DllImport("ole32.dll")]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]

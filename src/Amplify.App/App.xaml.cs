@@ -113,15 +113,17 @@ public partial class App : Application
             // A second launch redirects its activation here; surface the existing window in response.
             AppInstance.GetCurrent().Activated += OnAppInstanceActivated;
 
-            // The tray icon is already up (tray initializer). Start hidden in the tray only when the
-            // user asked to, the app was auto-started at sign-in, and it isn't showing onboarding — a
-            // manual launch or the onboarding screen always shows the window.
+            // The tray icon is already up (tray initializer). Start hidden in the tray only when there
+            // is a tray icon to hide into, the user asked to, the app was auto-started at sign-in, and
+            // it isn't showing onboarding — a manual launch, the onboarding screen, or a missing tray
+            // icon always shows the window (otherwise the app would be unreachable).
             bool isOnboarding =
                 _host.Services.GetRequiredService<ShellViewModel>().CurrentRoute == ShellRoute.Onboarding;
             bool startHidden = LaunchWindowPolicy.ShouldStartHidden(
                 _host.Services.GetRequiredService<ISettingsService>().Current.StartMinimizedToTray,
                 Program.LaunchedAtStartup,
-                isOnboarding);
+                isOnboarding,
+                _host.Services.GetRequiredService<TrayService>().IsTrayIconPresent);
 
             if (!startHidden)
             {
@@ -137,11 +139,20 @@ public partial class App : Application
         }
     }
 
-    // Raised on a background thread when another instance redirects its activation to us; marshal to the
-    // UI thread and reopen the window via the tray service (which owns show/hide).
-    private void OnAppInstanceActivated(object? sender, AppActivationArguments args) =>
-        _window?.DispatcherQueue.TryEnqueue(() =>
-            _host.Services.GetRequiredService<ITrayService>().ShowWindow());
+    // Raised on a background thread when another instance redirects its activation to us; reopen the
+    // window via the tray service (ShowWindow marshals itself to the UI thread). Guarded against a
+    // relaunch that races app shutdown, where the host has already been disposed.
+    private void OnAppInstanceActivated(object? sender, AppActivationArguments args)
+    {
+        try
+        {
+            _host.Services.GetRequiredService<ITrayService>().ShowWindow();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The app is shutting down (host disposed); there is nothing to surface.
+        }
+    }
 
     private void OnMainWindowClosed(object sender, WindowEventArgs args) => _host.Dispose();
 

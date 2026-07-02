@@ -57,6 +57,13 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
     /// <summary>Runs in the tray/window band, after the theme is applied and before hotkeys register.</summary>
     public int Order => 200;
 
+    /// <summary>
+    /// Whether a tray icon actually exists. It can be absent when the notification area is unavailable
+    /// (see <see cref="Initialize"/>); the shell uses this to keep the window reachable rather than
+    /// hiding it into a tray that isn't there.
+    /// </summary>
+    public bool IsTrayIconPresent => _trayIcon is not null;
+
     /// <inheritdoc />
     public async Task OnLaunchedAsync(CancellationToken ct)
     {
@@ -117,6 +124,13 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
     /// <inheritdoc />
     public void HideToTray()
     {
+        // Without a tray icon the window is the only way back to the app, so never hide it — leave it
+        // as a normal window instead of stranding a headless process.
+        if (!IsTrayIconPresent)
+        {
+            return;
+        }
+
         // Hide() leaves the taskbar/switchers entirely (unlike a normal minimise), so the tray icon is
         // the app's only presence while hidden.
         _window.AppWindow.Hide();
@@ -158,10 +172,11 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
     }
 
     // Closing the window keeps the app alive in the tray unless the user opted for close-to-exit, a real
-    // Quit is in progress, or the app is onboarding (nothing to run in the background yet, so exit).
+    // Quit is in progress, the app is onboarding (nothing to run in the background yet, so exit), or
+    // there is no tray icon to fall back to (closing must then actually exit).
     private void OnWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
-        if (_quitting || IsOnboarding || !_settings.Current.MinimizeToTrayOnClose)
+        if (_quitting || IsOnboarding || !IsTrayIconPresent || !_settings.Current.MinimizeToTrayOnClose)
         {
             return;
         }

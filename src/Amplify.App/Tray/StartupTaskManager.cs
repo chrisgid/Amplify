@@ -19,7 +19,7 @@ public sealed partial class StartupTaskManager : IStartupTaskManager
 
     /// <inheritdoc />
     public Task<StartupState> GetStateAsync() =>
-        WithTaskAsync(async task => Map(task.State));
+        WithTaskAsync(task => Task.FromResult(Map(task.State)));
 
     /// <inheritdoc />
     public Task<StartupState> TryEnableAsync() =>

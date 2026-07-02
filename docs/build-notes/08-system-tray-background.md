@@ -105,3 +105,31 @@
   and PopupMenu mode copies `MenuFlyoutItem.IsEnabled` into the native menu (both confirmed against the
   H.NotifyIcon source). `ExtendedActivationKind.StartupTask` distinguishes an auto-start from a manual
   `Launch` (MS Learn).
+
+## 2026-07-02 — Phase 1 (post code-review fixes) · feat/08-system-tray-background
+
+Applied the findings from a high-effort `code-review` pass over the branch:
+
+- **Reachability hole (was the one high-severity finding):** start-hidden and the runtime
+  minimise/close-to-tray paths are now gated on the tray icon actually existing. `TrayService` exposes
+  `IsTrayIconPresent`; `LaunchWindowPolicy.ShouldStartHidden` gained a `trayAvailable` factor (window is
+  shown when there's no tray); `HideToTray` no-ops and `OnWindowClosing` lets the window close when the
+  icon is absent. Without this, an auto-start with start-minimised on **and** a failed tray-icon
+  creation left the app with no window and no icon — reachable only via hotkeys/Task Manager.
+- **Launch-at-startup toggle silently reverting:** the previously-dead
+  `StartupTaskReconciler.IsUserConfigurable` is now wired — `SettingsViewModel` queries the OS state on
+  load and after each change and exposes `LaunchAtStartupConfigurable`, which disables the toggle for
+  `DisabledByUser`/policy states instead of letting it flip and snap back.
+- **Unobserved fire-and-forget:** `ApplyLaunchAtStartupAsync` (and the new configurable-init) are now
+  wrapped in `try/catch` that logs via `ILogger<SettingsViewModel>`, so a persistence/OS failure no
+  longer vanishes into a discarded task.
+- **Native handle leak:** `Program.RedirectActivationTo` now `CloseHandle`s the `CreateEvent` handle in
+  a `finally` (spec's "don't leak native handles").
+- **Cleanups:** `StartupTaskManager.GetStateAsync` uses `Task.FromResult` (no fake `async`);
+  `App.OnAppInstanceActivated` calls `ShowWindow()` directly (it self-marshals — removes a double
+  enqueue) and guards the disposed-host relaunch race with `catch (ObjectDisposedException)`.
+- **Explicitly not changed:** the single-instance `.AsTask().Wait()` on a thread-pool thread with the
+  STA parked on `CoWaitForMultipleObjects` is the documented pattern — reviewers flagged then refuted it;
+  "fixing" it would reintroduce an STA deadlock.
+- **Checks:** `dotnet build` clean, `dotnet test` green (195, +1 policy case for `trayAvailable`),
+  `dotnet format` clean.

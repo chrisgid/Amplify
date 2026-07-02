@@ -45,7 +45,9 @@
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE7E8;" />
                     </tk:SettingsCard.HeaderIcon>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.LaunchAtStartup, Mode=TwoWay}" />
+                    <ToggleSwitch
+                        IsEnabled="{x:Bind ViewModel.LaunchAtStartupConfigurable, Mode=OneWay}"
+                        IsOn="{x:Bind ViewModel.LaunchAtStartup, Mode=TwoWay}" />
                 </tk:SettingsCard>
                 <tk:SettingsCard x:Uid="Settings_StartMinimized">
                     <tk:SettingsCard.HeaderIcon>
