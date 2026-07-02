@@ -98,7 +98,9 @@
   (onboarding = no tray/normal minimise/close-exits; manual vs auto start) are still **pending** a
   packaged run, same as the earlier entry.
 - **Manual/integration checks:** `dotnet build` clean, `dotnet test` green (194, +8 policy tests),
-  `dotnet format` clean.
+  `dotnet format` clean. Also updated [`integration-smoke-test.md`](../integration-smoke-test.md) with
+  the matching Phase 2 checks (onboarding suppresses the tray persona; reset returns to it; start-minimized
+  honoured only for an automatic sign-in start, not a manual launch).
 - **Verified facts:** `TaskbarIcon.Visibility = Collapsed` removes the tray icon / `Visible` re-adds it,
   and PopupMenu mode copies `MenuFlyoutItem.IsEnabled` into the native menu (both confirmed against the
   H.NotifyIcon source). `ExtendedActivationKind.StartupTask` distinguishes an auto-start from a manual

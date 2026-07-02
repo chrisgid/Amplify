@@ -50,6 +50,10 @@ machine with a real Spotify account:
    combo already owned by another app is rejected with the prior binding kept.
 8. **Tray & background** — [ ] minimise hides to the tray and **removes the taskbar button**;
    close-to-tray keeps hotkeys alive; the tray menu Open/Settings/Quit work; Quit fully exits.
+   - [ ] **Onboarding suppresses the tray persona:** while **not connected** (first run, or after a
+         reset) the tray icon is **hidden**, minimising does a **normal taskbar minimise** (does *not*
+         hide to the tray), and closing the window **exits** the app. The tray icon and
+         minimise/close-to-tray behaviours appear only once an account is connected.
 9. **Single instance** — [ ] launching a second time surfaces the existing window.
 10. **Notifications** — [ ] with "Notify on volume change" on, a hotkey change shows a toast that
     coalesces under rapid presses; off suppresses it.
@@ -59,8 +63,13 @@ machine with a real Spotify account:
     Client ID shows with "Reset Amplify to change it"; the footer "Amplify" name links to the repo.
 13. **Reset** — [ ] confirming Reset clears shortcuts + Client ID, disconnects, and returns to
     onboarding; Cancel changes nothing.
-14. **Startup** — [ ] "Launch at startup" reflects the real `StartupTask` state; with it enabled the
-    app starts on sign-in (and hidden if "start minimized" is on).
+    - [ ] Back on onboarding, the tray icon disappears and tray behaviour is suppressed again
+          (normal minimise, close exits) — as on first run.
+14. **Startup** — [ ] "Launch at startup" reflects the real `StartupTask` state.
+    - [ ] With launch-at-startup **and** "start minimized" on, an **automatic** start on sign-in
+          opens hidden to the tray (no window shown), while a **manual** launch (shortcut / Start /
+          double-click) **always opens the window**, ignoring "start minimized".
+    - [ ] With "start minimized" off, both automatic and manual starts open the window.
 
 ## Resilience spot-checks
 
