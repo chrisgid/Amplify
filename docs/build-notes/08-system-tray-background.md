@@ -66,3 +66,40 @@
     reports `DisabledByUser` and cannot be re-enabled programmatically (MS Learn).
   - Gotcha: a C# compile error in `Program.cs` surfaced as a misleading XAML internal error
     (`WMC9999` / `WMC1509`); it disappeared once the C# error was fixed.
+
+## 2026-07-02 — Phase 1 (follow-up: onboarding & manual-launch behaviour) · feat/08-system-tray-background
+
+- **Deviations from spec/contracts:** none. Two behavioural refinements beyond the original acceptance
+  criteria (requested during review):
+  1. **Never use the tray during onboarding** (first run / post-reset). While
+     `ShellViewModel.CurrentRoute == ShellRoute.Onboarding`, the tray icon is **hidden**, minimise does
+     a normal taskbar minimise, and close **exits** (no close-to-tray). This is gated live off the shell
+     route, so it re-enables the moment the user connects.
+  2. **Manual launch ignores `StartMinimizedToTray`.** Only an automatic sign-in start honours it; a
+     shortcut/Start/exe launch always shows the window.
+- **Contract changes:** none. Added pure helper `LaunchWindowPolicy.ShouldStartHidden` in
+  `Amplify.Core/Tray/` (feature-local, unit-tested) — `App.OnLaunched` now decides show-vs-hide through
+  it instead of a raw `StartMinimizedToTray` check.
+- **Assumptions / decisions:**
+  - **Onboarding signal** = the shell route, not a separate auth flag — it's the single source for
+    "the onboarding screen is showing" and stays aligned with what's on screen. Note `ShellRouter` only
+    advances `Onboarding → Main` today and never back at runtime; returning to onboarding on reset is
+    feature 12's job, at which point these route-based guards apply automatically.
+  - **Chose to hide the tray icon during onboarding** (via `TaskbarIcon.Visibility`) rather than keep it
+    and disable the Settings menu item. Both are viable (PopupMenu mode honours `MenuFlyoutItem.IsEnabled`),
+    but a visible tray icon that the window won't minimise into is incongruous; hiding is more coherent.
+  - **Auto-start vs manual** is read from the activation kind captured in `Program.Main`
+    (`AppActivationArguments.Kind == ExtendedActivationKind.StartupTask`) and exposed as
+    `Program.LaunchedAtStartup`. It must be captured there because `GetActivatedEventArgs` returns the
+    args only on its **first** call for packaged apps (already called for single-instancing), and because
+    the XAML `LaunchActivatedEventArgs` reports `Launch` unconditionally (MS Learn).
+- **Deferred / known gaps:** the route-based tray guards and the activation-kind read are UI/OS-bound
+  and only unit-tested at the policy level (`LaunchWindowPolicyTests`); the packaged behavioural checks
+  (onboarding = no tray/normal minimise/close-exits; manual vs auto start) are still **pending** a
+  packaged run, same as the earlier entry.
+- **Manual/integration checks:** `dotnet build` clean, `dotnet test` green (194, +8 policy tests),
+  `dotnet format` clean.
+- **Verified facts:** `TaskbarIcon.Visibility = Collapsed` removes the tray icon / `Visible` re-adds it,
+  and PopupMenu mode copies `MenuFlyoutItem.IsEnabled` into the native menu (both confirmed against the
+  H.NotifyIcon source). `ExtendedActivationKind.StartupTask` distinguishes an auto-start from a manual
+  `Launch` (MS Learn).

@@ -14,6 +14,14 @@ namespace Amplify.App;
 /// </summary>
 public static class Program
 {
+    /// <summary>
+    /// Whether this process was launched automatically at sign-in via the packaged startup task (as
+    /// opposed to the user opening it). Captured once during startup — <c>GetActivatedEventArgs</c>
+    /// returns the real args only on its first call for packaged apps — and read by the shell to decide
+    /// whether to honour "start minimised to the tray".
+    /// </summary>
+    internal static bool LaunchedAtStartup { get; private set; }
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -40,6 +48,11 @@ public static class Program
     private static bool DecideRedirection()
     {
         AppActivationArguments activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
+
+        // Record how we were launched before any redirect decision, so the shell can distinguish an
+        // automatic sign-in start from the user opening the app.
+        LaunchedAtStartup = activationArgs.Kind == ExtendedActivationKind.StartupTask;
+
         AppInstance keyInstance = AppInstance.FindOrRegisterForKey(TrayConstants.SingleInstanceKey);
 
         if (keyInstance.IsCurrent)

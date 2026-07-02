@@ -1,4 +1,5 @@
 using Amplify.App.ViewModels;
+using Amplify.Core.Navigation;
 using Amplify.Core.Settings;
 using Amplify.Core.Startup;
 using Amplify.Core.Tray;
@@ -91,6 +92,11 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
             _trayIcon = null;
         }
 
+        // The tray persona only applies once the app is a background utility; while onboarding it's a
+        // plain window, so the icon is hidden and follows the route from here on.
+        ApplyTrayVisibility(_shell.CurrentRoute);
+        _shell.RouteChanged += OnShellRouteChanged;
+
         _window.AppWindow.Closing += OnWindowClosing;
         _window.VisibilityChanged += OnWindowVisibilityChanged;
     }
@@ -151,11 +157,11 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
         }
     }
 
-    // Closing the window keeps the app alive in the tray unless the user opted for close-to-exit, or a
-    // real Quit is in progress.
+    // Closing the window keeps the app alive in the tray unless the user opted for close-to-exit, a real
+    // Quit is in progress, or the app is onboarding (nothing to run in the background yet, so exit).
     private void OnWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
-        if (_quitting || !_settings.Current.MinimizeToTrayOnClose)
+        if (_quitting || IsOnboarding || !_settings.Current.MinimizeToTrayOnClose)
         {
             return;
         }
@@ -166,13 +172,28 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
 
     // A user minimise arrives as a not-visible transition while the presenter reports Minimized; turn it
     // into a hide-to-tray so no minimised taskbar button lingers. A plain hide (close-to-tray) leaves the
-    // presenter Restored, so it doesn't match here.
+    // presenter Restored, so it doesn't match here. While onboarding, let the OS do a normal minimise.
     private void OnWindowVisibilityChanged(object sender, WindowVisibilityChangedEventArgs args)
     {
-        if (!args.Visible
+        if (!IsOnboarding
+            && !args.Visible
             && _window.AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized })
         {
             HideToTray();
+        }
+    }
+
+    // The onboarding screen is shown whenever there is no connected account (first run or after reset).
+    private bool IsOnboarding => _shell.CurrentRoute == ShellRoute.Onboarding;
+
+    private void OnShellRouteChanged(object? sender, ShellRoute route) =>
+        _dispatcher.RunOnUi(() => ApplyTrayVisibility(route));
+
+    private void ApplyTrayVisibility(ShellRoute route)
+    {
+        if (_trayIcon is not null)
+        {
+            _trayIcon.Visibility = route == ShellRoute.Onboarding ? Visibility.Collapsed : Visibility.Visible;
         }
     }
 
@@ -196,6 +217,7 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
         }
 
         _disposed = true;
+        _shell.RouteChanged -= OnShellRouteChanged;
         _window.AppWindow.Closing -= OnWindowClosing;
         _window.VisibilityChanged -= OnWindowVisibilityChanged;
         _trayIcon?.Dispose();

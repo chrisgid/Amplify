@@ -10,6 +10,7 @@ using Amplify.App.Tray;
 using Amplify.App.ViewModels;
 using Amplify.Core.Auth;
 using Amplify.Core.Configuration;
+using Amplify.Core.Navigation;
 using Amplify.Core.Settings;
 using Amplify.Core.Startup;
 using Amplify.Core.Tray;
@@ -112,9 +113,17 @@ public partial class App : Application
             // A second launch redirects its activation here; surface the existing window in response.
             AppInstance.GetCurrent().Activated += OnAppInstanceActivated;
 
-            // The tray icon is already up (tray initializer). Honour "start minimized to the tray" by
-            // leaving the window unshown — the app lives in the tray until the user opens it.
-            if (!_host.Services.GetRequiredService<ISettingsService>().Current.StartMinimizedToTray)
+            // The tray icon is already up (tray initializer). Start hidden in the tray only when the
+            // user asked to, the app was auto-started at sign-in, and it isn't showing onboarding — a
+            // manual launch or the onboarding screen always shows the window.
+            bool isOnboarding =
+                _host.Services.GetRequiredService<ShellViewModel>().CurrentRoute == ShellRoute.Onboarding;
+            bool startHidden = LaunchWindowPolicy.ShouldStartHidden(
+                _host.Services.GetRequiredService<ISettingsService>().Current.StartMinimizedToTray,
+                Program.LaunchedAtStartup,
+                isOnboarding);
+
+            if (!startHidden)
             {
                 _window.Activate();
             }
