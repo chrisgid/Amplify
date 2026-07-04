@@ -18,7 +18,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
-using Microsoft.Windows.AppLifecycle;
 
 namespace Amplify.App;
 
@@ -110,8 +109,11 @@ public partial class App : Application
             _window = _host.Services.GetRequiredService<MainWindow>();
             _window.Closed += OnMainWindowClosed;
 
-            // A second launch redirects its activation here; surface the existing window in response.
-            AppInstance.GetCurrent().Activated += OnAppInstanceActivated;
+            // A second launch redirects its activation to this instance; surface the window in response.
+            // The Activated subscription itself lives in Program.Main (attached before startup work so a
+            // redirect can't be missed) — here the shell just registers how to surface its window, and
+            // any activation buffered during startup replays immediately.
+            Program.SetActivationHandler(SurfaceExistingWindow);
 
             // The tray icon is already up (tray initializer). Start hidden in the tray only when there
             // is a tray icon to hide into, the user asked to, the app was auto-started at sign-in, and
@@ -139,10 +141,10 @@ public partial class App : Application
         }
     }
 
-    // Raised on a background thread when another instance redirects its activation to us; reopen the
-    // window via the tray service (ShowWindow marshals itself to the UI thread). Guarded against a
-    // relaunch that races app shutdown, where the host has already been disposed.
-    private void OnAppInstanceActivated(object? sender, AppActivationArguments args)
+    // Surfaces the window when another instance redirects its activation to us. May be invoked on a
+    // background thread (ShowWindow marshals itself to the UI thread). Guarded against a relaunch that
+    // races app shutdown, where the host has already been disposed.
+    private void SurfaceExistingWindow()
     {
         try
         {

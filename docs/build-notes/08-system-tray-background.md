@@ -131,5 +131,11 @@ Applied the findings from a high-effort `code-review` pass over the branch:
 - **Explicitly not changed:** the single-instance `.AsTask().Wait()` on a thread-pool thread with the
   STA parked on `CoWaitForMultipleObjects` is the documented pattern — reviewers flagged then refuted it;
   "fixing" it would reintroduce an STA deadlock.
+- **Activation-race (follow-up review comment):** the `AppInstance.Activated` subscription was moved out
+  of `App.OnLaunched` (after the startup awaits, where a redirect during startup could be missed) into
+  `Program.Main`, attached right after the instance registers as current — matching the official WinUI
+  sample. Because the window doesn't exist yet in `Main`, an activation that arrives before the shell is
+  ready is **buffered** (`Program`'s `_activationPending` under a lock) and replayed when the shell calls
+  `Program.SetActivationHandler(SurfaceExistingWindow)` once its window is up.
 - **Checks:** `dotnet build` clean, `dotnet test` green (195, +1 policy case for `trayAvailable`),
   `dotnet format` clean.

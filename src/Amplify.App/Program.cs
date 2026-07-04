@@ -22,6 +22,14 @@ public static class Program
     /// </summary>
     internal static bool LaunchedAtStartup { get; private set; }
 
+    // A redirected second-instance activation can arrive before the shell has built its window (during
+    // the startup awaits). The Activated handler is attached in Main — as early as possible — and any
+    // activation that lands before the shell registers how to surface its window is buffered here and
+    // replayed the moment it does.
+    private static readonly object _activationGate = new();
+    private static bool _activationPending;
+    private static Action? _activationHandler;
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -57,11 +65,55 @@ public static class Program
 
         if (keyInstance.IsCurrent)
         {
+            // Attach before any window/startup work so a redirect that arrives while we're still
+            // starting isn't dropped (it's buffered until the shell registers its handler).
+            keyInstance.Activated += OnActivated;
             return false;
         }
 
         RedirectActivationTo(activationArgs, keyInstance);
         return true;
+    }
+
+    // Raised (on a background thread) when another instance redirects its activation to us. If the shell
+    // hasn't wired its window-surfacing handler yet, remember that an activation happened so it can be
+    // replayed once it does.
+    private static void OnActivated(object? sender, AppActivationArguments args)
+    {
+        Action? handler;
+        lock (_activationGate)
+        {
+            if (_activationHandler is null)
+            {
+                _activationPending = true;
+                return;
+            }
+
+            handler = _activationHandler;
+        }
+
+        handler();
+    }
+
+    /// <summary>
+    /// Registers how the shell surfaces its window in response to a second-instance activation, and
+    /// immediately replays an activation that arrived earlier during startup. Called once the window
+    /// exists.
+    /// </summary>
+    internal static void SetActivationHandler(Action handler)
+    {
+        lock (_activationGate)
+        {
+            _activationHandler = handler;
+            if (!_activationPending)
+            {
+                return;
+            }
+
+            _activationPending = false;
+        }
+
+        handler();
     }
 
     // RedirectActivationToAsync must be awaited, but blocking the STA directly would deadlock, so the
