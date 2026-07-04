@@ -6,11 +6,14 @@ using Amplify.App.Onboarding;
 using Amplify.App.Settings;
 using Amplify.App.Spotify;
 using Amplify.App.Theming;
+using Amplify.App.Tray;
 using Amplify.App.ViewModels;
 using Amplify.Core.Auth;
 using Amplify.Core.Configuration;
+using Amplify.Core.Navigation;
 using Amplify.Core.Settings;
 using Amplify.Core.Startup;
+using Amplify.Core.Tray;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -69,6 +72,7 @@ public partial class App : Application
         builder.Services.AddOnboarding();
         builder.Services.AddConnectionStatus();
         builder.Services.AddHotkeys();
+        builder.Services.AddSystemTray();
 
         // Shell: the routing view-model and the window.
         builder.Services.AddSingleton<ShellViewModel>();
@@ -78,10 +82,10 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// Runs the fixed launch sequence, then shows the main window. The window derives its initial
-    /// screen from the connection state restored above. Pre-steps that other features own
-    /// (single-instance redirect, settings load) slot in where marked as those features land; for now
-    /// the sequence only runs the (currently empty) ordered <see cref="IStartupInitializer"/> set.
+    /// Runs the fixed launch sequence — load settings, restore the session, run the ordered
+    /// <see cref="IStartupInitializer"/> set (theme → tray/window → hotkeys) — then shows the main
+    /// window unless the user opted to start minimised to the tray. The window derives its initial
+    /// screen from the connection state restored above.
     /// </summary>
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
@@ -90,7 +94,7 @@ public partial class App : Application
         // arrives with the shell UI; for now logging plus a fail-fast is the honest behaviour.)
         try
         {
-            // Future pre-step: single-instance redirect before the window is created.
+            // Single-instancing is already decided in Program.Main (before the host is built).
             // Load settings first so features initialise against persisted preferences.
             await _host.Services.GetRequiredService<ISettingsService>().LoadAsync();
 
@@ -104,7 +108,29 @@ public partial class App : Application
 
             _window = _host.Services.GetRequiredService<MainWindow>();
             _window.Closed += OnMainWindowClosed;
-            _window.Activate();
+
+            // A second launch redirects its activation to this instance; surface the window in response.
+            // The Activated subscription itself lives in Program.Main (attached before startup work so a
+            // redirect can't be missed) — here the shell just registers how to surface its window, and
+            // any activation buffered during startup replays immediately.
+            Program.SetActivationHandler(SurfaceExistingWindow);
+
+            // The tray icon is already up (tray initializer). Start hidden in the tray only when there
+            // is a tray icon to hide into, the user asked to, the app was auto-started at sign-in, and
+            // it isn't showing onboarding — a manual launch, the onboarding screen, or a missing tray
+            // icon always shows the window (otherwise the app would be unreachable).
+            bool isOnboarding =
+                _host.Services.GetRequiredService<ShellViewModel>().CurrentRoute == ShellRoute.Onboarding;
+            bool startHidden = LaunchWindowPolicy.ShouldStartHidden(
+                _host.Services.GetRequiredService<ISettingsService>().Current.StartMinimizedToTray,
+                Program.LaunchedAtStartup,
+                isOnboarding,
+                _host.Services.GetRequiredService<TrayService>().IsTrayIconPresent);
+
+            if (!startHidden)
+            {
+                _window.Activate();
+            }
         }
         catch (Exception ex)
         {
@@ -112,6 +138,21 @@ public partial class App : Application
             LogStartupFailed(logger, ex);
             _host.Dispose();
             throw;
+        }
+    }
+
+    // Surfaces the window when another instance redirects its activation to us. May be invoked on a
+    // background thread (ShowWindow marshals itself to the UI thread). Guarded against a relaunch that
+    // races app shutdown, where the host has already been disposed.
+    private void SurfaceExistingWindow()
+    {
+        try
+        {
+            _host.Services.GetRequiredService<ITrayService>().ShowWindow();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The app is shutting down (host disposed); there is nothing to surface.
         }
     }
 

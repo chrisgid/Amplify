@@ -45,13 +45,21 @@
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE7E8;" />
                     </tk:SettingsCard.HeaderIcon>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.LaunchAtStartup, Mode=TwoWay}" />
+                    <ToggleSwitch
+                        IsEnabled="{x:Bind ViewModel.LaunchAtStartupConfigurable, Mode=OneWay}"
+                        IsOn="{x:Bind ViewModel.LaunchAtStartup, Mode=TwoWay}" />
                 </tk:SettingsCard>
                 <tk:SettingsCard x:Uid="Settings_StartMinimized">
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE708;" />
                     </tk:SettingsCard.HeaderIcon>
                     <ToggleSwitch IsOn="{x:Bind ViewModel.StartMinimizedToTray, Mode=TwoWay}" />
+                </tk:SettingsCard>
+                <tk:SettingsCard x:Uid="Settings_CloseToTray">
+                    <tk:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8BB;" />
+                    </tk:SettingsCard.HeaderIcon>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.MinimizeToTrayOnClose, Mode=TwoWay}" />
                 </tk:SettingsCard>
                 <tk:SettingsCard x:Uid="Settings_Notify">
                     <tk:SettingsCard.HeaderIcon>

@@ -339,4 +339,22 @@
   <data name="Volume_Header.Header" xml:space="preserve">
     <value>Volume</value>
   </data>
+  <data name="Tray_Tooltip" xml:space="preserve">
+    <value>Amplify</value>
+  </data>
+  <data name="Tray_Open" xml:space="preserve">
+    <value>Open Amplify</value>
+  </data>
+  <data name="Tray_Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Tray_Quit" xml:space="preserve">
+    <value>Quit</value>
+  </data>
+  <data name="Settings_CloseToTray.Header" xml:space="preserve">
+    <value>Close to the tray</value>
+  </data>
+  <data name="Settings_CloseToTray.Description" xml:space="preserve">
+    <value>Keep Amplify running when you close the window</value>
+  </data>
 </root>

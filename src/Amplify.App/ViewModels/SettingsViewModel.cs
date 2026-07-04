@@ -1,7 +1,9 @@
 using System.Globalization;
 using Amplify.Core.Auth;
 using Amplify.Core.Settings;
+using Amplify.Core.Tray;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
 using Microsoft.Windows.ApplicationModel.Resources;
 using Windows.ApplicationModel;
@@ -18,6 +20,8 @@ public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly ISettingsService _settings;
     private readonly IAuthService _auth;
+    private readonly IStartupTaskManager _startupTasks;
+    private readonly ILogger<SettingsViewModel> _logger;
     private readonly DispatcherQueue? _dispatcher;
     private readonly ResourceLoader _strings = new();
 
@@ -28,8 +32,16 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial bool LaunchAtStartup { get; set; }
 
+    // The launch-at-startup switch is disabled when the OS won't let the app change it (the user turned
+    // it off in Task Manager, or group policy pins it), so the toggle can't silently bounce back.
+    [ObservableProperty]
+    public partial bool LaunchAtStartupConfigurable { get; set; } = true;
+
     [ObservableProperty]
     public partial bool StartMinimizedToTray { get; set; }
+
+    [ObservableProperty]
+    public partial bool MinimizeToTrayOnClose { get; set; }
 
     [ObservableProperty]
     public partial bool NotifyOnVolumeChange { get; set; }
@@ -43,10 +55,16 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string AccountTitle { get; set; } = string.Empty;
 
-    public SettingsViewModel(ISettingsService settings, IAuthService auth)
+    public SettingsViewModel(
+        ISettingsService settings,
+        IAuthService auth,
+        IStartupTaskManager startupTasks,
+        ILogger<SettingsViewModel> logger)
     {
         _settings = settings;
         _auth = auth;
+        _startupTasks = startupTasks;
+        _logger = logger;
 
         // Captured on the UI thread (the view-model is resolved while the screen is built) so changes
         // raised on other threads can be marshalled back before touching bindable state.
@@ -56,6 +74,10 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         LoadFromSettings();
         RefreshAccount();
+
+        // Reflect whether the OS currently lets the user change the startup entry (queried off the UI
+        // thread; the toggle stays enabled until we know otherwise).
+        _ = InitializeLaunchAtStartupConfigurableAsync();
 
         _settings.Changed += OnSettingsChanged;
         _auth.ConnectionStateChanged += OnConnectionStateChanged;
@@ -90,6 +112,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _suppressPersist = true;
         LaunchAtStartup = s.LaunchAtStartup;
         StartMinimizedToTray = s.StartMinimizedToTray;
+        MinimizeToTrayOnClose = s.MinimizeToTrayOnClose;
         NotifyOnVolumeChange = s.NotifyOnVolumeChange;
         VolumeStep = s.VolumeStep;
         SelectedThemeIndex = (int)s.ThemeMode;
@@ -99,9 +122,67 @@ public sealed partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(SpotifyClientIdDisplay));
     }
 
-    partial void OnLaunchAtStartupChanged(bool value) => Persist(s => s.LaunchAtStartup = value);
+    // Launch-at-startup is owned by the OS: enabling it can be refused (a user disabled it in Task
+    // Manager, or policy pins it), so apply the change and then reflect whatever the OS actually reports
+    // back into the toggle and the stored setting.
+    partial void OnLaunchAtStartupChanged(bool value)
+    {
+        if (_suppressPersist)
+        {
+            return;
+        }
+
+        _ = ApplyLaunchAtStartupAsync(value);
+    }
+
+    private async Task ApplyLaunchAtStartupAsync(bool desired)
+    {
+        // Fire-and-forget from the property setter, so a failure here has no caller to observe it —
+        // catch, log, and leave the toggle reflecting the last known-good state rather than throwing
+        // into an unobserved task.
+        try
+        {
+            StartupState state = desired ? await _startupTasks.TryEnableAsync() : await _startupTasks.DisableAsync();
+            bool actual = StartupTaskReconciler.ToToggleValue(state);
+            bool configurable = StartupTaskReconciler.IsUserConfigurable(state);
+
+            _settings.Update(s => s.LaunchAtStartup = actual);
+            _dispatcher.RunOnUi(() =>
+            {
+                _suppressPersist = true;
+                LaunchAtStartup = actual;
+                _suppressPersist = false;
+                LaunchAtStartupConfigurable = configurable;
+            });
+        }
+        catch (Exception ex)
+        {
+            LogLaunchAtStartupApplyFailed(_logger, ex);
+        }
+    }
+
+    private async Task InitializeLaunchAtStartupConfigurableAsync()
+    {
+        try
+        {
+            StartupState state = await _startupTasks.GetStateAsync();
+            _dispatcher.RunOnUi(() => LaunchAtStartupConfigurable = StartupTaskReconciler.IsUserConfigurable(state));
+        }
+        catch (Exception ex)
+        {
+            LogLaunchAtStartupQueryFailed(_logger, ex);
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Applying the launch-at-startup preference failed; the toggle was left unchanged.")]
+    private static partial void LogLaunchAtStartupApplyFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Querying the launch-at-startup state failed; the toggle remains enabled.")]
+    private static partial void LogLaunchAtStartupQueryFailed(ILogger logger, Exception exception);
 
     partial void OnStartMinimizedToTrayChanged(bool value) => Persist(s => s.StartMinimizedToTray = value);
+
+    partial void OnMinimizeToTrayOnCloseChanged(bool value) => Persist(s => s.MinimizeToTrayOnClose = value);
 
     partial void OnNotifyOnVolumeChangeChanged(bool value) => Persist(s => s.NotifyOnVolumeChange = value);
 

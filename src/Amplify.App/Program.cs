@@ -1,0 +1,165 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using Amplify.Core.Tray;
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
+using Microsoft.Windows.AppLifecycle;
+
+namespace Amplify.App;
+
+/// <summary>
+/// Custom entry point (the generated <c>Main</c> is disabled via <c>DISABLE_XAML_GENERATED_MAIN</c>) so
+/// single-instancing can be decided before any window — or the DI host — is created. A second launch
+/// redirects its activation to the already-running instance and exits; that instance surfaces its window.
+/// </summary>
+public static class Program
+{
+    /// <summary>
+    /// Whether this process was launched automatically at sign-in via the packaged startup task (as
+    /// opposed to the user opening it). Captured once during startup — <c>GetActivatedEventArgs</c>
+    /// returns the real args only on its first call for packaged apps — and read by the shell to decide
+    /// whether to honour "start minimised to the tray".
+    /// </summary>
+    internal static bool LaunchedAtStartup { get; private set; }
+
+    // A redirected second-instance activation can arrive before the shell has built its window (during
+    // the startup awaits). The Activated handler is attached in Main — as early as possible — and any
+    // activation that lands before the shell registers how to surface its window is buffered here and
+    // replayed the moment it does.
+    private static readonly object _activationGate = new();
+    private static bool _activationPending;
+    private static Action? _activationHandler;
+
+    [STAThread]
+    private static int Main(string[] args)
+    {
+        WinRT.ComWrappersSupport.InitializeComWrappers();
+
+        if (DecideRedirection())
+        {
+            // Another instance owns the key; we've handed our activation to it and can exit.
+            return 0;
+        }
+
+        Application.Start(p =>
+        {
+            DispatcherQueueSynchronizationContext context = new(DispatcherQueue.GetForCurrentThread());
+            SynchronizationContext.SetSynchronizationContext(context);
+            _ = new App();
+        });
+
+        return 0;
+    }
+
+    // Registers this process as the single "main" instance; if another already holds that key, this
+    // returns true after redirecting our activation to it.
+    private static bool DecideRedirection()
+    {
+        AppActivationArguments activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
+
+        // Record how we were launched before any redirect decision, so the shell can distinguish an
+        // automatic sign-in start from the user opening the app.
+        LaunchedAtStartup = activationArgs.Kind == ExtendedActivationKind.StartupTask;
+
+        AppInstance keyInstance = AppInstance.FindOrRegisterForKey(TrayConstants.SingleInstanceKey);
+
+        if (keyInstance.IsCurrent)
+        {
+            // Attach before any window/startup work so a redirect that arrives while we're still
+            // starting isn't dropped (it's buffered until the shell registers its handler).
+            keyInstance.Activated += OnActivated;
+            return false;
+        }
+
+        RedirectActivationTo(activationArgs, keyInstance);
+        return true;
+    }
+
+    // Raised (on a background thread) when another instance redirects its activation to us. If the shell
+    // hasn't wired its window-surfacing handler yet, remember that an activation happened so it can be
+    // replayed once it does.
+    private static void OnActivated(object? sender, AppActivationArguments args)
+    {
+        Action? handler;
+        lock (_activationGate)
+        {
+            if (_activationHandler is null)
+            {
+                _activationPending = true;
+                return;
+            }
+
+            handler = _activationHandler;
+        }
+
+        handler();
+    }
+
+    /// <summary>
+    /// Registers how the shell surfaces its window in response to a second-instance activation, and
+    /// immediately replays an activation that arrived earlier during startup. Called once the window
+    /// exists.
+    /// </summary>
+    internal static void SetActivationHandler(Action handler)
+    {
+        lock (_activationGate)
+        {
+            _activationHandler = handler;
+            if (!_activationPending)
+            {
+                return;
+            }
+
+            _activationPending = false;
+        }
+
+        handler();
+    }
+
+    // RedirectActivationToAsync must be awaited, but blocking the STA directly would deadlock, so the
+    // redirect runs on the thread pool and this thread waits on a Win32 event via a non-pumping wait.
+    private static void RedirectActivationTo(AppActivationArguments args, AppInstance keyInstance)
+    {
+        nint eventHandle = CreateEvent(nint.Zero, bManualReset: true, bInitialState: false, lpName: null);
+        try
+        {
+            Task.Run(() =>
+            {
+                keyInstance.RedirectActivationToAsync(args).AsTask().Wait();
+                SetEvent(eventHandle);
+            });
+
+            const uint cwmoDefault = 0;
+            const uint infinite = 0xFFFFFFFF;
+            _ = CoWaitForMultipleObjects(cwmoDefault, infinite, 1, [eventHandle], out _);
+
+            // Nudge the existing instance's window to the foreground for good measure.
+            using Process process = Process.GetProcessById((int)keyInstance.ProcessId);
+            SetForegroundWindow(process.MainWindowHandle);
+        }
+        finally
+        {
+            CloseHandle(eventHandle);
+        }
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static extern nint CreateEvent(nint lpEventAttributes, bool bManualReset, bool bInitialState, string? lpName);
+
+    [DllImport("kernel32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static extern bool SetEvent(nint hEvent);
+
+    [DllImport("kernel32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static extern bool CloseHandle(nint hObject);
+
+    [DllImport("ole32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static extern uint CoWaitForMultipleObjects(uint dwFlags, uint dwMilliseconds, ulong nHandles, nint[] pHandles, out uint dwIndex);
+
+    [DllImport("user32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static extern bool SetForegroundWindow(nint hWnd);
+}
