@@ -84,6 +84,11 @@ the slider/buttons. Each hotkey press changes volume by the configurable **step 
   `ISpotifyClient` (the single source of this signal; see [`../contracts.md`](../contracts.md)).
   The user-facing messaging for it is owned by [feature 05](./05-connection-status.md); this
   feature only gates the control.
+- **Device becomes active while minimised** → the shared poll is suspended when the window isn't
+  visible, so `CanControl` can be stale. A hotkey nudge that arrives while `!CanControl` (but
+  connected) first triggers a single **on-demand read** (which works while suspended) and, if a
+  device is now present, nudges from the freshly-read volume. A short throttle prevents a mashed
+  hotkey from firing a burst of reads when nothing is playing.
 - **Deriving the signal from the API:** `GET /v1/me/player` returns **`204 No Content`** when no
   device is active — map that (empty body) to `HasActiveDevice == false`, **not** an error. A
   `SetVolumeAsync` that returns **`404` ("Device not found")** or **`403`** likewise means no
@@ -113,8 +118,9 @@ the slider/buttons. Each hotkey press changes volume by the configurable **step 
 - Step math: `NudgeAsync` clamps at 0 and 100; respects configured step; direction sign correct.
 - Coalescing/debounce keeps only the latest target under rapid input.
 - Optimistic update reverts on API failure (mock `ISpotifyClient`).
-- `CanControl` gating: false when disconnected or when no active device; hotkey nudges are no-ops
-  while `CanControl` is false.
+- `CanControl` gating: false when disconnected or when no active device. A nudge while disconnected
+  is a no-op with no read; a nudge while connected but with no known device does one throttled
+  on-demand read and only applies if that read finds a device.
 - 429 handling backs off and honours `Retry-After`.
 - Muted state at volume 0.
 

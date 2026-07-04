@@ -188,7 +188,10 @@ public interface IVolumeController
     int Volume { get; }                          // last known 0..100
     bool CanControl { get; }                      // connected + HasActiveDevice
     Task SetVolumeAsync(int percent);
-    Task NudgeAsync(int direction);              // +1 / -1 * step, clamped 0..100
+    Task NudgeAsync(int direction);              // +1 / -1 * step, clamped 0..100. When !CanControl but
+                                                 // connected, does one throttled on-demand read first to
+                                                 // catch a device that became active while polling was
+                                                 // suspended (window minimised); no-op if still none.
     Task RefreshAsync();                          // re-read player state (called on connect/focus)
     event EventHandler<int> VolumeChanged;        // for UI + notifications
     event EventHandler? StateChanged;             // CanControl changed without a volume change

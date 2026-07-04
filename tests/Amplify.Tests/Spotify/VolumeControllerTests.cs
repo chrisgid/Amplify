@@ -78,10 +78,12 @@ public sealed class VolumeControllerTests
 
         Assert.False(h.Controller.CanControl);
         await h.Client.DidNotReceive().SetVolumeAsync(Arg.Any<int>());
+        // A read can't help while disconnected — short-circuit before any request.
+        await h.Provider.DidNotReceive().RefreshAsync();
     }
 
     [Fact]
-    public async Task NudgeIsNoOpWhenNoActiveDevice()
+    public async Task NudgeProbesOnceThenNoOpsWhenNoActiveDevice()
     {
         Harness h = Harness.Create(step: 5, startVolume: 50);
         h.Provider.Current.Returns(new PlayerState(false, 0, null));
@@ -90,6 +92,53 @@ public sealed class VolumeControllerTests
         await h.Controller.NudgeAsync(1);
 
         Assert.False(h.Controller.CanControl);
+        // Connected but no known device → one on-demand read that still finds nothing → no write.
+        await h.Provider.Received(1).RefreshAsync();
+        await h.Client.DidNotReceive().SetVolumeAsync(Arg.Any<int>());
+    }
+
+    [Fact]
+    public async Task NudgeWakesAndAppliesWhenDeviceBecomesActive()
+    {
+        // The device starts playing while polling is suspended (window minimised): the first hotkey
+        // nudge does an on-demand read that finds it, then nudges from the freshly-read volume.
+        Harness h = Harness.Create(step: 5, startVolume: 0);
+        h.Provider.Current.Returns(new PlayerState(false, 0, null));
+        await h.Controller.OnLaunchedAsync(CancellationToken.None);
+        Assert.False(h.Controller.CanControl);
+
+        h.Provider.RefreshAsync().Returns(_ =>
+        {
+            h.Provider.PlayerStateChanged +=
+                Raise.Event<EventHandler<PlayerState?>>(h.Provider, new PlayerState(true, 40, "Speaker"));
+            return Task.CompletedTask;
+        });
+
+        await h.Controller.NudgeAsync(1);
+
+        Assert.True(h.Controller.CanControl);
+        Assert.Equal(45, h.Controller.Volume);
+        await h.Client.Received(1).SetVolumeAsync(45);
+    }
+
+    [Fact]
+    public async Task RepeatedNudgesWithNoDeviceAreThrottled()
+    {
+        var time = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        Harness h = Harness.Create(step: 5, startVolume: 50, time: time);
+        h.Provider.Current.Returns(new PlayerState(false, 0, null));
+        await h.Controller.OnLaunchedAsync(CancellationToken.None);
+
+        // Nothing playing: each nudge would probe, but a mashed hotkey must not fire a burst of reads.
+        await h.Controller.NudgeAsync(1);
+        await h.Controller.NudgeAsync(1);
+        await h.Provider.Received(1).RefreshAsync();
+
+        // Past the throttle window a fresh probe is allowed again.
+        time.Advance(TimeSpan.FromSeconds(5));
+        await h.Controller.NudgeAsync(1);
+        await h.Provider.Received(2).RefreshAsync();
+
         await h.Client.DidNotReceive().SetVolumeAsync(Arg.Any<int>());
     }
 
