@@ -28,6 +28,12 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
     // have read the device before it reflected the change, and applying it would snap the slider back.
     private static readonly TimeSpan _writeSettleWindow = TimeSpan.FromSeconds(2);
 
+    // When a nudge arrives with no known device (e.g. polling is suspended while minimised), a single
+    // on-demand read tries to pick up a device that just became active. If that read still finds none,
+    // suppress further probes for this long so a held/mashed hotkey doesn't fire a burst of reads.
+    // Matches the provider's poll cadence.
+    private static readonly TimeSpan _noDeviceProbeInterval = TimeSpan.FromSeconds(5);
+
     private readonly ISpotifyClient _client;
     private readonly IHotkeyService _hotkeys;
     private readonly ISettingsService _settings;
@@ -44,6 +50,7 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
     private bool _writerRunning;
     private Task _writer = Task.CompletedTask;
     private DateTimeOffset _lastWriteAt = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastNoDeviceProbeAt = DateTimeOffset.MinValue;
     private bool _disposed;
 
     public VolumeController(
@@ -93,11 +100,13 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
         return Task.CompletedTask;
     }
 
-    public Task NudgeAsync(int direction)
+    public async Task NudgeAsync(int direction)
     {
-        if (!CanControl)
+        // May do a single on-demand read to pick up a device that became active while polling was
+        // suspended; nudging from the freshly-read volume keeps the relative step correct.
+        if (!await EnsureControllableAsync().ConfigureAwait(true))
         {
-            return Task.CompletedTask;
+            return;
         }
 
         int target;
@@ -112,18 +121,18 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
         // Already at the bound (e.g. nudging down at 0): nothing to apply or announce.
         if (!changed)
         {
-            return Task.CompletedTask;
+            return;
         }
 
         VolumeChanged?.Invoke(this, target);
-        return RequestWrite(target);
+        await RequestWrite(target).ConfigureAwait(false);
     }
 
-    public Task SetVolumeAsync(int percent)
+    public async Task SetVolumeAsync(int percent)
     {
-        if (!CanControl)
+        if (!await EnsureControllableAsync().ConfigureAwait(true))
         {
-            return Task.CompletedTask;
+            return;
         }
 
         int target = Math.Clamp(percent, 0, 100);
@@ -136,12 +145,58 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
 
         if (!changed)
         {
-            return Task.CompletedTask;
+            return;
         }
 
         VolumeChanged?.Invoke(this, target);
-        return RequestWrite(target);
+        await RequestWrite(target).ConfigureAwait(false);
     }
+
+    // Gate before a volume change. Fast path when a device is already known. Otherwise, while
+    // connected, does one on-demand read (which works even while the poll is suspended — e.g. the
+    // window is minimised) to catch a device that just became active; if it still finds none, a short
+    // throttle stops a mashed hotkey from firing a burst of reads.
+    private async Task<bool> EnsureControllableAsync()
+    {
+        if (CanControl)
+        {
+            return true;
+        }
+
+        // A read only helps when connected; disconnected short-circuits with no request.
+        if (_auth.State != ConnectionState.Connected)
+        {
+            return false;
+        }
+
+        lock (_gate)
+        {
+            if (RecentlyProbedNoDevice())
+            {
+                return false;
+            }
+        }
+
+        // Resume on the captured (UI) context so the provider's PlayerStateChanged push — which runs
+        // OnPlayerStateChanged and updates _hasActiveDevice/_volume — is applied before the re-check.
+        await _playerState.RefreshAsync().ConfigureAwait(true);
+
+        if (CanControl)
+        {
+            return true;
+        }
+
+        lock (_gate)
+        {
+            _lastNoDeviceProbeAt = _time.GetUtcNow();
+        }
+
+        return false;
+    }
+
+    // True while a recent on-demand probe found no device; called under _gate (reads _lastNoDeviceProbeAt).
+    private bool RecentlyProbedNoDevice() =>
+        _time.GetUtcNow() - _lastNoDeviceProbeAt < _noDeviceProbeInterval;
 
     // Asks the shared provider to re-read now; the resulting push reconciles this controller. Used for
     // an immediate refresh when the main screen is shown, on top of the provider's background poll.

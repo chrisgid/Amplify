@@ -225,3 +225,42 @@ device-rejected (403/404) path keeps its own `RevertAndDisableControl` (dropping
 correct there — the device isn't controllable). No behavioural test (the window is a timing race);
 correctness is structural, and the existing `TransientFailureKeepsTheLatestTargetInsteadOfReverting`
 still covers the re-queue path.
+
+## 2026-07-04 — Wake volume control on hotkey press while minimised
+
+Fixed a gap between feature 07 and the feature 08 tray/minimise behaviour: the shared
+`PlayerStateProvider` poll is suspended while the window isn't visible (to save API calls), so if a
+user minimised Amplify with nothing playing, *then* started playback in Spotify, `_hasActiveDevice`
+stayed `false` and the volume hotkeys silently no-opped — exactly when they're wanted.
+
+- **Change:** `NudgeAsync`/`SetVolumeAsync` no longer hard-return on `!CanControl`. A new
+  `EnsureControllableAsync()` gate: fast-paths when a device is already known; otherwise, while
+  connected, does **one on-demand `IPlayerStateProvider.RefreshAsync()`** (which reads even while the
+  poll is suspended — it checks connection state only, not window visibility) and, if a device is now
+  present, proceeds with the nudge from the freshly-read volume. This also fixes the *stale base
+  volume* problem: a nudge is relative, so eagerly writing without a read could send a wrong absolute
+  level. On-demand reads add **zero background polling** — a `GET` happens only on an actual keypress
+  while no device is known.
+- **Throttle:** if the on-demand read still finds no device, `_lastNoDeviceProbeAt` is stamped and
+  further probes are suppressed for `_noDeviceProbeInterval` (5s, matching the poll cadence) so a
+  held/mashed hotkey with nothing playing doesn't fire a burst of reads. Uses the injected
+  `TimeProvider` (already present) for a virtual-time test.
+- **Timing (load-bearing):** `EnsureControllableAsync` awaits the refresh with `ConfigureAwait(true)`
+  so it resumes on the captured UI context — the provider enqueues its `PlayerStateChanged` publish
+  before `RefreshAsync`'s task completes, so on the UI queue that publish (→ `OnPlayerStateChanged`
+  updates `_hasActiveDevice`/`_volume`) runs *before* the `CanControl` re-check. Disconnected
+  short-circuits before any read. Self-healing is unchanged: a device that later disappears is caught
+  by the next write's `DeviceNotControllableException` → `RevertAndDisableControl`, and the following
+  press re-enters the wake path.
+- **Contract/docs:** clarified `IVolumeController.NudgeAsync`/`SetVolumeAsync` XML docs and the
+  `contracts.md` `NudgeAsync` comment (behaviour extended, no signature change); updated feature-07
+  edge cases + acceptance line.
+- **Tests:** `dotnet test` → **197 passed, 0 skipped**. Updated `NudgeIsNoOpWhenNoActiveDevice` →
+  `NudgeProbesOnceThenNoOpsWhenNoActiveDevice` (asserts exactly one `RefreshAsync`, no write); added
+  `NudgeWakesAndAppliesWhenDeviceBecomesActive` (refresh raises `PlayerStateChanged` → nudges from the
+  fresh base) and `RepeatedNudgesWithNoDeviceAreThrottled` (one read across a burst, a second allowed
+  past the window, via `FakeTimeProvider`); strengthened `NudgeIsNoOpWhenDisconnected` to assert no
+  read. Core build, App (x64) build, and `dotnet format --verify-no-changes` all clean.
+- **Manual smoke (unchanged, needs Premium + a device):** minimise with nothing playing → start
+  playback → volume-up moves volume (first press may lag one round-trip); mash the key with nothing
+  playing → no flood of `GET`s; restore the window → normal 5s polling resumes.

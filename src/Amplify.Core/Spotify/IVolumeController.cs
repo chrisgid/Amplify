@@ -13,19 +13,24 @@ public interface IVolumeController
 
     /// <summary>
     /// Whether volume can be changed right now — i.e. an account is connected and Spotify reported an
-    /// active device on the last read. Hotkey nudges are ignored while this is <c>false</c>.
+    /// active device on the last read.
     /// </summary>
     bool CanControl { get; }
 
     /// <summary>
     /// Sets the active device's volume to <paramref name="percent"/> (clamped 0–100), updating the
-    /// model optimistically before the Web API call. A no-op while <see cref="CanControl"/> is false.
+    /// model optimistically before the Web API call. When <see cref="CanControl"/> is false, first
+    /// attempts one on-demand read (see <see cref="NudgeAsync"/>) and applies only if a device is
+    /// found; otherwise a no-op.
     /// </summary>
     Task SetVolumeAsync(int percent);
 
     /// <summary>
     /// Changes the volume by one configured step in <paramref name="direction"/> (+1 up / -1 down),
-    /// clamped to 0–100. A no-op while <see cref="CanControl"/> is false.
+    /// clamped to 0–100. While connected but <see cref="CanControl"/> is false, first does a single
+    /// on-demand read — throttled — to pick up a device that became active while polling was suspended
+    /// (e.g. the window is minimised), then nudges from the freshly-read level; if none is found it is
+    /// a no-op.
     /// </summary>
     Task NudgeAsync(int direction);
 
