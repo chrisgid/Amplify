@@ -257,3 +257,72 @@ Addressed four findings from review of the Phase 1 PR. No contract changes; rout
   - `dotnet build Amplify.slnx -p:Platform=x64` → **0 warnings, 0 errors**.
   - `dotnet test` → **31 passed** (unchanged).
   - `dotnet format Amplify.slnx --verify-no-changes` → clean (exit 0).
+
+## 2026-07-05 — Window placement: centre on first run + remember last position · branch `main`
+
+Closed the long-deferred "window state persistence" gap (listed open since Phase 0/1). Symptom that
+prompted it: launched from Visual Studio the window opened toward the upper-left, not centred —
+`ConfigureWindowChrome` called `AppWindow.Resize` but never positioned the window, so it kept the OS
+cascade default top-left corner and only grew from there. Now the window centres on first run and
+restores its last footprint on subsequent launches.
+
+- **`AppSettings.Window` is now written, not just round-tripped.** The `WindowState` record already
+  existed (feature 10 built the model; nothing wrote it). `MainWindow` captures the window's last
+  **Restored** footprint via `AppWindow.Changed` (`DidPositionChange`/`DidSizeChange`) and persists it
+  through `ISettingsService.Update` when the window is put away (`VisibilityChanged` → not visible:
+  minimise or hide-to-tray) and on close (`Dispose`, which runs on the shell's `Closed` handler
+  *before* `App` disposes the host, so the write is safe). Minimised/maximised states report
+  placeholder coordinates, so only `Restored` is captured; the persist compares against the stored
+  value so redundant writes are skipped. `MainWindow` gained an `ISettingsService` ctor dependency
+  (already a DI singleton).
+
+- **Stored in device (physical) pixels, deviating from the `WindowState` XML doc's "logical
+  pixels".** `AppWindow` reads/writes the Win32 Window Coordinate System (device pixels) directly —
+  confirmed via `microsoft-docs:winui3` (`AppWindow.Position/Size`, `MoveAndResize`, and the
+  windowing-overview "AppWindow uses device pixels, XAML uses effective pixels" note). Persisting the
+  raw `AppWindow` values means restore needs **no** DPI round-trip (which would be lossy and ambiguous
+  across mixed-DPI monitors). Updated the `WindowState` doc comment to say device pixels; **no
+  contracts.md change** (the record's shape/fields are unchanged, and contracts.md never annotated the
+  pixel space). Per user direction the schema version was **not** bumped — the app is pre-release and a
+  stale local `settings.json` only affects the user's own install, which they'll resolve manually.
+
+- **Off-screen guard, kept as pure testable geometry.** A remembered placement is only restored when
+  its title-bar strip lands on a currently-connected display (so an unplugged/rearranged monitor can't
+  strand the window off-screen) — otherwise it falls back to centred. That decision plus the centring
+  math live in `Amplify.Core/Windowing/WindowPlacement.cs` (WinUI-free, operates on plain `PixelRect`
+  work areas); `MainWindow` just feeds it `DisplayArea.FindAll()`/`GetFromWindowId` work areas and
+  applies the result with a single `AppWindow.MoveAndResize`. Saved size is grown to the existing
+  min-width/height floor. Six `WindowPlacementTests` cover restore-on-primary, min-size clamp,
+  off-screen-left/above rejection, secondary-monitor restore, and centring.
+
+- **Contract changes:** none.
+
+- **Manual/integration checks:**
+  - `dotnet build src\Amplify.App` and `src` test project → **0 warnings, 0 errors** (Release x64,
+    `TreatWarningsAsErrors`).
+  - `dotnet test -p:Platform=x64` → **203 passed, 0 skipped** (197 prior + 6 new `WindowPlacement`).
+  - **Outstanding (requires an interactive desktop):** launch and confirm the window opens centred on
+    first run; move/resize it, close, relaunch, and confirm it reopens where it was left; then unplug
+    the monitor it was on (or clear `settings.json`'s `window`) and confirm it falls back to centred.
+
+- **Runtime fix (same session, found on manual run): `DisplayArea.FindAll()` can't be LINQ/`foreach`-
+  enumerated.** The first launch threw `InvalidCastException` ("Specified cast is not valid") from
+  `PositionWindow`'s `DisplayArea.FindAll().Select(...).ToList()`. `FindAll()` returns a projected
+  WinRT `IReadOnlyList<DisplayArea>`; enumerating it makes CsWinRT `QueryInterface` the underlying COM
+  object for `IEnumerable<DisplayArea>` (`Make_IEnumerableObjRef` → `As<T>(iid)` → `E_NOINTERFACE`),
+  which fails on Windows App SDK 2.2. Replaced the LINQ projection with an indexed `for` loop
+  (`.Count` + `[i]`) in a `ReadWorkAreas()` helper — indexed access goes through the list's own
+  projected interface and marshals cleanly. Reminder for any future WinRT collection use (e.g.
+  `AppWindow`/`DisplayArea`/other `FindAll`-style APIs): prefer indexed access over LINQ/`foreach`.
+  `WindowPlacement` itself was unaffected (its unit tests pass a plain managed list, so they never
+  exercised the WinRT enumeration — a reminder that Core-side geometry tests can't catch App-side
+  marshalling faults). Re-verified: build 0/0, `dotnet test` 203 passed, `dotnet format` clean.
+
+- **Save-on-move (same session): the position now survives a hard kill, not just a graceful close.**
+  Manual testing showed the placement only persisted when Amplify closed itself (Quit / close- or
+  minimise-to-tray fire `Closed`/`VisibilityChanged`); **stopping the debugger `TerminateProcess`es
+  the app, so no handler runs and nothing is saved.** Added a debounced save: `OnAppWindowChanged`
+  restarts a one-shot `DispatcherQueueTimer` (1s) that flushes `_pendingWindow` once moves/resizes
+  settle, so a crash or force-kill loses at most the last ~1s of dragging. The graceful-close flushes
+  (`VisibilityChanged` → not visible, and `Dispose`) are kept as immediate saves; the timer is stopped
+  and detached in `Dispose`. Re-verified: build 0/0, `dotnet test` 203 passed, `dotnet format` clean.
