@@ -83,33 +83,35 @@ public sealed partial class MainWindow : Window, IDisposable
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
 
-        nint hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        double scale = GetDpiForWindow(hwnd) / 96.0;
-        if (AppWindow.Presenter is OverlappedPresenter presenter)
-        {
-            presenter.PreferredMinimumWidth = (int)(_minWidth * scale);
-            presenter.PreferredMinimumHeight = (int)(_minHeight * scale);
-        }
-
-        PositionWindow(scale);
+        PositionWindow();
     }
 
     // Restore the remembered window footprint, or — on first run or when it's no longer on-screen —
     // open at the default size centred on the current display. WinUI never centres new windows itself:
     // without an explicit placement the OS cascade-places the top-left corner, which reads as the
-    // window opening "off to the left". Sizes/coordinates are device pixels (the AppWindow space), so
-    // the default size scales from its logical constants by the window's DPI.
-    private void PositionWindow(double scale)
+    // window opening "off to the left". Sizes/coordinates are device pixels (the AppWindow space); the
+    // logical min/default constants are scaled by the DPI of the monitor the window will actually land
+    // on — NOT the monitor it was constructed on — so restoring onto a different-DPI display doesn't
+    // mis-size it (the presenter minimum enforces on programmatic resizes too, so it must match).
+    private void PositionWindow()
     {
-        int minWidth = (int)(_minWidth * scale);
-        int minHeight = (int)(_minHeight * scale);
-
-        if (_settings.Current.Window is { } saved
-            && WindowPlacement.TryGetRestoreBounds(saved, ReadWorkAreas(), minWidth, minHeight, out PixelRect restored))
+        if (_settings.Current.Window is { } saved)
         {
-            AppWindow.MoveAndResize(new RectInt32(restored.X, restored.Y, restored.Width, restored.Height));
-            return;
+            double targetScale = ScaleForPoint(saved.X, saved.Y);
+            int minWidth = (int)(_minWidth * targetScale);
+            int minHeight = (int)(_minHeight * targetScale);
+            if (WindowPlacement.TryGetRestoreBounds(saved, ReadWorkAreas(), minWidth, minHeight, out PixelRect restored))
+            {
+                SetMinimumSize(minWidth, minHeight);
+                AppWindow.MoveAndResize(new RectInt32(restored.X, restored.Y, restored.Width, restored.Height));
+                return;
+            }
         }
+
+        // First run or off-screen placement: open on the monitor the window was created on.
+        nint hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        double scale = GetDpiForWindow(hwnd) / 96.0;
+        SetMinimumSize((int)(_minWidth * scale), (int)(_minHeight * scale));
 
         RectInt32 primary = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
         PixelRect centred = WindowPlacement.Center(
@@ -117,6 +119,24 @@ public sealed partial class MainWindow : Window, IDisposable
             (int)(_initialHeight * scale),
             new PixelRect(primary.X, primary.Y, primary.Width, primary.Height));
         AppWindow.MoveAndResize(new RectInt32(centred.X, centred.Y, centred.Width, centred.Height));
+    }
+
+    private void SetMinimumSize(int width, int height)
+    {
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            presenter.PreferredMinimumWidth = width;
+            presenter.PreferredMinimumHeight = height;
+        }
+    }
+
+    // The effective-DPI scale of the monitor containing a screen point, so a window's min/default
+    // sizes track the display it will occupy rather than the one it was constructed on. Falls back to
+    // the nearest monitor for an off-screen point, and to 1.0 if the DPI query fails.
+    private static double ScaleForPoint(int x, int y)
+    {
+        nint monitor = MonitorFromPoint(new POINT { X = x, Y = y }, _monitorDefaultToNearest);
+        return GetDpiForMonitor(monitor, _mdtEffectiveDpi, out uint dpiX, out _) == 0 ? dpiX / 96.0 : 1.0;
     }
 
     // Snapshot each display's work area. DisplayArea.FindAll() returns a projected WinRT
@@ -258,7 +278,25 @@ public sealed partial class MainWindow : Window, IDisposable
         AppWindow.Changed -= OnAppWindowChanged;
     }
 
+    private const uint _monitorDefaultToNearest = 2;  // MONITOR_DEFAULTTONEAREST
+    private const int _mdtEffectiveDpi = 0;            // MDT_EFFECTIVE_DPI
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
     [DllImport("user32.dll")]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     private static extern uint GetDpiForWindow(nint hwnd);
+
+    [DllImport("user32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static extern nint MonitorFromPoint(POINT pt, uint dwFlags);
+
+    [DllImport("shcore.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static extern int GetDpiForMonitor(nint hmonitor, int dpiType, out uint dpiX, out uint dpiY);
 }

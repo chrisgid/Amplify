@@ -326,3 +326,18 @@ restores its last footprint on subsequent launches.
   settle, so a crash or force-kill loses at most the last ~1s of dragging. The graceful-close flushes
   (`VisibilityChanged` → not visible, and `Dispose`) are kept as immediate saves; the timer is stopped
   and detached in `Dispose`. Re-verified: build 0/0, `dotnet test` 203 passed, `dotnet format` clean.
+
+- **PR #24 review fix: restore min-size used the wrong monitor's DPI.** `ConfigureWindowChrome` read
+  `GetDpiForWindow` once at construction — when the window sits on the primary/default monitor — and
+  used that `scale` for both the presenter minimum and the restore clamp. Restoring a window that was
+  saved near its minimum on a *lower*-DPI monitor, during a cold start on a *higher*-DPI primary, then
+  inflated it (e.g. a 560-device-px window grown to 1120 device px = ~2× the intended logical minimum
+  on a 100% monitor). Confirmed via `microsoft-docs:winui3` that `PreferredMinimumWidth/Height`
+  **also constrain programmatic `AppWindow.Resize`/`MoveAndResize`**, so both the clamp *and* the
+  presenter minimum contributed — fixing only the clamp (the flagged line) would not have resolved it.
+  Fix: `PositionWindow()` now scales the min/default sizes by the **target** monitor's effective DPI
+  (`MonitorFromPoint` at the saved top-left → `GetDpiForMonitor`, both System32 P/Invokes matching the
+  existing `GetDpiForWindow` pattern) and sets the presenter minimum from the same scale; the default
+  (first-run/off-screen) path still uses the construction monitor's DPI, which is correct because the
+  window opens there. `WindowPlacement` and its tests are unchanged — it's now simply fed the correct
+  minimum. Re-verified: build 0/0, `dotnet test` 203 passed, `dotnet format` clean.
