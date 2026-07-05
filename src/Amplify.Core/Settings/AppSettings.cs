@@ -60,9 +60,13 @@ public sealed class AppSettings
     public WindowState? Window { get; set; }
 }
 
-/// <summary>The persisted size and position of the main window.</summary>
-/// <param name="Width">Window width in logical pixels.</param>
-/// <param name="Height">Window height in logical pixels.</param>
-/// <param name="X">Left edge in logical pixels.</param>
-/// <param name="Y">Top edge in logical pixels.</param>
+/// <summary>
+/// The persisted size and position of the main window, in device (physical) pixels — the screen
+/// coordinate space the WinUI <c>AppWindow</c> reads and writes directly, so restoring needs no
+/// DPI conversion. <see langword="null"/> until the user first moves or resizes the window.
+/// </summary>
+/// <param name="Width">Window width in device pixels.</param>
+/// <param name="Height">Window height in device pixels.</param>
+/// <param name="X">Left edge in device pixels.</param>
+/// <param name="Y">Top edge in device pixels.</param>
 public sealed record WindowState(int Width, int Height, int X, int Y);
