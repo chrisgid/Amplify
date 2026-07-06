@@ -66,8 +66,8 @@ change settings.
 3. **Main window** — shows the connected account, the two hotkey bindings (defaults
    `Ctrl+Alt+↑` / `Ctrl+Alt+↓`), and a live volume meter.
 4. **Bind shortcuts** — the user can re-record either hotkey by pressing a new combination.
-5. **Background use** — the user minimises to the tray; hotkeys keep working globally. Optional
-   toast on each volume change.
+5. **Background use** — the user minimises to the tray; hotkeys keep working globally. The first
+   time this happens, a one-time tray hint explains where the window went.
 6. **Settings** — startup, tray, notifications, theme, step size, account, and reset.
 
 ---
@@ -89,7 +89,7 @@ change settings.
 | Settings storage | **JSON file** at `ApplicationData.Current.LocalFolder\settings.json` behind `ISettingsService` |
 | Global hotkeys | P/Invoke `RegisterHotKey`/`UnregisterHotKey` (fallback: `WH_KEYBOARD_LL` hook) |
 | Tray icon | **H.NotifyIcon.WinUI** |
-| Toasts | `AppNotificationManager` (Windows App SDK) |
+| Tray hint (first-run) | **H.NotifyIcon** `TaskbarIcon` balloon — no `AppNotificationManager`/COM activator |
 | Launch at startup | Packaged `StartupTask` |
 | Logging | `Microsoft.Extensions.Logging` with a **minimal custom file `ILoggerProvider`** writing to `LocalFolder\logs\` (no third-party sink) |
 | Configuration | `appsettings.json` (content file, non-secret) bound to an options class — holds the redirect port + scopes. The per-user Spotify **Client ID** lives in `settings.json` (entered during onboarding), not here |
@@ -108,8 +108,8 @@ change settings.
    IVolumeController      step math + orchestrates ISpotifyClient
    ISettingsService      typed get/set + persistence + change notifications
    IThemeService         follow Windows theme/accent; apply overrides
-   ITrayService          tray icon, menu, show/hide, single-instance
-   INotificationService  toasts
+   ITrayService          tray icon, menu, show/hide, single-instance, hide event + balloon
+   INotificationService  one-time first-run tray hint
 ```
 
 Everything Windows- or network-specific sits behind an interface so it can be unit-tested with
@@ -323,7 +323,7 @@ features, then an integration pass) — see the phased plan in
 | 06 | [Global hotkeys](./features/06-global-hotkeys.md) | Bind/record combos, global registration, conflicts, persistence | 01, 10 |
 | 07 | [Volume control](./features/07-volume-control.md) | Web API volume, live meter, slider, ± buttons, step size | 03, 06 |
 | 08 | [System tray & background](./features/08-system-tray-background.md) | Tray icon, minimise-to-tray, launch at startup, single instance | 01, 10 |
-| 09 | [Notifications](./features/09-notifications.md) | Toast on volume change | 07, 10 |
+| 09 | [First-run tray hint](./features/09-notifications.md) | One-time "still running in the tray" notification | 08, 10 |
 | 10 | [Settings & persistence](./features/10-settings-persistence.md) | Settings page + `ISettingsService` persistence layer | 01 |
 | 11 | [Theming & appearance](./features/11-theming-appearance.md) | Follow Windows theme/accent; manual override; Mica | 01, 10 |
 | 12 | [Reset & account management](./features/12-reset-and-account.md) | Reset everything, disconnect, data clearing | 03, 10 |
@@ -335,7 +335,7 @@ features, then an integration pass) — see the phased plan in
 ## 8. Cross-cutting concerns
 
 - **Error handling:** all service calls fail gracefully and surface a user-readable message
-  (typically via `InfoBar` or toast). Network/Spotify errors map to the status states in
+  (typically via `InfoBar`). Network/Spotify errors map to the status states in
   feature 05.
 - **Logging:** `Microsoft.Extensions.Logging` with a **minimal custom file `ILoggerProvider`**
   writing rolling files to `ApplicationData.Current.LocalFolder\logs\` (plus the Debug provider in

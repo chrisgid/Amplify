@@ -87,7 +87,10 @@ public sealed class AppSettings
     public bool LaunchAtStartup { get; set; } = true;
     public bool StartMinimizedToTray { get; set; } = true;
     public bool MinimizeToTrayOnClose { get; set; } = true;   // close-to-tray vs exit
-    public bool NotifyOnVolumeChange { get; set; } = false;
+
+    // First-run tray hint (feature 09) — internal one-shot state, NOT a user-facing toggle.
+    // Set true after the "still running in the tray" hint is shown once; never shown again.
+    public bool TrayHintShown { get; set; } = false;
 
     // Spotify (feature 03 / 04) — per-user Client ID entered at onboarding; not a secret.
     // Captured by onboarding, read by auth; cleared only by Reset (feature 12).
@@ -193,7 +196,7 @@ public interface IVolumeController
                                                  // catch a device that became active while polling was
                                                  // suspended (window minimised); no-op if still none.
     Task RefreshAsync();                          // re-read player state (called on connect/focus)
-    event EventHandler<int> VolumeChanged;        // for UI + notifications
+    event EventHandler<int> VolumeChanged;        // for UI
     event EventHandler? StateChanged;             // CanControl changed without a volume change
 }
 
@@ -211,12 +214,18 @@ public interface ITrayService
     void ShowWindow();
     void HideToTray();
     void Quit();
+    event EventHandler HiddenToTray;                        // raised each time the window hides to
+                                                            // the tray (minimise or close-to-tray)
+    void ShowTrayNotification(string title, string message); // balloon via the tray TaskbarIcon
 }
 
-// feature 09 — toasts
+// feature 09 — first-run tray hint (one-time "still running in the tray" notification)
 public interface INotificationService
 {
-    void ShowVolume(int percent, int direction);  // only when NotifyOnVolumeChange
+    // Subscribes to ITrayService.HiddenToTray. The first time the window hides to the tray,
+    // shows the hint via ITrayService.ShowTrayNotification and sets AppSettings.TrayHintShown.
+    // No-op once TrayHintShown is true. Wired at startup (IStartupInitializer).
+    void ShowFirstMinimizeHintIfNeeded();
 }
 
 // startup hooks invoked by the shell (feature 01) at launch — features implement as needed.
@@ -244,9 +253,10 @@ public interface IStartupInitializer
 | `IAuthService.ConnectionStateChanged` | 03 | 01 (routing), 04, 05, 12 |
 | `IHotkeyService.HotkeyPressed` | 06 | 07 |
 | `IPlayerStateProvider.PlayerStateChanged` | 07 (shared provider) | 05 (status card), 07 (volume) |
-| `IVolumeController.VolumeChanged` | 07 | 07 UI, 09 (toast) |
-| `ISettingsService.Changed` | 10 | 06 (re-register), 07 (step), 08 (startup/tray), 09, 11 (theme) |
+| `IVolumeController.VolumeChanged` | 07 | 07 UI |
+| `ISettingsService.Changed` | 10 | 06 (re-register), 07 (step), 08 (startup/tray), 11 (theme) |
 | `IThemeService.ThemeChanged` | 11 | 01 (window) |
+| `ITrayService.HiddenToTray` | 08 | 09 (first-run tray hint) |
 
 ---
 

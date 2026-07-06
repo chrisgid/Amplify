@@ -29,7 +29,6 @@ the app's shared `Resources.resw`** (localized strings) that every later screen 
 - **General**
   - *Launch at startup* — toggle ([feature 08](./08-system-tray-background.md)).
   - *Start minimized to the tray* — toggle ([feature 08](./08-system-tray-background.md)).
-  - *Notify on volume change* — toggle ([feature 09](./09-notifications.md)).
 - **Appearance**
   - *App theme* — `ComboBox`: Use system / Light / Dark
     ([feature 11](./11-theming-appearance.md)).
@@ -52,7 +51,7 @@ the app's shared `Resources.resw`** (localized strings) that every later screen 
 - [ ] All listed settings are present, use native controls, and apply immediately on change.
 - [ ] Settings persist across restarts and are loaded at startup before features initialise.
 - [ ] Changing a setting notifies interested features (e.g. theme, step size, startup) live.
-- [ ] Defaults match the prototype (notifications off; tray/startup on; step 5%; theme = system).
+- [ ] Defaults match the prototype (tray/startup on; step 5%; theme = system).
 - [ ] Back navigation returns to Main.
 - [ ] Stands up the shared **`Resources.resw`** and the `x:Uid`/`ResourceLoader` plumbing; the
       Settings screen's user-facing strings are sourced from it via `Settings_*`-prefixed keys (no
@@ -67,9 +66,10 @@ the app's shared `Resources.resw`** (localized strings) that every later screen 
   in tests. The canonical `ISettingsService` signature and `AppSettings` shape are defined in
   [`../contracts.md`](../contracts.md).
 - **Model:** a strongly-typed `AppSettings` record/POCO is recommended over loose keys
-  (`LaunchAtStartup`, `StartMinimizedToTray`, `NotifyOnVolumeChange`, `SpotifyClientId`,
-  `ThemeMode`, `VolumeStep`, hotkey bindings, optional window state). Merge missing keys with
-  defaults on load.
+  (`LaunchAtStartup`, `StartMinimizedToTray`, `MinimizeToTrayOnClose`, `TrayHintShown`,
+  `SpotifyClientId`, `ThemeMode`, `VolumeStep`, hotkey bindings, optional window state). Merge
+  missing keys with defaults on load. `TrayHintShown` ([feature 09](./09-notifications.md)) is
+  internal one-shot state, not surfaced in the Settings UI.
 - **Schema versioning & migration:** the file carries a `schemaVersion` integer (first field) and
   the app knows the current version as a constant. On load, compare them:
   - **equal** → load normally.

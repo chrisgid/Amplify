@@ -107,8 +107,7 @@ the slider/buttons. Each hotkey press changes volume by the configurable **step 
 
 - Requires a connected account ([03](./03-spotify-authentication.md)); **volume control
   additionally requires an active device** ([05](./05-connection-status.md)). Reacts to
-  [06 hotkeys](./06-global-hotkeys.md); step size from [10](./10-settings-persistence.md); emits
-  events used by [09 notifications](./09-notifications.md).
+  [06 hotkeys](./06-global-hotkeys.md); step size from [10](./10-settings-persistence.md).
 
 ## Testing
 
@@ -126,7 +125,8 @@ the slider/buttons. Each hotkey press changes volume by the configurable **step 
 
 ## Out of scope
 
-- The hotkey capture/registration (feature 06) and toast display (feature 09).
+- The hotkey capture/registration (feature 06). Volume changes deliberately show **no**
+  notification (the first-run tray hint in feature 09 is unrelated).
 - **Device selection / a device picker.** Amplify only ever controls the active device; choosing
   or transferring playback between devices is done in Spotify, not here.
 
