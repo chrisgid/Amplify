@@ -55,8 +55,9 @@ machine with a real Spotify account:
          hide to the tray), and closing the window **exits** the app. The tray icon and
          minimise/close-to-tray behaviours appear only once an account is connected.
 9. **Single instance** — [ ] launching a second time surfaces the existing window.
-10. **Notifications** — [ ] with "Notify on volume change" on, a hotkey change shows a toast that
-    coalesces under rapid presses; off suppresses it.
+10. **First-run tray hint** — [ ] the **first** time the window hides to the tray (minimise or
+    close-to-tray) a one-time balloon appears explaining the app is still running; it does **not**
+    reappear on subsequent hides or after a restart; no notification appears on volume changes.
 11. **Theming** — [ ] the app follows the Windows light/dark theme and accent live; the
     System/Light/Dark override applies immediately and persists.
 12. **Settings persistence** — [ ] toggles/step/theme persist across a restart; the read-only

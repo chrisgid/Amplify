@@ -44,6 +44,8 @@ and enforces **single-instance** behaviour so the hotkeys keep working without a
 - [ ] "Start minimized to the tray" launches without showing the window.
 - [ ] "Launch at startup" registers/unregisters a startup entry that reflects the toggle.
 - [ ] Only one instance runs; launching again surfaces the existing window.
+- [ ] `HiddenToTray` is raised on both minimise-to-tray and close-to-tray; `ShowTrayNotification`
+      displays a tray balloon (consumed by [feature 09](./09-notifications.md)).
 
 ## Implementation guidance
 
@@ -57,6 +59,14 @@ and enforces **single-instance** behaviour so the hotkeys keep working without a
   `microsoft-docs:winui3` skill.
 - **Close-to-tray:** intercept the window close (`AppWindow.Closing`) and hide instead of exit
   when the "keep running" behaviour applies; provide an explicit Quit that bypasses it.
+- **Hide event + tray balloon (for [feature 09](./09-notifications.md)):** raise
+  **`ITrayService.HiddenToTray`** whenever the window hides to the tray — from **both** the
+  minimise-to-tray and close-to-tray paths above. Also implement
+  **`ShowTrayNotification(title, message)`** to display a balloon through the tray `TaskbarIcon`
+  (H.NotifyIcon.WinUI) — this reuses the icon you already own and needs **no** `AppNotificationManager`
+  or COM activator. Feature 09 subscribes to the event and decides whether to show the one-time
+  hint; this feature just provides the event and the balloon primitive. Confirm the current
+  `TaskbarIcon` notification API via the `microsoft-docs:winui3` skill.
 - **Start minimized:** read the setting at launch; if set, don't activate the main window.
 - **Launch at startup:** packaged **`StartupTask`** (request/enable via
   `StartupTask.GetAsync` + `RequestEnableAsync`). Reflect the OS-controlled state back into the
@@ -102,7 +112,9 @@ and enforces **single-instance** behaviour so the hotkeys keep working without a
 
 ## Out of scope
 
-- Toast notifications (feature 09) and theming of the window (feature 11).
+- The **policy** for the first-run tray hint (feature 09) — this feature only raises `HiddenToTray`
+  and provides `ShowTrayNotification`; feature 09 owns the once-only logic and copy. Theming of the
+  window is feature 11.
 
 ## Standards reminder
 

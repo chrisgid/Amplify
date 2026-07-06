@@ -99,7 +99,7 @@ with Windows.
 
 ## Out of scope
 
-- Performing the volume change (feature 07) and toasts (feature 09).
+- Performing the volume change (feature 07).
 
 ## Standards reminder
 

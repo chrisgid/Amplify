@@ -42,7 +42,7 @@ Amplify.slnx              # XML solution format (the .NET 10 SDK default; VS 202
   logic (hotkey parsing, volume/step math, settings serialisation + migration, backoff). Keep it
   UI-free so it's easy to unit-test.
 - **`Amplify.App`** owns `App.xaml.cs`, the DI host, Views/ViewModels, and the Windows-specific
-  service implementations (Credential Locker, hotkeys, tray, toasts, theme).
+  service implementations (Credential Locker, hotkeys, tray + tray hint, theme).
 - See the **wiring & file-ownership convention** in
   [`specification.md` §4](./specification.md#wiring--file-ownership-avoid-cross-feature-collisions):
   each feature exposes an `AddXxx()` DI extension and (where needed) an `IStartupInitializer`;
@@ -52,7 +52,7 @@ Amplify.slnx              # XML solution format (the .NET 10 SDK default; VS 202
 
 | Package | Used for | Licence |
 | --- | --- | --- |
-| `Microsoft.WindowsAppSDK` (2.2.x, metapackage) | WinUI 3 / windowing / toasts | MIT |
+| `Microsoft.WindowsAppSDK` (2.2.x, metapackage) | WinUI 3 / windowing | MIT |
 | `Microsoft.Extensions.Hosting` | generic host + DI + configuration | MIT |
 | `Microsoft.Extensions.Http` | typed `HttpClient` via `IHttpClientFactory` (Spotify client) | MIT |
 | `CommunityToolkit.Mvvm` | `ObservableObject`, `RelayCommand` | MIT |
@@ -152,7 +152,7 @@ Spotify app**:
   moved, **verify the correct one via the `microsoft-docs:winui3`/`microsoft-docs` skills and
   update this file** before building on top of it. A wrong version fails the very first restore.
 - **Build/run:** build `Amplify.App` (packaged) and deploy/run from Visual Studio, or use the
-  Windows App SDK CLI flow. The packaged app is needed for toasts and `StartupTask` to work.
+  Windows App SDK CLI flow. The packaged app is needed for `StartupTask` (and packaged identity) to work.
 - **Test:** `dotnet test tests/Amplify.Tests`. Prioritise `Amplify.Core` logic (see each feature's
   *Testing* section). UI is verified manually.
 - When verifying a Spotify-dependent feature end-to-end, ensure Spotify is open and playing on a
