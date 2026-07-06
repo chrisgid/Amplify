@@ -5,6 +5,7 @@ using Amplify.Core.Startup;
 using Amplify.Core.Tray;
 using CommunityToolkit.Mvvm.Input;
 using H.NotifyIcon;
+using H.NotifyIcon.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
@@ -35,6 +36,9 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
     private TaskbarIcon? _trayIcon;
     private bool _quitting;
     private bool _disposed;
+
+    /// <inheritdoc />
+    public event EventHandler? HiddenToTray;
 
     public TrayService(
         MainWindow window,
@@ -134,7 +138,16 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
         // Hide() leaves the taskbar/switchers entirely (unlike a normal minimise), so the tray icon is
         // the app's only presence while hidden.
         _window.AppWindow.Hide();
+
+        // Both the minimise- and close-to-tray paths funnel through here, so this is the single point at
+        // which "the window is now only in the tray" becomes true — subscribers listen for it.
+        HiddenToTray?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <inheritdoc />
+    public void ShowTrayNotification(string title, string message) => _dispatcher.RunOnUi(() =>
+        // No icon means no balloon; there is nothing to anchor the notification to.
+        _trayIcon?.ShowNotification(title, message, NotificationIcon.Info));
 
     /// <inheritdoc />
     public void Quit() => _dispatcher.RunOnUi(() =>

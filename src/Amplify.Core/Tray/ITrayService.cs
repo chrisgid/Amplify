@@ -22,4 +22,16 @@ public interface ITrayService
 
     /// <summary>Exits the application fully: disposes the tray icon and releases hotkeys and other resources.</summary>
     void Quit();
+
+    /// <summary>
+    /// Raised each time the window hides to the tray — from both the minimise-to-tray and the
+    /// close-to-tray paths. This service only signals the transition and owns no notification policy.
+    /// </summary>
+    event EventHandler HiddenToTray;
+
+    /// <summary>
+    /// Shows a balloon notification through the tray icon. A no-op when the tray icon is unavailable.
+    /// Provides the balloon primitive only; the decision to show one (and its copy) belongs to callers.
+    /// </summary>
+    void ShowTrayNotification(string title, string message);
 }
