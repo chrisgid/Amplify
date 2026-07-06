@@ -139,3 +139,27 @@ Applied the findings from a high-effort `code-review` pass over the branch:
   `Program.SetActivationHandler(SurfaceExistingWindow)` once its window is up.
 - **Checks:** `dotnet build` clean, `dotnet test` green (195, +1 policy case for `trayAvailable`),
   `dotnet format` clean.
+
+## 2026-07-06 — Phase 1 (doc catch-up: hide event + tray balloon) · feat/08b-tray-hide-event-balloon
+
+The feature-08 doc gained two members after the "first-run tray hint" rework (commit 9501f22): feature
+09 no longer toasts on every volume change — it shows a one-time "still running in the tray" hint — and
+feature 08 must provide the seam for it. `contracts.md` `ITrayService` accordingly grew `HiddenToTray`
+and `ShowTrayNotification`.
+
+- **`HiddenToTray` event** raised from `TrayService.HideToTray()` — the single point both the
+  minimise-to-tray (`OnWindowVisibilityChanged`) and close-to-tray (`OnWindowClosing`) paths already
+  funnel through, so one `Invoke` covers both. It fires only after the window actually hides, so the
+  no-tray-icon early-return (which doesn't hide) correctly raises nothing.
+- **`ShowTrayNotification(title, message)`** displays a balloon via `TaskbarIcon.ShowNotification(title,
+  message, NotificationIcon.Info)` (H.NotifyIcon.Core) — reuses the icon we already own, no
+  `AppNotificationManager`/COM activator. No-ops when the tray icon is absent (`_trayIcon?.`), marshalled
+  to the UI thread like the other tray members.
+- **Ownership boundary:** this feature only signals the transition and provides the balloon primitive;
+  the once-only policy, copy, and `AppSettings.TrayHintShown` flag are feature 09's. The
+  `NotifyOnVolumeChange` → `TrayHintShown` settings rename lands with feature 10/09, not here.
+- **Verified:** `ShowNotification(string title, string message, NotificationIcon icon = None, …)` and
+  the `H.NotifyIcon.Core.NotificationIcon` enum (`None/Info/Warning/Error`) against the H.NotifyIcon
+  2.4.1 source. The event raise and balloon are window/OS-bound, so they stay **manual** checks (no new
+  unit tests); the feature-09 build exercises them end-to-end.
+- **Checks:** `dotnet build` clean, `dotnet test` green (203), `dotnet format` clean.
