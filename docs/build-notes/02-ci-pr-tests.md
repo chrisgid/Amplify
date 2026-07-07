@@ -77,3 +77,35 @@ incompatible with tag-pinned third-party actions, so the workflow was updated to
 - **Verified facts:** the v4 tags of all three actions still exist, but the current latest majors are
   checkout v7 / setup-dotnet v5 / cache v5 (resolved via the GitHub API; annotated tags dereferenced
   to their commit SHA).
+
+## 2026-07-07 — SAST via CodeQL · `.github/workflows/codeql.yml`
+
+Added a **separate** CodeQL (SAST) workflow rather than extending `ci.yml`. The YAML mechanics
+(triggers, x64 build mirroring CI) are self-explanatory; recorded below is only the non-obvious.
+
+- **Separate workflow, not a job in `ci.yml`** — different trigger cadence (adds a weekly
+  `schedule` cron so the code is re-scanned against updated queries when idle), different permissions
+  (`security-events: write` vs. `ci.yml`'s locked `contents: read`), and different failure semantics
+  (advisory, see below). Keeping them apart preserves `ci.yml` as a least-privilege merge gate. Cost
+  is the C# build running twice per PR — negligible at this size, and the standard CodeQL pattern.
+
+- **Advisory, not blocking (per maintainer decision).** The workflow itself does not block merge;
+  making it a merge gate is a branch-protection setting. To promote later: add the **"Analyze (C#)"**
+  check to Settings → Branches required checks. Until then findings inform review only. Mirrors the
+  same "required check is a repo setting, not a file" gap noted for `ci.yml` above.
+
+- **CodeQL is GitHub-owned → policy-compliant.** `github/codeql-action/{init,analyze}` satisfies the
+  `allowed_actions: selected` (GitHub-owned) + `sha_pinning_required` policies from the entry above.
+  Pinned both to **`c35d1b1…`** (`codeql-bundle-v2.25.6`, the current release, resolved via the
+  GitHub API — an annotated tag dereferenced to its commit SHA).
+
+- **Manual build, not `autobuild`.** Same reason as CI: `Amplify.App` exposes only `x86;x64;ARM64`
+  (no Any CPU), so CodeQL must observe a `-p:Platform=x64` build on `windows-latest`. The workflow
+  reuses CI's restore/build steps verbatim so CodeQL analyzes the same compilation the gate does.
+
+- **Query suite:** `security-and-quality` (security + maintainability queries). Drop to
+  `security-extended` or the default suite if it proves noisy on first rollout.
+
+- **Deferred / known gaps:** not yet validated against a live run — first green/red confirmation
+  happens when this change's PR opens (CodeQL builds on GitHub-hosted runners; nothing to validate
+  locally). No baseline findings triaged yet.

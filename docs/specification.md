@@ -340,7 +340,9 @@ features, then an integration pass) — see the phased plan in
 - **Logging:** `Microsoft.Extensions.Logging` with a **minimal custom file `ILoggerProvider`**
   writing rolling files to `ApplicationData.Current.LocalFolder\logs\` (plus the Debug provider in
   dev). No third-party logging dependency. Never log tokens or PII.
-- **Security:** refresh tokens in Credential Locker; no client secret; minimum scopes.
+- **Security:** refresh tokens in Credential Locker; no client secret; minimum scopes. **CodeQL**
+  static analysis (SAST) runs in CI on every PR and weekly (`.github/workflows/codeql.yml`);
+  advisory, with findings in the repo's Code scanning tab.
 - **App version:** the footer/about version string comes from the packaged identity
   (`Package.Current.Id.Version`) — not hard-coded.
 - **License & dependencies:** Amplify is **open-source under the MIT License** (a `LICENSE` file
