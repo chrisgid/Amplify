@@ -26,8 +26,12 @@ public sealed class AppSettings
     /// <summary>Closing the window hides it to the tray instead of exiting the app.</summary>
     public bool MinimizeToTrayOnClose { get; set; } = true;
 
-    /// <summary>Show a brief toast whenever a hotkey changes the volume.</summary>
-    public bool NotifyOnVolumeChange { get; set; }
+    /// <summary>
+    /// Internal one-shot state, not a user-facing preference: set once the "still running in the
+    /// tray" hint has been shown the first time the window hides to the tray, so it is never shown
+    /// again. Appears nowhere in the Settings UI; cleared by a full reset (restoring the hint).
+    /// </summary>
+    public bool TrayHintShown { get; set; }
 
     /// <summary>
     /// The per-user Spotify Client ID captured during onboarding. Not a secret under PKCE, but

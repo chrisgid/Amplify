@@ -44,9 +44,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     public partial bool MinimizeToTrayOnClose { get; set; }
 
     [ObservableProperty]
-    public partial bool NotifyOnVolumeChange { get; set; }
-
-    [ObservableProperty]
     public partial int VolumeStep { get; set; }
 
     [ObservableProperty]
@@ -113,7 +110,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         LaunchAtStartup = s.LaunchAtStartup;
         StartMinimizedToTray = s.StartMinimizedToTray;
         MinimizeToTrayOnClose = s.MinimizeToTrayOnClose;
-        NotifyOnVolumeChange = s.NotifyOnVolumeChange;
         VolumeStep = s.VolumeStep;
         SelectedThemeIndex = (int)s.ThemeMode;
         _suppressPersist = false;
@@ -183,8 +179,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnStartMinimizedToTrayChanged(bool value) => Persist(s => s.StartMinimizedToTray = value);
 
     partial void OnMinimizeToTrayOnCloseChanged(bool value) => Persist(s => s.MinimizeToTrayOnClose = value);
-
-    partial void OnNotifyOnVolumeChangeChanged(bool value) => Persist(s => s.NotifyOnVolumeChange = value);
 
     partial void OnSelectedThemeIndexChanged(int value)
     {
