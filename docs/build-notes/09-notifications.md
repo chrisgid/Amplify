@@ -46,7 +46,12 @@
   `TreatWarningsAsErrors`; `dotnet test` green (208, +5 `NotificationServiceTests`, existing
   `SettingsServiceTests` updated for the rename); `dotnet format` clean.
 - **Verified facts:** feature 08 already ships both seams this feature needs — `HiddenToTray` is raised
-  from the single `HideToTray()` funnel (covers minimise- and close-to-tray) and `ShowTrayNotification`
-  no-ops when the tray icon is absent (so the "tray unavailable → no balloon, flag stays unset" edge case
-  is handled by 08 returning without throwing). Confirmed against
-  [`08-system-tray-background.md`](./08-system-tray-background.md) (2026-07-06 entry).
+  from the single `HideToTray()` funnel (covers minimise- and close-to-tray). The "tray unavailable →
+  no balloon, flag stays unset" edge case is handled **because `HideToTray()` early-returns without
+  raising `HiddenToTray` when the icon is absent** (`TrayService.cs`), so this feature's handler never
+  runs and never reaches the persist. It is *not* handled by `ShowTrayNotification` no-op'ing — that
+  returns without throwing, which would flow through to `Update` and (wrongly) set the flag. So the guard
+  that keeps the flag unset lives on 08's side; don't move the "leave the flag unset" safety onto a
+  no-op/throw distinction in `ShowTrayNotification`. (`ShowTrayNotification` does still no-op when the
+  icon is absent, but that path isn't reached here.) Confirmed against
+  [`08-system-tray-background.md`](./08-system-tray-background.md) (2026-07-06 entry) and `TrayService.HideToTray()`.
