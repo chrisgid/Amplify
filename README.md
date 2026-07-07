@@ -3,6 +3,7 @@
 # Amplify
 
 [![CI](https://github.com/chrisgid/Amplify/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/chrisgid/Amplify/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/chrisgid/Amplify/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/chrisgid/Amplify/actions/workflows/codeql.yml)
 
 **Control Spotify's volume with global keyboard hotkeys.**
 

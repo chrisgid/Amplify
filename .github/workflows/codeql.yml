@@ -1,0 +1,69 @@
+name: CodeQL
+
+# Static application security testing (SAST) for the C# codebase. Runs on every pull request and on
+# pushes to the default branch, plus a weekly schedule so the code is re-scanned against updated
+# CodeQL queries even when nothing has changed. Findings surface in the Security > Code scanning tab
+# and as PR annotations. This is advisory: it is deliberately NOT wired up as a required status check,
+# so a finding informs review but does not block merge. Promote it to required in branch protection
+# later if desired. The green-merge gate lives in ci.yml.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Mondays at 07:00 UTC — a weekly re-scan independent of code changes.
+    - cron: '0 7 * * 1'
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (C#)
+    # Mirrors ci.yml: the WinUI 3 / Windows App SDK build requires Windows.
+    runs-on: windows-latest
+
+    permissions:
+      # CodeQL needs to upload its SARIF results to the code-scanning API.
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@9a946fdbd5fb07b82b2f5a4466058b876ab72bb2 # v5.3.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@c35d1b164463ee62a100735382aaaa525c5d3496 # codeql-bundle-v2.25.6
+        with:
+          languages: csharp
+          # Explicit manual build: we compile with -p:Platform=x64 below (see note) so CodeQL must
+          # observe that build, not autobuild or the buildless default. Pinning build-mode keeps that
+          # contract if a future codeql-action upgrade changes the C# default to buildless.
+          build-mode: manual
+          # security-and-quality adds maintainability/quality queries on top of the default
+          # security set. Drop to 'security-extended' or the default suite if the noise is too high.
+          queries: security-and-quality
+
+      # CodeQL's autobuild can't be trusted for this repo: the packaged WinUI app (Amplify.App)
+      # exposes only x86/x64/ARM64 (no Any CPU), so the build must pin Platform=x64 exactly as
+      # ci.yml does. Build manually so CodeQL observes the same compilation the merge gate does.
+      - name: Restore
+        run: dotnet restore Amplify.slnx
+
+      - name: Build
+        run: dotnet build Amplify.slnx --configuration Release -p:Platform=x64 --no-restore
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@c35d1b164463ee62a100735382aaaa525c5d3496 # codeql-bundle-v2.25.6
+        with:
+          category: /language:csharp
