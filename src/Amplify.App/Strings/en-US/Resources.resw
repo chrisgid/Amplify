@@ -153,12 +153,6 @@
   <data name="Settings_StartMinimized.Description" xml:space="preserve">
     <value>Open quietly in the notification area</value>
   </data>
-  <data name="Settings_Notify.Header" xml:space="preserve">
-    <value>Notify on volume change</value>
-  </data>
-  <data name="Settings_Notify.Description" xml:space="preserve">
-    <value>Show a brief toast when a shortcut fires</value>
-  </data>
   <data name="Settings_Theme.Header" xml:space="preserve">
     <value>App theme</value>
   </data>
@@ -207,6 +201,12 @@
   <data name="Settings_Footer_Suffix" xml:space="preserve">
     <value>{0} · Not affiliated with Spotify</value>
     <comment>{0} is the app version, e.g. 1.0.0</comment>
+  </data>
+  <data name="Notification_TrayHint_Title" xml:space="preserve">
+    <value>Amplify is minimized to the system tray</value>
+  </data>
+  <data name="Notification_TrayHint_Message" xml:space="preserve">
+    <value>Your volume shortcuts keep working. This is a one-time notification that won't be shown again.</value>
   </data>
   <data name="Onboarding_Title.Text" xml:space="preserve">
     <value>Amplify</value>

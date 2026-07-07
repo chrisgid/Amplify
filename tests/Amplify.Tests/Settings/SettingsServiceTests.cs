@@ -70,7 +70,7 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.True(File.Exists(_file));
         Assert.Equal(AppSettings.CurrentSchemaVersion, service.Current.SchemaVersion);
         Assert.Equal(5, service.Current.VolumeStep);
-        Assert.False(service.Current.NotifyOnVolumeChange);
+        Assert.False(service.Current.TrayHintShown);
         Assert.True(service.Current.LaunchAtStartup);
         Assert.True(service.Current.StartMinimizedToTray);
         Assert.Equal(ThemeMode.System, service.Current.ThemeMode);
@@ -86,7 +86,7 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.True(s.LaunchAtStartup);
         Assert.True(s.StartMinimizedToTray);
         Assert.True(s.MinimizeToTrayOnClose);
-        Assert.False(s.NotifyOnVolumeChange);
+        Assert.False(s.TrayHintShown);
         Assert.Equal("", s.SpotifyClientId);
         Assert.Equal(ThemeMode.System, s.ThemeMode);
         Assert.Equal(5, s.VolumeStep);
@@ -104,7 +104,7 @@ public sealed class SettingsServiceTests : IDisposable
         service.Update(s =>
         {
             s.VolumeStep = 12;
-            s.NotifyOnVolumeChange = true;
+            s.TrayHintShown = true;
             s.ThemeMode = ThemeMode.Dark;
             s.SpotifyClientId = "abc123";
             s.Window = new WindowState(400, 700, 10, 20);
@@ -114,7 +114,7 @@ public sealed class SettingsServiceTests : IDisposable
         await reloaded.LoadAsync();
 
         Assert.Equal(12, reloaded.Current.VolumeStep);
-        Assert.True(reloaded.Current.NotifyOnVolumeChange);
+        Assert.True(reloaded.Current.TrayHintShown);
         Assert.Equal(ThemeMode.Dark, reloaded.Current.ThemeMode);
         Assert.Equal("abc123", reloaded.Current.SpotifyClientId);
         Assert.Equal(new WindowState(400, 700, 10, 20), reloaded.Current.Window);

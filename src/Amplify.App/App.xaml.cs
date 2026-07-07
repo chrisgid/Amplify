@@ -2,6 +2,7 @@ using Amplify.App.Auth;
 using Amplify.App.ConnectionStatus;
 using Amplify.App.Hotkeys;
 using Amplify.App.Logging;
+using Amplify.App.Notifications;
 using Amplify.App.Onboarding;
 using Amplify.App.Settings;
 using Amplify.App.Spotify;
@@ -73,6 +74,7 @@ public partial class App : Application
         builder.Services.AddConnectionStatus();
         builder.Services.AddHotkeys();
         builder.Services.AddSystemTray();
+        builder.Services.AddNotifications();
 
         // Shell: the routing view-model and the window.
         builder.Services.AddSingleton<ShellViewModel>();

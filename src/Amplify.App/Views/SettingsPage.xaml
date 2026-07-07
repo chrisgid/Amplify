@@ -61,12 +61,6 @@
                     </tk:SettingsCard.HeaderIcon>
                     <ToggleSwitch IsOn="{x:Bind ViewModel.MinimizeToTrayOnClose, Mode=TwoWay}" />
                 </tk:SettingsCard>
-                <tk:SettingsCard x:Uid="Settings_Notify">
-                    <tk:SettingsCard.HeaderIcon>
-                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEA8F;" />
-                    </tk:SettingsCard.HeaderIcon>
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.NotifyOnVolumeChange, Mode=TwoWay}" />
-                </tk:SettingsCard>
 
                 <!-- Appearance -->
                 <TextBlock
