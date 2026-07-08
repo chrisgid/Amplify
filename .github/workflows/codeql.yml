@@ -25,9 +25,10 @@ permissions:
 jobs:
   analyze:
     name: Analyze (C#)
-    # Buildless analysis (build-mode: none) needs no compiler/toolchain, so it runs on Linux — no
-    # Windows runner or WinUI toolchain required (unlike ci.yml, which must build).
-    runs-on: ubuntu-latest
+    # Windows + .NET 10 so the buildless extractor can restore the app's net10.0-windows / WinUI /
+    # WindowsAppSDK dependencies (see restore step). No compile happens (build-mode: none), but
+    # accurate analysis needs those dependencies resolved, which won't happen on a bare Linux runner.
+    runs-on: windows-latest
 
     permissions:
       # CodeQL needs to upload its SARIF results to the code-scanning API.
@@ -38,18 +39,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@9a946fdbd5fb07b82b2f5a4466058b876ab72bb2 # v5.3.0
+        with:
+          dotnet-version: '10.0.x'
+
+      # Buildless analysis does not compile, but the docs are explicit that accuracy "benefits from
+      # proper NuGet dependency restoration". Restore (mirroring ci.yml, which resolves these deps
+      # cleanly) so the extractor sees resolved WinUI/WindowsAppSDK references. Restore writes only
+      # obj/*.json/props — never the generated *.g.cs (those come from the XAML compiler at build),
+      # so this does not reintroduce the generated-file noise.
+      - name: Restore
+        run: dotnet restore Amplify.slnx
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@c35d1b164463ee62a100735382aaaa525c5d3496 # codeql-bundle-v2.25.6
         with:
           languages: csharp
-          # Buildless C# extraction (analyse source directly, no compile). Two reasons over a manual
-          # build: (1) it sidesteps the WinUI x64-only platform that defeats CodeQL autobuild, so no
-          # dotnet build/restore steps are needed; (2) crucially, paths/paths-ignore filters ONLY
-          # apply to compiled languages in build-mode: none — with a build, the generated obj/*.g.cs
-          # files are compiled and analysed and cannot be excluded by config. build-mode: none means
-          # those files are never generated, and the config-file exclusions actually take effect.
-          # (Tradeoff: buildless analysis can have slightly lower data-flow fidelity than a built
-          # analysis. This mirrors microsoft/win-dev-skills, a WinUI repo on the same setup.)
+          # Buildless C# extraction (analyse source directly, no compile). Chosen over a manual build
+          # because paths/paths-ignore filters apply to compiled languages ONLY in build-mode: none —
+          # with a build, the generated obj/*.g.cs files are compiled and analysed and cannot be
+          # excluded by config. build-mode: none means those files are never generated, so the noise
+          # is gone at the root and the config-file exclusions take effect. (Tradeoff: buildless can
+          # have slightly lower data-flow fidelity; mitigated by the restore step above. Mirrors
+          # microsoft/win-dev-skills, a WinUI repo on build-mode: none.)
           build-mode: none
           # Query suite and path exclusions live in the config file (single place for CodeQL tuning).
           config-file: .github/codeql/codeql-config.yml

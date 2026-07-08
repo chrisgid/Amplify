@@ -124,19 +124,29 @@ CodeQL then extracted. Confirmed the breakdown via the code-scanning API before 
   **only in `build-mode: none`**; "for analysis where code is built ... you must specify appropriate
   build steps." Under a real build the filters are ignored for C#, so that change would have been a
   no-op — caught in code review, verified against the docs.
-- **Fix: `build-mode: none` (buildless C# analysis) on `ubuntu-latest`.** With no build, `obj/` is
-  never populated, so the generated `*.g.cs` files are never analysed — the noise is removed at the
-  root rather than filtered. `paths-ignore` stays in the config as defensive belt-and-braces (and now
-  actually takes effect). Dropped the `dotnet restore`/`build` steps and the Windows runner: buildless
-  extraction needs no compiler, so the WinUI x64-only platform problem that forced `build-mode: manual`
-  no longer applies here.
+- **Fix: `build-mode: none` (buildless C# analysis).** With no build, `obj/` is never populated, so
+  the generated `*.g.cs` files are never analysed — the noise is removed at the root rather than
+  filtered. `paths-ignore` stays in the config as defensive belt-and-braces (and now actually takes
+  effect). The `dotnet build` step is gone: buildless extraction needs no compiler, so the WinUI
+  x64-only platform problem that forced `build-mode: manual` no longer applies.
+- **Runner stays `windows-latest` + `setup-dotnet` + `dotnet restore` (corrected in review).** A first
+  cut moved this to `ubuntu-latest` with no SDK, on the reasoning that buildless needs no toolchain.
+  Wrong for *accuracy*: the docs state buildless C# "functions ... without requiring .NET SDK
+  compilation, though accurate analysis benefits from proper NuGet dependency restoration." On a bare
+  Linux runner the `net10.0-windows` / WinUI / WindowsAppSDK dependencies won't restore, so the
+  extractor would analyse the ~9 real-source files with unresolved references — silently degraded, not
+  errored. So: Windows runner, .NET 10 SDK, and an explicit `dotnet restore` (mirroring ci.yml, which
+  resolves these deps cleanly). Still no build, so the generated-file noise stays gone; restore writes
+  only `obj/*.json`/`.props`, never `*.g.cs`.
 - **Tradeoff:** buildless analysis can have slightly lower data-flow fidelity than a built analysis.
   Accepted — it's GitHub's supported mode for C# and the only way to exclude the generated files via
   config. If deeper analysis is ever wanted, the alternative is `build-mode: manual` + dismissing the
   generated-file alerts through alert management (not config).
-- **Verified facts:** `microsoft/win-dev-skills` — a WinUI repo, our closest analog — runs CodeQL
-  exactly this way (`build-mode: none`, `ubuntu-latest`, `config-file` with `paths-ignore` `**/obj/**`
-  + `**/bin/**`, no build steps). `Humanizr/Humanizer` pairs `build-mode: manual` with `paths-ignore`,
-  which per the docs does not actually filter — a misconfiguration, not a precedent to copy.
+- **Verified facts:** `microsoft/win-dev-skills` — a WinUI repo, our closest analog — uses
+  `build-mode: none` + `config-file` with `paths-ignore` `**/obj/**` + `**/bin/**`. It runs on
+  `ubuntu-latest` with no restore; we deliberately deviate (Windows + restore) because our C# is a
+  full `net10.0-windows` WinUI *app* whose deps need resolving for accuracy, whereas their C# is a
+  small tool. `Humanizr/Humanizer` pairs `build-mode: manual` with `paths-ignore`, which per the docs
+  does not actually filter — a misconfiguration, not a precedent to copy.
 - **Deferred / known gaps:** the ~9 alerts in real source files are untriaged — this change only
   removes the generated-file noise; it does not assess the genuine findings.
