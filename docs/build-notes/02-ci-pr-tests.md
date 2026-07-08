@@ -109,3 +109,24 @@ Added a **separate** CodeQL (SAST) workflow rather than extending `ci.yml`. The 
 - **Deferred / known gaps:** not yet validated against a live run — first green/red confirmation
   happens when this change's PR opens (CodeQL builds on GitHub-hosted runners; nothing to validate
   locally). No baseline findings triaged yet.
+
+## 2026-07-08 — Exclude generated build output from CodeQL · `.github/codeql/codeql-config.yml`
+
+The first CodeQL run on `main` produced ~100 alerts, **91 of them false positives in
+`src/Amplify.App/obj/**/*.g.cs`** — XAML-compiler-generated files (`XamlTypeInfo.g.cs`,
+`MainPage.g.cs`, per-page `*.g.cs`) that the `build-mode: manual` x64 build emits into `obj/` and
+CodeQL then extracts. Confirmed the breakdown via the code-scanning API before fixing.
+
+- **Fix: a `paths-ignore` config file excluding `**/obj/**` and `**/bin/**`.** Added
+  `.github/codeql/codeql-config.yml` and pointed the init step at it via `config-file:` (replacing
+  the inline `queries:`, which moved into the config so all CodeQL tuning lives in one place).
+- **Why this works for a compiled language:** for C# (compiled), CodeQL applies `paths-ignore` as a
+  **post-analysis filter on reported alerts by source path**, not as an extraction skip. Our `obj/`
+  is under the repo root, so its alerts match `**/obj/**`, get filtered out, and the previously-open
+  generated-file alerts auto-close on the next run. (Path filters for compiled languages only bite
+  when the path is relative to the source root — it is here.)
+- **Verified facts:** pattern confirmed against real C# CodeQL configs pulled via the GitHub API —
+  `Humanizr/Humanizer`, `OneSignal/OneSignal-Xamarin-SDK`, and especially **`microsoft/win-dev-skills`
+  (a WinUI repo, our closest analog)**, all of which `paths-ignore` `**/obj/**` + `**/bin/**`.
+- **Deferred / known gaps:** the ~9 alerts in real source files are untriaged — this change only
+  removes the generated-file noise; it does not assess the genuine findings.

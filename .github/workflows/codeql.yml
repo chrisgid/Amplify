@@ -50,9 +50,9 @@ jobs:
           # observe that build, not autobuild or the buildless default. Pinning build-mode keeps that
           # contract if a future codeql-action upgrade changes the C# default to buildless.
           build-mode: manual
-          # security-and-quality adds maintainability/quality queries on top of the default
-          # security set. Drop to 'security-extended' or the default suite if the noise is too high.
-          queries: security-and-quality
+          # Query suite and path exclusions (generated build output under obj/ was ~90% of alerts,
+          # all false positives) live in the config file to keep CodeQL tuning in one place.
+          config-file: .github/codeql/codeql-config.yml
 
       # CodeQL's autobuild can't be trusted for this repo: the packaged WinUI app (Amplify.App)
       # exposes only x86/x64/ARM64 (no Any CPU), so the build must pin Platform=x64 exactly as
