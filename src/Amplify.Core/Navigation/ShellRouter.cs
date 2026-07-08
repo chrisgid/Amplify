@@ -32,14 +32,23 @@ public sealed class ShellRouter
 
     /// <summary>
     /// Reacts to a connection-state change. Becoming connected while still on the onboarding screen
-    /// advances to the main screen; other transitions leave the current route untouched so the user
-    /// isn't yanked away from settings or the main screen by a transient state change.
+    /// advances to the main screen; losing the session entirely (a disconnect or a reset) returns to
+    /// onboarding from wherever the user is. A transient <see cref="ConnectionState.Connecting"/> or
+    /// <see cref="ConnectionState.Error"/> leaves the current route untouched, so a background refresh
+    /// hiccup doesn't yank the user away from the main screen or settings — those are surfaced in
+    /// place with a reconnect option instead.
     /// </summary>
     public void OnConnectionStateChanged(ConnectionState state)
     {
-        if (state == ConnectionState.Connected && CurrentRoute == ShellRoute.Onboarding)
+        switch (state)
         {
-            SetRoute(ShellRoute.Main);
+            case ConnectionState.Connected when CurrentRoute == ShellRoute.Onboarding:
+                SetRoute(ShellRoute.Main);
+                break;
+
+            case ConnectionState.Disconnected:
+                SetRoute(ShellRoute.Onboarding);
+                break;
         }
     }
 

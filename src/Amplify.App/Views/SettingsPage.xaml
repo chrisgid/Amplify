@@ -123,8 +123,20 @@
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE77B;" />
                     </tk:SettingsCard.HeaderIcon>
-                    <!-- Disconnect/Reconnect behaviour is owned by another feature; shown disabled here. -->
-                    <Button x:Uid="Settings_Account_Disconnect" IsEnabled="False" />
+                    <StackPanel
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="10">
+                        <Button
+                            x:Uid="Settings_Account_Disconnect"
+                            Command="{x:Bind ViewModel.DisconnectCommand}"
+                            Visibility="{x:Bind ViewModel.IsConnected, Mode=OneWay}" />
+                        <Button
+                            x:Uid="Settings_Account_Reconnect"
+                            Command="{x:Bind ViewModel.ReconnectCommand}"
+                            Style="{StaticResource AccentButtonStyle}"
+                            Visibility="{x:Bind ViewModel.IsNotConnected, Mode=OneWay}" />
+                    </StackPanel>
                 </tk:SettingsCard>
                 <tk:SettingsCard x:Uid="Settings_ClientId">
                     <tk:SettingsCard.HeaderIcon>
@@ -146,8 +158,8 @@
                     <tk:SettingsCard.HeaderIcon>
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE894;" />
                     </tk:SettingsCard.HeaderIcon>
-                    <!-- The reset action itself is owned by another feature; shown disabled here. -->
-                    <Button x:Uid="Settings_Reset_Button" IsEnabled="False" />
+                    <!-- Opens a confirmation dialog first; the reset only runs on explicit confirm. -->
+                    <Button x:Uid="Settings_Reset_Button" Click="OnResetClick" />
                 </tk:SettingsCard>
 
                 <!-- Footer: the brand links to the repo; version + affiliation follow as plain text. -->

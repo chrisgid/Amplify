@@ -1,8 +1,10 @@
 using System.Globalization;
 using Amplify.Core.Auth;
+using Amplify.Core.Reset;
 using Amplify.Core.Settings;
 using Amplify.Core.Tray;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
 using Microsoft.Windows.ApplicationModel.Resources;
@@ -12,14 +14,15 @@ namespace Amplify.App.ViewModels;
 
 /// <summary>
 /// Backs the settings screen: it exposes the editable preferences as bindable properties, persisting
-/// each change through <see cref="ISettingsService"/>, and surfaces a read-only view of the connected
-/// account and the stored Client ID. The account and reset actions themselves are owned by other
-/// features; here they are presented for context only.
+/// each change through <see cref="ISettingsService"/>, surfaces a read-only view of the connected
+/// account and the stored Client ID, and owns the account (disconnect / reconnect) and full-reset
+/// actions. The destructive reset is confirmed by the view before <see cref="ResetCommand"/> runs.
 /// </summary>
 public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly ISettingsService _settings;
     private readonly IAuthService _auth;
+    private readonly IResetService _reset;
     private readonly IStartupTaskManager _startupTasks;
     private readonly ILogger<SettingsViewModel> _logger;
     private readonly DispatcherQueue? _dispatcher;
@@ -52,14 +55,21 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string AccountTitle { get; set; } = string.Empty;
 
+    // Drives which account action (Disconnect vs Reconnect) is shown.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNotConnected))]
+    public partial bool IsConnected { get; set; }
+
     public SettingsViewModel(
         ISettingsService settings,
         IAuthService auth,
+        IResetService reset,
         IStartupTaskManager startupTasks,
         ILogger<SettingsViewModel> logger)
     {
         _settings = settings;
         _auth = auth;
+        _reset = reset;
         _startupTasks = startupTasks;
         _logger = logger;
 
@@ -219,10 +229,75 @@ public sealed partial class SettingsViewModel : ObservableObject
             OnPropertyChanged(nameof(SpotifyClientIdDisplay));
         });
 
-    private void RefreshAccount() =>
-        AccountTitle = _auth.State == ConnectionState.Connected && _auth.CurrentAccount is Account account
-            ? account.DisplayName
+    /// <summary>The inverse of <see cref="IsConnected"/>, for the Reconnect button's visibility.</summary>
+    /// <remarks><c>x:Bind</c> can't negate a bool in a binding path, so this is a real property.</remarks>
+    public bool IsNotConnected => !IsConnected;
+
+    private void RefreshAccount()
+    {
+        bool connected = _auth.State == ConnectionState.Connected && _auth.CurrentAccount is not null;
+        IsConnected = connected;
+        AccountTitle = connected
+            ? _auth.CurrentAccount!.DisplayName
             : _strings.GetString("Settings_Account_NotConnected");
+    }
+
+    /// <summary>Disconnects the Spotify account, clearing its tokens; the Client ID is preserved.</summary>
+    [RelayCommand]
+    private async Task DisconnectAsync()
+    {
+        try
+        {
+            await _auth.DisconnectAsync();
+        }
+        catch (Exception ex)
+        {
+            // Disconnect is not expected to throw, but a bug there must not leave an unobserved task.
+            LogAccountActionFailed(_logger, ex);
+        }
+    }
+
+    /// <summary>Re-runs the connect flow, reusing the stored Client ID.</summary>
+    [RelayCommand]
+    private async Task ReconnectAsync()
+    {
+        try
+        {
+            await _auth.ConnectAsync();
+        }
+        catch (Exception ex)
+        {
+            // ConnectAsync is documented to convert failures into a non-success result rather than
+            // throwing; guard anyway so an unexpected escape can't break the button silently.
+            LogAccountActionFailed(_logger, ex);
+        }
+    }
+
+    /// <summary>
+    /// Performs the confirmed full reset: restores default settings (clearing the Client ID and
+    /// default hotkeys/step) and disconnects Spotify. The confirmation prompt is the view's job; this
+    /// only runs once the user has agreed.
+    /// </summary>
+    [RelayCommand]
+    private async Task ResetAsync()
+    {
+        try
+        {
+            await _reset.ResetAsync();
+        }
+        catch (Exception ex)
+        {
+            // Settings are reset before the disconnect, so even a failure leaves defaults applied;
+            // log rather than crash the fire-and-forget command.
+            LogResetFailed(_logger, ex);
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "An account action (disconnect/reconnect) failed unexpectedly.")]
+    private static partial void LogAccountActionFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Resetting Amplify failed; settings defaults may be applied without a completed disconnect.")]
+    private static partial void LogResetFailed(ILogger logger, Exception exception);
 
     // A leading space separates the version from the preceding brand hyperlink in the footer line.
     private string BuildFooterText() =>

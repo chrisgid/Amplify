@@ -71,6 +71,26 @@ public sealed class OnboardingFlow
     }
 
     /// <summary>
+    /// Returns the flow to a clean <see cref="OnboardingPhase.Welcome"/> state from <em>any</em> phase,
+    /// clearing any denial or error. Used when the screen is re-entered after a session ends — a
+    /// disconnect routes back to onboarding — so the stale <see cref="OnboardingPhase.Authorizing"/>
+    /// phase a successful connect deliberately leaves behind (see remarks) doesn't resurface as a
+    /// spurious "still connecting" state on the reused view-model.
+    /// </summary>
+    public void Reset()
+    {
+        if (Phase == OnboardingPhase.Welcome && !Denied && ErrorMessage is null)
+        {
+            return;
+        }
+
+        Phase = OnboardingPhase.Welcome;
+        Denied = false;
+        ErrorMessage = null;
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
     /// Abandons an in-flight connect attempt (e.g. the user closed the browser tab) and returns to
     /// <see cref="OnboardingPhase.Welcome"/> so they can retry immediately, without waiting for
     /// <see cref="IAuthService.ConnectAsync"/> to eventually time out on its own. A no-op outside

@@ -174,6 +174,9 @@
   <data name="Settings_Account_Disconnect.Content" xml:space="preserve">
     <value>Disconnect</value>
   </data>
+  <data name="Settings_Account_Reconnect.Content" xml:space="preserve">
+    <value>Reconnect</value>
+  </data>
   <data name="Settings_Account_NotConnected" xml:space="preserve">
     <value>Not connected</value>
   </data>
@@ -194,6 +197,18 @@
   </data>
   <data name="Settings_Reset_Button.Content" xml:space="preserve">
     <value>Reset…</value>
+  </data>
+  <data name="Settings_Reset_Dialog_Title" xml:space="preserve">
+    <value>Reset Amplify</value>
+  </data>
+  <data name="Settings_Reset_Dialog_Body" xml:space="preserve">
+    <value>This reverts all settings to default and disconnects your Spotify account. You'll need to set up Amplify again. This action can't be undone.</value>
+  </data>
+  <data name="Settings_Reset_Dialog_Confirm" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="Settings_Reset_Dialog_Cancel" xml:space="preserve">
+    <value>Cancel</value>
   </data>
   <data name="Settings_Footer_Brand.Text" xml:space="preserve">
     <value>Amplify</value>
