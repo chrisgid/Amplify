@@ -25,7 +25,9 @@ permissions:
 jobs:
   analyze:
     name: Analyze (C#)
-    # Mirrors ci.yml: the WinUI 3 / Windows App SDK build requires Windows.
+    # Windows + .NET 10 so the buildless extractor can restore the app's net10.0-windows / WinUI /
+    # WindowsAppSDK dependencies (see restore step). No compile happens (build-mode: none), but
+    # accurate analysis needs those dependencies resolved, which won't happen on a bare Linux runner.
     runs-on: windows-latest
 
     permissions:
@@ -42,26 +44,28 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      # Buildless analysis does not compile, but the docs are explicit that accuracy "benefits from
+      # proper NuGet dependency restoration". Restore (mirroring ci.yml, which resolves these deps
+      # cleanly) so the extractor sees resolved WinUI/WindowsAppSDK references. Restore writes only
+      # obj/*.json/props — never the generated *.g.cs (those come from the XAML compiler at build),
+      # so this does not reintroduce the generated-file noise.
+      - name: Restore
+        run: dotnet restore Amplify.slnx
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@c35d1b164463ee62a100735382aaaa525c5d3496 # codeql-bundle-v2.25.6
         with:
           languages: csharp
-          # Explicit manual build: we compile with -p:Platform=x64 below (see note) so CodeQL must
-          # observe that build, not autobuild or the buildless default. Pinning build-mode keeps that
-          # contract if a future codeql-action upgrade changes the C# default to buildless.
-          build-mode: manual
-          # security-and-quality adds maintainability/quality queries on top of the default
-          # security set. Drop to 'security-extended' or the default suite if the noise is too high.
-          queries: security-and-quality
-
-      # CodeQL's autobuild can't be trusted for this repo: the packaged WinUI app (Amplify.App)
-      # exposes only x86/x64/ARM64 (no Any CPU), so the build must pin Platform=x64 exactly as
-      # ci.yml does. Build manually so CodeQL observes the same compilation the merge gate does.
-      - name: Restore
-        run: dotnet restore Amplify.slnx
-
-      - name: Build
-        run: dotnet build Amplify.slnx --configuration Release -p:Platform=x64 --no-restore
+          # Buildless C# extraction (analyse source directly, no compile). Chosen over a manual build
+          # because paths/paths-ignore filters apply to compiled languages ONLY in build-mode: none —
+          # with a build, the generated obj/*.g.cs files are compiled and analysed and cannot be
+          # excluded by config. build-mode: none means those files are never generated, so the noise
+          # is gone at the root and the config-file exclusions take effect. (Tradeoff: buildless can
+          # have slightly lower data-flow fidelity; mitigated by the restore step above. Mirrors
+          # microsoft/win-dev-skills, a WinUI repo on build-mode: none.)
+          build-mode: none
+          # Query suite and path exclusions live in the config file (single place for CodeQL tuning).
+          config-file: .github/codeql/codeql-config.yml
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@c35d1b164463ee62a100735382aaaa525c5d3496 # codeql-bundle-v2.25.6
