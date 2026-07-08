@@ -1,0 +1,16 @@
+name: amplify-codeql
+
+# Exclude build output. The primary reason the generated XAML C# (XamlTypeInfo.g.cs, MainPage.g.cs,
+# etc.) no longer pollutes results is that the workflow runs build-mode: none (buildless) — with no
+# build, obj/ is never populated, so those files are never analysed. These filters are defensive
+# belt-and-braces for any generated/build files that do land in the checkout. NOTE: paths/paths-ignore
+# only affect compiled languages when build-mode is none; under a real build they are ignored for C#.
+paths-ignore:
+  - '**/obj/**'
+  - '**/bin/**'
+
+# Query suite lives here (moved from the workflow's inline `queries:`) to keep all CodeQL tuning in
+# one place. security-and-quality adds maintainability/quality queries on top of the security set;
+# drop to 'security-extended' or the default suite if the noise is too high.
+queries:
+  - uses: security-and-quality
