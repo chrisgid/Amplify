@@ -64,8 +64,36 @@ public sealed partial class OnboardingViewModel : ObservableObject
         // resumes on.
         _dispatcher = DispatcherQueue.GetForCurrentThread();
 
+        // Seed the field from the stored Client ID so a reused/reconstructed screen prefills it for a
+        // one-click reconnect (empty on true first run, where nothing is stored yet).
+        ClientId = _settings.Current.SpotifyClientId;
+
         _flow.Changed += (_, _) => _dispatcher.RunOnUi(NotifyFlowChanged);
+        _auth.ConnectionStateChanged += OnConnectionStateChanged;
     }
+
+    // This view-model is a singleton reused across connect/disconnect cycles, so it has to re-sync when
+    // the connection state changes rather than assuming a fresh screen each time.
+    private void OnConnectionStateChanged(object? sender, ConnectionState state) =>
+        _dispatcher.RunOnUi(() =>
+        {
+            switch (state)
+            {
+                case ConnectionState.Connected:
+                    // After a successful connect the shell navigates away, but the flow is deliberately
+                    // left at Authorizing (a distinct "verifying" phase would only flash). Reset it so a
+                    // later disconnect routes back to a fresh screen, not one stuck on "waiting".
+                    _flow.Reset();
+                    break;
+
+                case ConnectionState.Disconnected:
+                    // Mirror the stored Client ID into the field: a reset clears it (empty field), a
+                    // plain disconnect keeps it (prefilled for reconnect), and a failed attempt leaves
+                    // the value the user just entered (it was persisted before the attempt began).
+                    ClientId = _settings.Current.SpotifyClientId;
+                    break;
+            }
+        });
 
     /// <summary>The loopback redirect URI shown in the copy-to-clipboard chip.</summary>
     public string RedirectUri { get; }

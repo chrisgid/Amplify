@@ -98,6 +98,20 @@ public sealed partial class SettingsService : ISettingsService
     }
 
     /// <inheritdoc />
+    public void Reset()
+    {
+        AppSettings defaults;
+        lock (_gate)
+        {
+            defaults = new AppSettings { SchemaVersion = _currentVersion };
+            Persist(defaults);
+            _current = defaults;
+        }
+
+        Changed?.Invoke(this, defaults);
+    }
+
+    /// <inheritdoc />
     /// <remarks>
     /// Single-caller by contract: the file read runs outside <c>_gate</c>, so this must not be
     /// interleaved with <see cref="Update"/> (see the interface remarks).

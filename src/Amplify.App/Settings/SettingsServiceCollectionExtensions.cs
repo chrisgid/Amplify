@@ -1,4 +1,5 @@
 using Amplify.App.ViewModels;
+using Amplify.Core.Reset;
 using Amplify.Core.Settings;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -11,12 +12,14 @@ internal static class SettingsServiceCollectionExtensions
 {
     /// <summary>
     /// Registers the file-backed <see cref="ISettingsService"/> (rooted at the per-user local data
-    /// folder) and the <see cref="SettingsViewModel"/> the settings screen binds to.
+    /// folder), the <see cref="IResetService"/> that returns the app to first-run state, and the
+    /// <see cref="SettingsViewModel"/> the settings screen binds to.
     /// </summary>
     public static IServiceCollection AddSettings(this IServiceCollection services)
     {
         services.AddSingleton<ISettingsService>(sp =>
             new SettingsService(ResolveDataDirectory(), sp.GetRequiredService<ILogger<SettingsService>>()));
+        services.AddSingleton<IResetService, ResetService>();
         services.AddSingleton<SettingsViewModel>();
         return services;
     }

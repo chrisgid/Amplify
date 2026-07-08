@@ -121,6 +121,55 @@ public sealed class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ResetRestoresDefaultsAndPersistsThem()
+    {
+        SettingsService service = NewService();
+        await service.LoadAsync();
+        service.Update(s =>
+        {
+            s.VolumeStep = 20;
+            s.SpotifyClientId = "abc123";
+            s.HotkeyVolumeUp = "ctrl+f1";
+            s.ThemeMode = ThemeMode.Dark;
+            s.TrayHintShown = true;
+            s.Window = new WindowState(400, 700, 10, 20);
+        });
+
+        service.Reset();
+
+        Assert.Equal(5, service.Current.VolumeStep);
+        Assert.Equal("", service.Current.SpotifyClientId);
+        Assert.Equal("ctrl+alt+arrowup", service.Current.HotkeyVolumeUp);
+        Assert.Equal("ctrl+alt+arrowdown", service.Current.HotkeyVolumeDown);
+        Assert.Equal(ThemeMode.System, service.Current.ThemeMode);
+        Assert.False(service.Current.TrayHintShown);
+        Assert.Null(service.Current.Window);
+
+        // Defaults are persisted, so a fresh load sees the reset state too.
+        SettingsService reloaded = NewService();
+        await reloaded.LoadAsync();
+        Assert.Equal("", reloaded.Current.SpotifyClientId);
+        Assert.Equal(5, reloaded.Current.VolumeStep);
+    }
+
+    [Fact]
+    public async Task ResetRaisesChangedWithDefaults()
+    {
+        SettingsService service = NewService();
+        await service.LoadAsync();
+        service.Update(s => s.SpotifyClientId = "abc123");
+
+        AppSettings? raised = null;
+        service.Changed += (_, s) => raised = s;
+
+        service.Reset();
+
+        Assert.NotNull(raised);
+        Assert.Equal("", raised!.SpotifyClientId);
+        Assert.Same(service.Current, raised);
+    }
+
+    [Fact]
     public async Task UpdateRaisesChangedWithNewSettings()
     {
         SettingsService service = NewService();

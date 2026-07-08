@@ -121,6 +121,54 @@ public class OnboardingFlowTests
     }
 
     [Fact]
+    public void ResetAfterSuccessReturnsToWelcome()
+    {
+        var flow = new OnboardingFlow();
+        flow.BeginConnect();
+        flow.OnConnectResult(new AuthResult(Success: true, Denied: false, Error: null));
+        // Success deliberately leaves the phase at Authorizing; a later re-entry must clear it.
+        Assert.Equal(OnboardingPhase.Authorizing, flow.Phase);
+
+        var raised = false;
+        flow.Changed += (_, _) => raised = true;
+
+        flow.Reset();
+
+        Assert.Equal(OnboardingPhase.Welcome, flow.Phase);
+        Assert.False(flow.Denied);
+        Assert.Null(flow.ErrorMessage);
+        Assert.True(raised);
+        Assert.True(flow.CanBeginConnect("abc123"));
+    }
+
+    [Fact]
+    public void ResetClearsDeniedAndError()
+    {
+        var flow = new OnboardingFlow();
+        flow.BeginConnect();
+        flow.OnConnectResult(new AuthResult(Success: false, Denied: false, Error: "Network unreachable."));
+
+        flow.Reset();
+
+        Assert.Equal(OnboardingPhase.Welcome, flow.Phase);
+        Assert.False(flow.Denied);
+        Assert.Null(flow.ErrorMessage);
+    }
+
+    [Fact]
+    public void ResetOnCleanWelcomeIsANoOp()
+    {
+        var flow = new OnboardingFlow();
+        var raised = false;
+        flow.Changed += (_, _) => raised = true;
+
+        flow.Reset();
+
+        Assert.Equal(OnboardingPhase.Welcome, flow.Phase);
+        Assert.False(raised);
+    }
+
+    [Fact]
     public void CancelWhileWelcomeIsANoOp()
     {
         var flow = new OnboardingFlow();

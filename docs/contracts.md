@@ -132,8 +132,17 @@ public interface ISettingsService
     AppSettings Current { get; }
     T Get<T>(Func<AppSettings, T> selector);
     void Update(Action<AppSettings> mutate);   // mutates, persists (atomic), raises Changed
+    void Reset();                               // restore all defaults, persist, raise Changed (feature 12)
     event EventHandler<AppSettings> Changed;
     Task LoadAsync();                           // load + migrate at startup
+}
+
+// feature 12 — coordinates a full reset back to first-run state: resets ISettingsService to defaults
+// (clearing the Client ID + restoring default hotkeys/step) then IAuthService.DisconnectAsync(). The
+// confirmation prompt is a UI concern; ResetAsync runs only after the user has confirmed.
+public interface IResetService
+{
+    Task ResetAsync();
 }
 
 // feature 03 — OAuth/PKCE, token lifecycle

@@ -28,7 +28,15 @@ public interface ISettingsService
     /// <param name="mutate">Mutates the settings in place.</param>
     void Update(Action<AppSettings> mutate);
 
-    /// <summary>Raised after a successful <see cref="Update"/>, carrying the new settings.</summary>
+    /// <summary>
+    /// Replaces all settings with their defaults, persists the result atomically, and raises
+    /// <see cref="Changed"/>. This is the settings half of a full app reset: it clears the stored
+    /// Spotify Client ID and restores the default hotkeys, volume step, and every other preference.
+    /// Serialised against <see cref="Update"/> the same way, so a reset can't interleave with a write.
+    /// </summary>
+    void Reset();
+
+    /// <summary>Raised after a successful <see cref="Update"/> or <see cref="Reset"/>, carrying the new settings.</summary>
     event EventHandler<AppSettings> Changed;
 
     /// <summary>
