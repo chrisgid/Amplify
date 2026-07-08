@@ -25,8 +25,9 @@ permissions:
 jobs:
   analyze:
     name: Analyze (C#)
-    # Mirrors ci.yml: the WinUI 3 / Windows App SDK build requires Windows.
-    runs-on: windows-latest
+    # Buildless analysis (build-mode: none) needs no compiler/toolchain, so it runs on Linux — no
+    # Windows runner or WinUI toolchain required (unlike ci.yml, which must build).
+    runs-on: ubuntu-latest
 
     permissions:
       # CodeQL needs to upload its SARIF results to the code-scanning API.
@@ -37,31 +38,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - name: Setup .NET 10 SDK
-        uses: actions/setup-dotnet@9a946fdbd5fb07b82b2f5a4466058b876ab72bb2 # v5.3.0
-        with:
-          dotnet-version: '10.0.x'
-
       - name: Initialize CodeQL
         uses: github/codeql-action/init@c35d1b164463ee62a100735382aaaa525c5d3496 # codeql-bundle-v2.25.6
         with:
           languages: csharp
-          # Explicit manual build: we compile with -p:Platform=x64 below (see note) so CodeQL must
-          # observe that build, not autobuild or the buildless default. Pinning build-mode keeps that
-          # contract if a future codeql-action upgrade changes the C# default to buildless.
-          build-mode: manual
-          # Query suite and path exclusions (generated build output under obj/ was ~90% of alerts,
-          # all false positives) live in the config file to keep CodeQL tuning in one place.
+          # Buildless C# extraction (analyse source directly, no compile). Two reasons over a manual
+          # build: (1) it sidesteps the WinUI x64-only platform that defeats CodeQL autobuild, so no
+          # dotnet build/restore steps are needed; (2) crucially, paths/paths-ignore filters ONLY
+          # apply to compiled languages in build-mode: none — with a build, the generated obj/*.g.cs
+          # files are compiled and analysed and cannot be excluded by config. build-mode: none means
+          # those files are never generated, and the config-file exclusions actually take effect.
+          # (Tradeoff: buildless analysis can have slightly lower data-flow fidelity than a built
+          # analysis. This mirrors microsoft/win-dev-skills, a WinUI repo on the same setup.)
+          build-mode: none
+          # Query suite and path exclusions live in the config file (single place for CodeQL tuning).
           config-file: .github/codeql/codeql-config.yml
-
-      # CodeQL's autobuild can't be trusted for this repo: the packaged WinUI app (Amplify.App)
-      # exposes only x86/x64/ARM64 (no Any CPU), so the build must pin Platform=x64 exactly as
-      # ci.yml does. Build manually so CodeQL observes the same compilation the merge gate does.
-      - name: Restore
-        run: dotnet restore Amplify.slnx
-
-      - name: Build
-        run: dotnet build Amplify.slnx --configuration Release -p:Platform=x64 --no-restore
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@c35d1b164463ee62a100735382aaaa525c5d3496 # codeql-bundle-v2.25.6

@@ -110,23 +110,33 @@ Added a **separate** CodeQL (SAST) workflow rather than extending `ci.yml`. The 
   happens when this change's PR opens (CodeQL builds on GitHub-hosted runners; nothing to validate
   locally). No baseline findings triaged yet.
 
-## 2026-07-08 — Exclude generated build output from CodeQL · `.github/codeql/codeql-config.yml`
+## 2026-07-08 — Switch CodeQL to buildless (build-mode: none) to drop generated-file noise
 
 The first CodeQL run on `main` produced ~100 alerts, **91 of them false positives in
 `src/Amplify.App/obj/**/*.g.cs`** — XAML-compiler-generated files (`XamlTypeInfo.g.cs`,
-`MainPage.g.cs`, per-page `*.g.cs`) that the `build-mode: manual` x64 build emits into `obj/` and
-CodeQL then extracts. Confirmed the breakdown via the code-scanning API before fixing.
+`MainPage.g.cs`, per-page `*.g.cs`) that the `build-mode: manual` x64 build emitted into `obj/` and
+CodeQL then extracted. Confirmed the breakdown via the code-scanning API before fixing.
 
-- **Fix: a `paths-ignore` config file excluding `**/obj/**` and `**/bin/**`.** Added
-  `.github/codeql/codeql-config.yml` and pointed the init step at it via `config-file:` (replacing
-  the inline `queries:`, which moved into the config so all CodeQL tuning lives in one place).
-- **Why this works for a compiled language:** for C# (compiled), CodeQL applies `paths-ignore` as a
-  **post-analysis filter on reported alerts by source path**, not as an extraction skip. Our `obj/`
-  is under the repo root, so its alerts match `**/obj/**`, get filtered out, and the previously-open
-  generated-file alerts auto-close on the next run. (Path filters for compiled languages only bite
-  when the path is relative to the source root — it is here.)
-- **Verified facts:** pattern confirmed against real C# CodeQL configs pulled via the GitHub API —
-  `Humanizr/Humanizer`, `OneSignal/OneSignal-Xamarin-SDK`, and especially **`microsoft/win-dev-skills`
-  (a WinUI repo, our closest analog)**, all of which `paths-ignore` `**/obj/**` + `**/bin/**`.
+- **Rejected first attempt (`paths-ignore` alone, keeping `build-mode: manual`).** Initially added a
+  config file with `paths-ignore: [**/obj/**, **/bin/**]` on the assumption that CodeQL filters
+  reported alerts by source path for compiled languages. **That is wrong.** Per the GitHub docs
+  ("Specifying directories to scan"), for compiled languages `paths`/`paths-ignore` take effect
+  **only in `build-mode: none`**; "for analysis where code is built ... you must specify appropriate
+  build steps." Under a real build the filters are ignored for C#, so that change would have been a
+  no-op — caught in code review, verified against the docs.
+- **Fix: `build-mode: none` (buildless C# analysis) on `ubuntu-latest`.** With no build, `obj/` is
+  never populated, so the generated `*.g.cs` files are never analysed — the noise is removed at the
+  root rather than filtered. `paths-ignore` stays in the config as defensive belt-and-braces (and now
+  actually takes effect). Dropped the `dotnet restore`/`build` steps and the Windows runner: buildless
+  extraction needs no compiler, so the WinUI x64-only platform problem that forced `build-mode: manual`
+  no longer applies here.
+- **Tradeoff:** buildless analysis can have slightly lower data-flow fidelity than a built analysis.
+  Accepted — it's GitHub's supported mode for C# and the only way to exclude the generated files via
+  config. If deeper analysis is ever wanted, the alternative is `build-mode: manual` + dismissing the
+  generated-file alerts through alert management (not config).
+- **Verified facts:** `microsoft/win-dev-skills` — a WinUI repo, our closest analog — runs CodeQL
+  exactly this way (`build-mode: none`, `ubuntu-latest`, `config-file` with `paths-ignore` `**/obj/**`
+  + `**/bin/**`, no build steps). `Humanizr/Humanizer` pairs `build-mode: manual` with `paths-ignore`,
+  which per the docs does not actually filter — a misconfiguration, not a precedent to copy.
 - **Deferred / known gaps:** the ~9 alerts in real source files are untriaged — this change only
   removes the generated-file noise; it does not assess the genuine findings.

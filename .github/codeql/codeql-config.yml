@@ -1,10 +1,10 @@
 name: amplify-codeql
 
-# Exclude build output from analysis. The XAML compiler emits generated C# (e.g.
-# XamlTypeInfo.g.cs, MainPage.g.cs) into obj/ during the manual x64 build; those files are not our
-# source and produced ~90% of the alerts as false positives. For compiled languages CodeQL filters
-# reported alerts by source path, so excluding obj/ (which sits under the repo root) drops those
-# alerts and auto-closes the existing ones on the next run.
+# Exclude build output. The primary reason the generated XAML C# (XamlTypeInfo.g.cs, MainPage.g.cs,
+# etc.) no longer pollutes results is that the workflow runs build-mode: none (buildless) — with no
+# build, obj/ is never populated, so those files are never analysed. These filters are defensive
+# belt-and-braces for any generated/build files that do land in the checkout. NOTE: paths/paths-ignore
+# only affect compiled languages when build-mode is none; under a real build they are ignored for C#.
 paths-ignore:
   - '**/obj/**'
   - '**/bin/**'
