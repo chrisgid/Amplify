@@ -170,3 +170,25 @@ keyboard hook's P/Invoke, inherent and unavoidable), `cs/path-combine` (12), and
   `security-extended` regardless, being maintainability queries).
 - **Verified facts:** all 53 alerts had `security_severity_level: none` — there were **no** security
   findings under `security-and-quality` at this point.
+
+## 2026-07-11 — Triage of the 9 catch-related alerts · branch `fix/exception-handling-standards`
+
+Hand-checked all nine `cs/catch-of-all-exceptions` (8) + `cs/empty-catch-block` (1) alerts from the
+entry above against [spec §5](../specification.md#5-design-principles--engineering-standards)
+("catch specific exceptions; no empty or silent catch blocks; log the exception").
+
+- **8 of 9 left as-is — legitimate resilience boundaries, not violations.** Each `catch (Exception ex)`
+  (SpotifyAuthService restore, TrayService icon creation, Onboarding/Status/Settings VM command
+  boundaries, NotificationService balloon, SettingsMigrationRunner) wraps interop/OS/HTTP whose
+  failure modes aren't enumerable, carries a rationale comment, and **logs** the exception (or, in the
+  logger-less Core `SettingsMigrationRunner`, degrades to defaults via its return value). Spec §5 bars
+  *empty/silent* catches, not documented+logged boundary handlers; narrowing these to specific types
+  would risk crashing a resilience path on an unlisted exception. Deliberately not churned.
+- **1 fixed — `FileLogWriter.AppendLine`.** It had an empty, undocumented `catch
+  (UnauthorizedAccessException) {}` beside a documented `catch (IOException)`. Merged the two into one
+  `catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)` with a single
+  rationale comment — behaviourally identical, no longer an empty/silent block. `ex` is consumed by
+  the `when` filter, so no unused-variable warning under `TreatWarningsAsErrors`. (There is nowhere to
+  log from inside the log writer itself, hence swallow-with-comment rather than log.)
+- **Manual/integration checks:** `dotnet build … -c Release -p:Platform=x64` → **0 warnings, 0 errors**;
+  `dotnet test … --filter "Category!=RequiresSpotify"` → **221 passed**.
