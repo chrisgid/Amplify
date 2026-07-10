@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Amplify — Windows Fluent App Icon</title>
+<style>
+  :root {
+    --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    --font-d: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    --ink: rgba(0,0,0,.9);
+    --ink-2: rgba(0,0,0,.6);
+    --ink-3: rgba(0,0,0,.42);
+    --hair: rgba(0,0,0,.08);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: var(--font); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+
+<script type="text/babel">
+const { useId } = React;
+
+/* =========================================================================
+   THE MARK — free-form "rising level" silhouette.
+   Single literal metaphor (sound getting louder = amplify), four flat
+   rounded bars, one subtle monochrome-blue gradient lit from top-left,
+   a soft seating shadow. No circle, no curved waves, no typography.
+   Authored on a 48-unit grid (scaled into a 256 viewBox, k = 256/48).
+   ========================================================================= */
+
+// 48-grid bar geometry, scaled to 256.
+const K = 256 / 48;
+const BARS = [
+  { x: 6,    top: 30 }, // shortest (quietest)
+  { x: 16,   top: 25 },
+  { x: 26,   top: 19 },
+  { x: 36,   top: 11 }, // tallest (loudest / boosted)
+].map(b => ({ x: b.x * K, top: b.top * K }));
+const BASE = 41 * K;     // shared baseline
+const BW   = 6 * K;      // bar width
+const BR   = BW / 2;     // pill radius
+
+function Bars({ fill }) {
+  return (
+    <g>
+      {BARS.map((b, i) => (
+        <rect key={i} x={b.x} y={b.top} width={BW} height={BASE - b.top} rx={BR} ry={BR} fill={fill} />
+      ))}
+    </g>
+  );
+}
+
+// Recommended color icon.
+function AmplifyIcon({ s = 256 }) {
+  const id = useId().replace(/:/g, "");
+  return (
+    <svg width={s} height={s} viewBox="0 0 256 256" style={{ display: "block", overflow: "visible" }}>
+      <defs>
+        {/* one icon-wide monochrome-blue ramp, ~120°, light from top-left, two steps */}
+        <linearGradient id={`g-${id}`} x1="0.12" y1="0" x2="0.86" y2="1">
+          <stop offset="0"   stopColor="#5BB4FF" />
+          <stop offset="0.5" stopColor="#1E8AF0" />
+          <stop offset="1"   stopColor="#0A5BD6" />
+        </linearGradient>
+        {/* soft seating shadow so the object sits in the system */}
+        <filter id={`s-${id}`} x="-30%" y="-30%" width="160%" height="170%">
+          <feDropShadow dx="0" dy={2.2 * (s / 256)} stdDeviation={2.4 * (s / 256)} floodColor="#062a63" floodOpacity="0.30" />
+        </filter>
+        {/* top-left ambient light edge */}
+        <linearGradient id={`hl-${id}`} x1="0.12" y1="0" x2="0.86" y2="1">
+          <stop offset="0"    stopColor="#ffffff" stopOpacity="0.55" />
+          <stop offset="0.28" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <g filter={`url(#s-${id})`}>
+        <Bars fill={`url(#g-${id})`} />
+        {/* 1px-at-48 inner highlight along the lit edge */}
+        <Bars fill={`url(#hl-${id})`} />
+      </g>
+    </svg>
+  );
+}
+
+// Monochrome / high-contrast variants (black on light, white on dark).
+function AmplifyMono({ s = 256, color = "#000" }) {
+  return (
+    <svg width={s} height={s} viewBox="0 0 256 256" style={{ display: "block" }}>
+      <Bars fill={color} />
+    </svg>
+  );
+}
+
+/* =========================================================================
+   PRESENTATION
+   ========================================================================= */
+const { DesignCanvas, DCSection, DCArtboard } = window;
+
+const card = { width: "100%", height: "100%", background: "#fff", borderRadius: 12, border: "1px solid var(--hair)", padding: 22, display: "flex", flexDirection: "column", fontFamily: "var(--font)", color: "var(--ink)" };
+const kicker = { fontSize: 11, fontWeight: 700, letterSpacing: ".09em", textTransform: "uppercase", color: "var(--ink-3)" };
+const h = { fontSize: 17, fontWeight: 600, marginTop: 4 };
+const p = { fontSize: 12.5, lineHeight: "18px", color: "var(--ink-2)", marginTop: 6 };
+const okNote = { fontSize: 11.5, fontWeight: 600, color: "#0f7b0f", display: "flex", alignItems: "center", gap: 6, marginTop: "auto", paddingTop: 12 };
+
+/* ---- Hero ---- */
+function Hero() {
+  return (
+    <div style={{ ...card, alignItems: "center", textAlign: "center", justifyContent: "center", gap: 0 }}>
+      <div style={{ filter: "drop-shadow(0 18px 30px rgba(6,42,99,.18))" }}>
+        <AmplifyIcon s={220} />
+      </div>
+      <div style={{ ...kicker, marginTop: 30 }}>Recommended mark</div>
+      <div style={{ ...h, fontFamily: "var(--font-d)", fontSize: 22 }}>Amplify</div>
+      <div style={{ ...p, maxWidth: 320, textAlign: "center" }}>
+        A free-form &ldquo;rising level&rdquo; silhouette — one literal metaphor for
+        getting louder. No container, no circle, no curved waves: distinctive at a
+        glance and unmistakably not Spotify.
+      </div>
+    </div>
+  );
+}
+
+/* ---- Construction on the 48 grid ---- */
+function Construction() {
+  const cells = [];
+  for (let i = 1; i < 48; i++) cells.push(i);
+  return (
+    <div style={card}>
+      <div style={kicker}>Shape · the 48 grid</div>
+      <div style={h}>Built on the grid, soft corners</div>
+      <div style={{ display: "grid", placeItems: "center", margin: "14px 0", flex: 1 }}>
+        <svg width={300} height={300} viewBox="0 0 256 256">
+          <rect x="0.5" y="0.5" width="255" height="255" rx={2 * K} fill="#f7f9fc" stroke="rgba(0,0,0,.10)" />
+          {cells.map(i => (
+            <g key={i} stroke="rgba(14,128,238,.10)" strokeWidth="1">
+              <line x1={i * K} y1="0" x2={i * K} y2="256" />
+              <line x1="0" y1={i * K} x2="256" y2={i * K} />
+            </g>
+          ))}
+          {/* keyline margin */}
+          <rect x={4 * K} y={4 * K} width={40 * K} height={40 * K} fill="none" stroke="rgba(14,128,238,.35)" strokeDasharray="4 4" strokeWidth="1" />
+          <AmplifyIcon s={256} />
+        </svg>
+      </div>
+      <div style={p}>
+        Bars align to grid columns within a 4px keyline margin. Exterior corners use a
+        2px radius (at 48&times;48), interiors 1px — the pill ends scale from that rule.
+      </div>
+    </div>
+  );
+}
+
+/* ---- Monochrome palette ---- */
+const RAMP = [
+  ["#9AD2FF", "tint"],
+  ["#5BB4FF", "light"],
+  ["#2E97F7", "—"],
+  ["#1E8AF0", "mid"],
+  ["#0F73E4", "—"],
+  ["#0A5BD6", "dark"],
+  ["#073F9E", "shade"],
+];
+function Palette() {
+  return (
+    <div style={card}>
+      <div style={kicker}>Color · monochrome blue</div>
+      <div style={h}>One hue, three values, subtle ramp</div>
+      <div style={{ display: "flex", gap: 0, borderRadius: 8, overflow: "hidden", margin: "16px 0 10px", border: "1px solid var(--hair)" }}>
+        {RAMP.map(([c, l]) => (
+          <div key={c} style={{ flex: 1 }}>
+            <div style={{ height: 64, background: c }} />
+            <div style={{ fontSize: 9.5, textAlign: "center", padding: "6px 0", color: "var(--ink-3)", fontFamily: "ui-monospace, monospace" }}>{l}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 4 }}>
+        <AmplifyIcon s={72} />
+        <div style={p}>
+          Three blues from a single hue (light brightened, dark desaturated) with steps
+          between — gradient lit from the top-left at ~120&deg;, held to two stops so it
+          stays clean when scaled down.
+        </div>
+      </div>
+      <div style={okNote}>✓ Dark, medium &amp; light values present</div>
+    </div>
+  );
+}
+
+/* ---- Size ramp + title-bar / tray ---- */
+function tile(bg, border) { return { width: "auto", display: "flex", alignItems: "center", gap: 8, background: bg, border: `1px solid ${border}`, borderRadius: 7, padding: "7px 11px", fontSize: 12 }; }
+function Sizes() {
+  const sizes = [256, 48, 32, 24, 16];
+  return (
+    <div style={card}>
+      <div style={kicker}>Scale · legibility</div>
+      <div style={h}>Holds from 256 down to 16px</div>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 22, margin: "20px 0", flexWrap: "wrap" }}>
+        {sizes.map(s => (
+          <div key={s} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+            <AmplifyIcon s={s} />
+            <span style={{ fontSize: 10, color: "var(--ink-3)", fontFamily: "ui-monospace, monospace" }}>{s}px</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 10, marginTop: "auto" }}>
+        <div style={{ ...tile("#f3f3f3", "rgba(0,0,0,.08)"), color: "var(--ink)" }}><AmplifyIcon s={16} /> Amplify</div>
+        <div style={{ ...tile("#202020", "rgba(255,255,255,.08)"), color: "rgba(255,255,255,.92)" }}><AmplifyIcon s={16} /> Amplify</div>
+      </div>
+      <div style={p}>Four bars stay distinct in the title bar and the system tray.</div>
+    </div>
+  );
+}
+
+/* ---- Contrast on real backgrounds ---- */
+function bgTile(bg, label, dark) {
+  return (
+    <div style={{ flex: 1, borderRadius: 10, background: bg, display: "grid", placeItems: "center", height: 150, position: "relative", border: "1px solid rgba(0,0,0,.06)" }}>
+      <AmplifyIcon s={92} />
+      <span style={{ position: "absolute", left: 10, bottom: 8, fontSize: 10, fontFamily: "ui-monospace, monospace", color: dark ? "rgba(255,255,255,.7)" : "rgba(0,0,0,.5)" }}>{label}</span>
+    </div>
+  );
+}
+function Contrast() {
+  return (
+    <div style={card}>
+      <div style={kicker}>Contrast · light / dark / accent</div>
+      <div style={h}>Reads on any Windows backdrop</div>
+      <div style={{ display: "flex", gap: 12, margin: "16px 0" }}>
+        {bgTile("#fbfbfb", "light theme", false)}
+        {bgTile("#1c1c1c", "dark theme", true)}
+        {bgTile("linear-gradient(135deg,#5b7cc4,#b08fc9)", "accent / wallpaper", true)}
+      </div>
+      <div style={p}>
+        The bright top edge and dark base keep the bars separated from the
+        background, so well over half the mark clears the 3.0:1 ratio on both themes.
+      </div>
+    </div>
+  );
+}
+
+/* ---- High contrast ---- */
+function HighContrast() {
+  return (
+    <div style={card}>
+      <div style={kicker}>High contrast</div>
+      <div style={h}>Solid black &amp; white</div>
+      <div style={{ display: "flex", gap: 12, margin: "18px 0", flex: 1 }}>
+        <div style={{ flex: 1, background: "#fff", border: "1px solid var(--hair)", borderRadius: 10, display: "grid", placeItems: "center" }}>
+          <AmplifyMono s={120} color="#000" />
+        </div>
+        <div style={{ flex: 1, background: "#000", borderRadius: 10, display: "grid", placeItems: "center" }}>
+          <AmplifyMono s={120} color="#fff" />
+        </div>
+      </div>
+      <div style={p}>The silhouette is strong enough to drop straight to a solid fill — no gradient needed for high-contrast modes.</div>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <DesignCanvas>
+      <DCSection id="mark" title="Amplify — Windows app icon"
+        subtitle="A Fluent-aligned redesign: single literal metaphor, distinctive free-form silhouette, subtle monochrome-blue gradient, graded for contrast — and clear of Spotify's protected circle &amp; waves.">
+        <DCArtboard id="hero" label="Recommended" width={420} height={520}><Hero /></DCArtboard>
+        <DCArtboard id="grid" label="Construction" width={420} height={520}><Construction /></DCArtboard>
+      </DCSection>
+      <DCSection id="system" title="The system" subtitle="Color, scale and contrast worked through to the guideline checklist.">
+        <DCArtboard id="palette" label="Palette" width={420} height={300}><Palette /></DCArtboard>
+        <DCArtboard id="sizes" label="Sizes" width={520} height={300}><Sizes /></DCArtboard>
+        <DCArtboard id="contrast" label="Contrast" width={560} height={300}><Contrast /></DCArtboard>
+        <DCArtboard id="hc" label="High contrast" width={360} height={300}><HighContrast /></DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

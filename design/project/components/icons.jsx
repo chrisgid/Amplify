@@ -165,25 +165,43 @@ const CapClose = ({ s = 10 }) => (
   <svg width={s} height={s} viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" strokeWidth="1" /></svg>
 );
 
-// --- Amplify brand mark: speaker + sound waves in a filled circle ---
-const AmplifyMark = ({ s = 32, ring = true }) => (
-  <svg width={s} height={s} viewBox="0 0 48 48" style={{ display: "block", flexShrink: 0 }}>
-    {ring && <circle cx="24" cy="24" r="24" fill="var(--accent-fill)" />}
-    <g transform="translate(0,0)">
-      <path
-        d="M15 20.5h4l5-4.5v17l-5-4.5h-4a1.5 1.5 0 01-1.5-1.5v-5a1.5 1.5 0 011.5-1.5z"
-        fill={ring ? "var(--on-accent)" : "var(--accent-fill)"}
-      />
-      <path
-        d="M28 19.5a6.5 6.5 0 010 9M31.5 16a11 11 0 010 16"
-        fill="none"
-        stroke={ring ? "var(--on-accent)" : "var(--accent-fill)"}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-      />
-    </g>
-  </svg>
-);
+// --- Amplify brand mark: rising level bars (Windows Fluent, free-form silhouette) ---
+// `ring` prop kept for API compat but the new design has no container.
+const _AMK = 256 / 48;
+const _AM_BW = 6 * _AMK;
+const _AM_BR = _AM_BW / 2;
+const _AM_BASE = 41 * _AMK;
+const _AM_BARS = [[6, 30], [16, 25], [26, 19], [36, 11]];
+let _amId = 0;
+const AmplifyMark = ({ s = 32, ring = true }) => {
+  const uid = `am${++_amId}`;
+  return (
+    <svg width={s} height={s} viewBox="0 0 256 256" style={{ display: "block", flexShrink: 0 }}>
+      <defs>
+        <linearGradient id={`amg-${uid}`} x1="0.12" y1="0" x2="0.86" y2="1">
+          <stop offset="0"   stopColor="#5BB4FF" />
+          <stop offset="0.5" stopColor="#1E8AF0" />
+          <stop offset="1"   stopColor="#0A5BD6" />
+        </linearGradient>
+        <filter id={`ams-${uid}`} x="-30%" y="-30%" width="160%" height="170%">
+          <feDropShadow dx="0" dy="2" stdDeviation="2.2" floodColor="#062a63" floodOpacity="0.28" />
+        </filter>
+        <linearGradient id={`amh-${uid}`} x1="0.12" y1="0" x2="0.86" y2="1">
+          <stop offset="0"    stopColor="#fff" stopOpacity="0.50" />
+          <stop offset="0.28" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <g filter={`url(#ams-${uid})`}>
+        {_AM_BARS.map(([bx, bt], i) => (
+          <rect key={i} x={bx * _AMK} y={bt * _AMK} width={_AM_BW} height={_AM_BASE - bt * _AMK} rx={_AM_BR} ry={_AM_BR} fill={`url(#amg-${uid})`} />
+        ))}
+        {_AM_BARS.map(([bx, bt], i) => (
+          <rect key={i} x={bx * _AMK} y={bt * _AMK} width={_AM_BW} height={_AM_BASE - bt * _AMK} rx={_AM_BR} ry={_AM_BR} fill={`url(#amh-${uid})`} />
+        ))}
+      </g>
+    </svg>
+  );
+};
 
 Object.assign(window, {
   IconSettings, IconKeyboard, IconCheck, IconCheckCircle, IconAlert, IconSpinner,

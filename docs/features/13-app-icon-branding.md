@@ -18,23 +18,31 @@ the asset sizes/formats needed for the title bar, system tray, taskbar, and MSIX
 
 ## Brand & icon direction
 
-*Reference:* `design/project/Amplify Icon Directions.html`.
+*Reference:* `design/project/Amplify Icon - Windows Fluent.html`.
 
-**Chosen direction:** the **"Current" mark** — a **speaker with concentric sound waves inside a
-circular badge**. This is a standard, widely-used volume motif that clearly communicates what
-Amplify does. Use the blue gradient from the design (`#3aa0ff → #0061cf`) as the brand colour.
+**Chosen direction:** the **"rising level" mark** — a **free-form silhouette of four flat,
+pill-ended bars ascending left→right** (shortest/quietest → tallest/loudest). It's a single literal
+metaphor for *getting louder = amplify*. Deliberately **no container**: no circle, no speaker
+glyph, no curved sound waves, no typography — which also keeps it **clear of Spotify's protected
+circular badge and waves** (a branding-compliance win, not just aesthetics).
 
-The design file's source for this mark (`IconCurrent`): a circle filled with the blue gradient,
-a white speaker glyph, and two white concentric arcs (sound waves) — see
-`design/project/Amplify Icon Directions.html`.
-
-The other explorations in the design file (Amplitude bars, Boost arrow, Keycap) are **not** being
-used and can be ignored.
+- **Colour:** one monochrome-blue gradient lit from the top-left (~120°), held to a small ramp so
+  it stays clean when scaled down: **`#5BB4FF` (light) → `#1E8AF0` (mid) → `#0A5BD6` (dark)**. A
+  soft seating drop-shadow (`#062a63`, ~30% opacity) and a top-left white highlight edge give it
+  depth so it sits naturally in the Windows shell.
+- **Construction:** authored on a **48-unit grid scaled into a 256 viewBox** (k = 256/48). Bars sit
+  within a **4px keyline margin**; corners use a 2px exterior / 1px interior radius (at 48×48), and
+  the pill ends scale from that rule. See `design/project/Amplify Icon - Windows Fluent.html`
+  (`AmplifyIcon`) for the exact geometry.
+- **High-contrast / monochrome variant:** the silhouette is strong enough to drop to a **solid
+  fill** — **black on light, white on dark** — with no gradient (`AmplifyMono` in the design file),
+  for Windows high-contrast modes.
 
 ## Acceptance criteria
 
 - [ ] A single custom logo is used app-wide; no other custom iconography exists.
-- [ ] The logo is the speaker + concentric waves in a circular badge, using the blue gradient.
+- [ ] The logo is the free-form rising-bars silhouette (four ascending pill bars, no container),
+      using the monochrome-blue gradient.
 - [ ] Icon is legible at title-bar/tray sizes (16px) through to large tiles.
 - [ ] A complete MSIX asset set is generated (see below) and wired into the manifest.
 - [ ] The logo appears in the title bar ([01](./01-application-shell.md)) and tray
@@ -49,10 +57,13 @@ used and can be ignored.
   `Square310x310Logo`) are **not needed** for a tray utility — skip them unless wide/large tiles are
   ever wanted. Verify the exact asset matrix via the `microsoft-docs:winui3`/`microsoft-docs`
   skills.
-- Render the circular badge (speaker + concentric waves) with the brand gradient, centred on the
-  square tile/icon assets with appropriate padding.
+- Render the free-form rising-bars silhouette (no container) with the monochrome-blue gradient,
+  seating shadow, and top-left highlight, sized within the 4px keyline margin on the square
+  tile/icon assets. Ship the **solid monochrome** variant (black on light / white on dark) for
+  Windows high-contrast modes.
 - Tray icon ([08](./08-system-tray-background.md)) uses the same mark at small size; ensure it
-  reads on both light and dark taskbars.
+  reads on both light and dark taskbars. At the smallest sizes (16/24px), drop the shadow/highlight
+  and simplify so the four bars stay distinct.
 
 ## Data & persistence
 
@@ -60,8 +71,10 @@ used and can be ignored.
 
 ## Edge cases & error handling
 
-- Small sizes (16px) must remain legible — simplify detail in the smallest target-size assets.
-- Light vs dark taskbar/tray contrast — verify the mark is visible on both.
+- Small sizes (16px) must remain legible — simplify detail (drop shadow/highlight) in the smallest
+  target-size assets so the four bars stay distinct.
+- Light vs dark taskbar/tray contrast — verify the mark is visible on both; use the solid
+  monochrome variant for high-contrast modes.
 
 ## Dependencies
 
