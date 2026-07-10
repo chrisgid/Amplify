@@ -150,3 +150,23 @@ CodeQL then extracted. Confirmed the breakdown via the code-scanning API before 
   does not actually filter — a misconfiguration, not a precedent to copy.
 - **Deferred / known gaps:** the ~9 alerts in real source files are untriaged — this change only
   removes the generated-file noise; it does not assess the genuine findings.
+
+## 2026-07-10 — Narrow CodeQL to security-extended (drop maintainability noise)
+
+Once the generated-file noise was gone, the live run settled at **53 open alerts — all
+`security_severity_level: none`** (maintainability/quality, not security). Confirmed via the
+code-scanning API. Dominated by `cs/unmanaged-code` + `cs/call-to-unmanaged-code` (28 — the global
+keyboard hook's P/Invoke, inherent and unavoidable), `cs/path-combine` (12), and
+`cs/catch-of-all-exceptions` (8).
+
+- **Switched the suite `security-and-quality` → `security-extended`** in `codeql-config.yml`. As a
+  SAST gate the aim is genuine security findings; the maintainability queries were pure churn for a
+  P/Invoke desktop app. This drops all 53 quality alerts (zero were security-severity) and leaves
+  CodeQL security-focused. Bump back if the maintainability queries are ever wanted.
+- **Handled separately (not via CodeQL):** the 8 `cs/catch-of-all-exceptions` + 1
+  `cs/empty-catch-block` alerts touch the [spec §5](../specification.md#5-design-principles--engineering-standards)
+  "catch specific exceptions / no empty catch" standard, so they were surfaced to the maintainer for
+  a hand-check independent of the query-suite change (they disappear from CodeQL under
+  `security-extended` regardless, being maintainability queries).
+- **Verified facts:** all 53 alerts had `security_severity_level: none` — there were **no** security
+  findings under `security-and-quality` at this point.

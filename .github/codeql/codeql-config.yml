@@ -9,8 +9,12 @@ paths-ignore:
   - '**/obj/**'
   - '**/bin/**'
 
-# Query suite lives here (moved from the workflow's inline `queries:`) to keep all CodeQL tuning in
-# one place. security-and-quality adds maintainability/quality queries on top of the security set;
-# drop to 'security-extended' or the default suite if the noise is too high.
+# Query suite lives here (single place for CodeQL tuning). security-extended is security-focused:
+# the default security queries plus lower-severity/precision security ones. We deliberately do NOT
+# use security-and-quality — its maintainability queries produced 53 non-security alerts (all
+# security_severity_level: none), dominated by cs/unmanaged-code + cs/call-to-unmanaged-code (the
+# app's global-keyboard-hook P/Invoke, inherent and unavoidable) and cs/path-combine. As a SAST
+# gate we want genuine security findings, not style noise. Bump back to security-and-quality if you
+# want the maintainability queries too.
 queries:
-  - uses: security-and-quality
+  - uses: security-extended
