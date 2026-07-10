@@ -29,13 +29,11 @@ internal sealed class FileLogWriter
             {
                 File.AppendAllText(CurrentFilePath(), line + Environment.NewLine, Encoding.UTF8);
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 // Logging must never take the app down. A transient file error (e.g. the folder is
-                // momentarily locked) is dropped rather than propagated to the caller.
-            }
-            catch (UnauthorizedAccessException)
-            {
+                // momentarily locked) or a permissions failure is dropped rather than propagated to
+                // the caller — and since this IS the log writer, there is nowhere to record it.
             }
         }
     }
