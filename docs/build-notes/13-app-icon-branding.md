@@ -110,6 +110,12 @@ level" mark (four ascending pill bars, no container) — the only custom graphic
       `BackgroundColor` to a solid colour, redeploy, re-check; if still blank it's the dev-deploy
       artifact. Left blank for now by choice — cosmetic, single surface, everything else shows the mark.
 
+- **High-contrast polarity (code-review fix):** the `contrast-black`/`contrast-white` qualifiers were
+  initially generated with inverted fills (each invisible in the theme that loads it). Per Microsoft
+  Learn, **High Contrast Black** (black background) loads `contrast-black` → needs a **white** mark,
+  and **High Contrast White** (white background) loads `contrast-white` → needs a **black** mark.
+  `tools/IconGen` corrected and the PNGs regenerated.
+
 - **Verified facts:** latest `SkiaSharp` on NuGet is 4.150.0 (used, with
   `SkiaSharp.NativeAssets.Win32`). MRT rule (Microsoft Learn): `scale-*` and `targetsize-*` can't be
   combined on one file, and at least one variant must be scale-based/unqualified — satisfied (scale

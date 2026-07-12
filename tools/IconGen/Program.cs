@@ -183,8 +183,10 @@ foreach (var (suffix, px) in new[] { ("scale-100", 44), ("scale-125", 55), ("sca
 foreach (int px in new[] { 16, 24, 32, 48, 256 })
 {
     Save($"Square44x44Logo.targetsize-{px}_altform-unplated.png", RenderSquare(px, 0.86f, StyleColor));
-    Save($"Square44x44Logo.targetsize-{px}_altform-unplated_contrast-black.png", RenderSquare(px, 0.86f, StyleMonoBlack));
-    Save($"Square44x44Logo.targetsize-{px}_altform-unplated_contrast-white.png", RenderSquare(px, 0.86f, StyleMonoWhite));
+    // High Contrast Black theme has a black background (loads contrast-black) → white mark;
+    // High Contrast White theme has a white background (loads contrast-white) → black mark.
+    Save($"Square44x44Logo.targetsize-{px}_altform-unplated_contrast-black.png", RenderSquare(px, 0.86f, StyleMonoWhite));
+    Save($"Square44x44Logo.targetsize-{px}_altform-unplated_contrast-white.png", RenderSquare(px, 0.86f, StyleMonoBlack));
 }
 
 // Square150x150Logo — medium Start tile. Mark ~50% of the tile.
