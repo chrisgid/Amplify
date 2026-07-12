@@ -5,10 +5,7 @@
 [![CI](https://github.com/chrisgid/Amplify/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/chrisgid/Amplify/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/chrisgid/Amplify/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/chrisgid/Amplify/actions/workflows/codeql.yml)
 
-**Control Spotify's volume with global keyboard hotkeys.**
-
-A native Windows app that lives in the system tray and lets you
-raise or lower your Spotify playback volume from anywhere with a keyboard shortcut.
+**Control your Spotify volume with keyboard shortcuts in Windows.**
 
 Inspired by Birath's Spotify Volume controller: https://github.com/Birath/spotify-volume-controller-cpp
 
