@@ -83,6 +83,13 @@ public sealed partial class MainWindow : Window, IDisposable
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
 
+        // Give the window its own HICON. The custom title bar draws its glyph from the
+        // TitleBar.IconSource, and the taskbar button + jump list are drawn by the shell from the
+        // packaged Square44x44Logo — but the taskbar thumbnail preview, Alt+Tab, and Task View read the
+        // window's HICON, which otherwise falls back to the generic framework icon. SetIcon wants a
+        // fully-qualified path to a .ico shipped as content.
+        AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
+
         PositionWindow();
     }
 
