@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Dev-only asset generator for the Amplify logo. NOT part of Amplify.slnx and NOT referenced by
+    the shipped app, so SkiaSharp never enters the app's dependency graph. Run it to (re)generate
+    every MSIX icon/tile asset + AppIcon.ico from the parametric "rising level" mark.
+    Deliberately opts out of the repo-wide TreatWarningsAsErrors: this is a throwaway tool, not
+    shipped code, and it does not inherit Directory.Build.props (it lives outside the solution).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="4.150.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="4.150.0" />
+  </ItemGroup>
+
+</Project>

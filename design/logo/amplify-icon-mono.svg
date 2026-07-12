@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!--
+    Amplify mark — solid monochrome variant for high-contrast / small sizes (no gradient, shadow,
+    or highlight). Fill is set by the consumer: black on light, white on dark. Same geometry as
+    amplify-icon.svg.
+  -->
+  <g fill="currentColor">
+    <rect x="32" y="160" width="32" height="58.667" rx="16" ry="16"/>
+    <rect x="85.333" y="133.333" width="32" height="85.333" rx="16" ry="16"/>
+    <rect x="138.667" y="101.333" width="32" height="117.333" rx="16" ry="16"/>
+    <rect x="192" y="58.667" width="32" height="160" rx="16" ry="16"/>
+  </g>
+</svg>

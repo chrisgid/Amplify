@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" style="overflow:visible">
+  <!--
+    Amplify "rising level" mark — four ascending pill bars (quietest -> loudest), no container.
+    Master vector source. The IconGen tool renders every raster asset from the same geometry/colours.
+    Bars: width 32, radius 16, shared baseline y=218.667; on a 48-unit grid scaled to 256 (k=256/48).
+  -->
+  <defs>
+    <!-- One monochrome-blue ramp lit from the top-left (~120 deg); objectBoundingBox => per-bar. -->
+    <linearGradient id="ampFill" x1="0.12" y1="0" x2="0.86" y2="1">
+      <stop offset="0" stop-color="#5BB4FF"/>
+      <stop offset="0.5" stop-color="#1E8AF0"/>
+      <stop offset="1" stop-color="#0A5BD6"/>
+    </linearGradient>
+    <!-- Top-left ambient light edge, painted over the fill. -->
+    <linearGradient id="ampHighlight" x1="0.12" y1="0" x2="0.86" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.28" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Soft seating shadow so the mark sits in the Windows shell. -->
+    <filter id="ampShadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="2.2" stdDeviation="2.4" flood-color="#062a63" flood-opacity="0.30"/>
+    </filter>
+  </defs>
+  <g filter="url(#ampShadow)">
+    <g fill="url(#ampFill)">
+      <rect x="32" y="160" width="32" height="58.667" rx="16" ry="16"/>
+      <rect x="85.333" y="133.333" width="32" height="85.333" rx="16" ry="16"/>
+      <rect x="138.667" y="101.333" width="32" height="117.333" rx="16" ry="16"/>
+      <rect x="192" y="58.667" width="32" height="160" rx="16" ry="16"/>
+    </g>
+    <g fill="url(#ampHighlight)">
+      <rect x="32" y="160" width="32" height="58.667" rx="16" ry="16"/>
+      <rect x="85.333" y="133.333" width="32" height="85.333" rx="16" ry="16"/>
+      <rect x="138.667" y="101.333" width="32" height="117.333" rx="16" ry="16"/>
+      <rect x="192" y="58.667" width="32" height="160" rx="16" ry="16"/>
+    </g>
+  </g>
+</svg>

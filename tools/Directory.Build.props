@@ -1,0 +1,8 @@
+<Project>
+  <!--
+    Isolates dev-only tools under tools/ from the repo-root Directory.Build.props (MSBuild stops at
+    the first Directory.Build.props found walking up). Tools are not shipped and are not part of
+    Amplify.slnx, so they don't inherit the app's strict analyzers / TreatWarningsAsErrors /
+    x86;x64;ARM64 platform set. Intentionally empty.
+  -->
+</Project>
