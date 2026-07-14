@@ -178,20 +178,43 @@ Settings toggle.
   `StartupTask` ships `Enabled="false"`. This is a deliberate **deviation from the prototype's
   "startup on" default** (`design/project`) — the product decision was default-off + explicit opt-in
   after onboarding. `contracts.md` and features 08/10/12 updated to match.
-- **Onboarding gate + preference preservation.** `TrayService` now forces the OS entry **off whenever
-  the app is in the onboarding (not-connected) route** — at launch and on the reset/disconnect return
-  trip — *without* rewriting the stored preference, and **re-applies the stored preference on the
-  Onboarding→Main transition** (reconnect). So a disconnect keeps a user's launch-at-startup choice and
-  silently restores it on reconnect, while a reset (which resets settings to `false` first) genuinely
-  clears it. The transition is detected via a tracked previous route; the launch-while-onboarded path
-  keeps the existing OS-is-source-of-truth copy so Task-Manager overrides still win.
-- **Pure logic** lives in `StartupTaskReconciler.ShouldDisableForOnboarding` (on + user-configurable)
-  and `ShouldEnableForPreference` (pref on + currently off + user-configurable), both unit-tested;
-  respecting `IsUserConfigurable` means a `DisabledByUser`/policy entry is never fought.
+- **Onboarding gate + preference preservation.** `TrayService` reconciles the OS entry against the
+  **live route**: forced **off whenever the app is in the onboarding (not-connected) route** — at launch
+  and on the reset/disconnect return trip — *without* rewriting the stored preference, and brought back
+  in line with the stored preference once **connected**. So a disconnect keeps a user's launch-at-startup
+  choice and silently restores it on reconnect, while a reset (which resets settings to `false` first)
+  genuinely clears it.
+- **Pure logic** lives in `StartupTaskReconciler`: `ShouldDisableForOnboarding` (on + user-configurable),
+  `ShouldEnableForPreference` (pref on + currently off + user-configurable), and the combined
+  `DecideReconcile(isOnboarding, state, pref) → StartupAction` — all unit-tested. Respecting
+  `IsUserConfigurable` means a `DisabledByUser`/policy entry is never fought.
 - **Verified** against Microsoft docs that `RequestEnableAsync`/`Disable()` are **silent (no consent
   dialog) for a packaged desktop app** once launched once — so enabling from code on reconnect needs no
-  prompt. The startup-entry behaviour is OS-bound, so it stays a **manual** check (see the plan's
-  verification steps); pure reconciler logic and the settings-default change are unit-covered.
+  prompt. The `TrayService` wiring is OS-bound, so it stays a **manual** check (see the plan's
+  verification steps); the reconcile decision and the settings-default change are unit-covered. Manually
+  confirmed the OS `StartupTask` `State` registry value flips as expected across fresh-install/enable/
+  disconnect→reconnect/reset.
 - **Checks:** `dotnet build` clean (Core + WinUI App, `TreatWarningsAsErrors`), `dotnet test` green
   (232), incl. new `ShouldDisableForOnboarding`/`ShouldEnableForPreference` theories and the flipped
   `SettingsService` default assertions.
+
+### Post code-review follow-up (same branch)
+
+A `code-review` pass flagged that the first cut used two separate fire-and-forget reconciles keyed off a
+tracked previous route. Reworked to remove the race and the duplication:
+
+- **Serialized, idempotent reconcile.** Both the launch path and every route change now funnel through a
+  single `ReconcileStartupAsync` whose runs are **chained** (`_reconcileChain`, UI-thread only, no lock)
+  so overlapping route flips (e.g. connect→quick disconnect) can't interleave an `Enable` and a `Disable`
+  and strand the entry on. Each run reads the **current** route + OS state, so repeated/out-of-order
+  triggers converge — no `_lastRoute` transition tracking, and the launch-vs-route paths no longer
+  duplicate the force-off logic.
+- **Decision extracted + tested.** The force-off-vs-apply-preference choice moved out of `TrayService`
+  into the pure `StartupTaskReconciler.DecideReconcile`, covered by a 12-case theory (both onboarding
+  values × the state matrix), addressing the "orchestration was untested" finding.
+- **No more preference clobber.** Because the onboarded path now routes through `DecideReconcile`
+  (`Enable` when the pref is on but the entry is configurably off) instead of a bare OS→settings copy, a
+  stored `LaunchAtStartup=true` with an off entry is re-applied rather than silently rewritten to `false`;
+  Task-Manager `DisabledByUser` is still honoured (not enabled, and persisted as off).
+- **Checks:** `dotnet build` clean (Core + WinUI App, `TreatWarningsAsErrors`), `dotnet test` green
+  (**244**, +12 `DecideReconcile` cases).

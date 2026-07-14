@@ -1,5 +1,18 @@
 namespace Amplify.Core.Tray;
 
+/// <summary>The action the app should take on the OS startup entry when reconciling it.</summary>
+public enum StartupAction
+{
+    /// <summary>Leave the entry as it is.</summary>
+    None,
+
+    /// <summary>Enable the entry so the app launches at sign-in.</summary>
+    Enable,
+
+    /// <summary>Disable the entry so the app does not launch at sign-in.</summary>
+    Disable,
+}
+
 /// <summary>
 /// Pure logic that reconciles the OS startup-registration state with the app's stored preference and
 /// the on-screen toggle. The OS is the source of truth for whether the app actually launches at
@@ -42,4 +55,21 @@ public static class StartupTaskReconciler
     /// </summary>
     public static bool ShouldEnableForPreference(StartupState state, bool storedLaunchAtStartup) =>
         storedLaunchAtStartup && !ToToggleValue(state) && IsUserConfigurable(state);
+
+    /// <summary>
+    /// The single decision for reconciling the OS startup entry from the current facts. While onboarding
+    /// the app must not launch at sign-in, so an on-and-configurable entry is turned off (the stored
+    /// preference is left alone by the caller so it can be restored later). Once onboarded the entry is
+    /// brought in line with the stored preference where the OS allows it. Because it reads only the
+    /// current state — not a transition — repeated or out-of-order calls converge on the same result.
+    /// </summary>
+    public static StartupAction DecideReconcile(bool isOnboarding, StartupState state, bool storedLaunchAtStartup)
+    {
+        if (isOnboarding)
+        {
+            return ShouldDisableForOnboarding(state) ? StartupAction.Disable : StartupAction.None;
+        }
+
+        return ShouldEnableForPreference(state, storedLaunchAtStartup) ? StartupAction.Enable : StartupAction.None;
+    }
 }
