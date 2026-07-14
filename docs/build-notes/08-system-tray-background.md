@@ -218,3 +218,12 @@ tracked previous route. Reworked to remove the race and the duplication:
   Task-Manager `DisabledByUser` is still honoured (not enabled, and persisted as off).
 - **Checks:** `dotnet build` clean (Core + WinUI App, `TreatWarningsAsErrors`), `dotnet test` green
   (**244**, +12 `DecideReconcile` cases).
+
+A second review round noted the unconditional reconcile spent a `StartupTask.GetAsync` (COM) round-trip
+on every route change, including `Main<->Settings` where the startup decision can't change. Gated it:
+
+- **Reconcile only on onboarding-boundary crossings.** `TrayService` tracks `_wasOnboarding` and enqueues
+  a reconcile only when a route change flips it (connect, or disconnect/reset) — `Main<->Settings`
+  navigation now does no startup I/O. This is a pure efficiency filter; the force-off-vs-apply decision
+  still lives in `DecideReconcile`, and the serialized chain is unchanged. Task-Manager changes made while
+  the Settings page is open are still picked up by `SettingsViewModel`'s own state query, not route nav.

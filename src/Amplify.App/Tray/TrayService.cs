@@ -39,6 +39,11 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
     // the OS enable/disable calls; each link reads the live route + state, so the last one wins. Only
     // ever touched on the UI thread (launch + marshalled route changes), so it needs no synchronisation.
     private Task _reconcileChain = Task.CompletedTask;
+
+    // Whether the last handled route was the onboarding screen. The startup decision depends only on this
+    // (onboarding forces the entry off; connected applies the preference), so it's used to skip reconciles
+    // for route changes that don't cross the onboarding boundary — e.g. plain main<->settings navigation.
+    private bool _wasOnboarding;
     private bool _quitting;
     private bool _disposed;
 
@@ -110,6 +115,7 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
 
         // The tray persona only applies once the app is a background utility; while onboarding it's a
         // plain window, so the icon is hidden and follows the route from here on.
+        _wasOnboarding = IsOnboarding;
         ApplyTrayVisibility(_shell.CurrentRoute);
         _shell.RouteChanged += OnShellRouteChanged;
 
@@ -224,8 +230,17 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
         {
             ApplyTrayVisibility(route);
 
-            // Reconcile the OS startup entry against the new route: forced off while onboarding (a reset
-            // or disconnect returns here), brought in line with the stored preference once connected.
+            // The startup decision depends only on whether the app is onboarding, so only reconcile when
+            // that actually changes — a connect (onboarding -> main) or a disconnect/reset (-> onboarding).
+            // Plain main<->settings navigation can't change it, so it doesn't spend a StartupTask lookup.
+            bool onboarding = route == ShellRoute.Onboarding;
+            if (onboarding == _wasOnboarding)
+            {
+                return;
+            }
+
+            _wasOnboarding = onboarding;
+
             // The reconcile reads the live route itself, so this fire-and-forget call needs no argument.
             _ = ReconcileStartupAsync();
         });
