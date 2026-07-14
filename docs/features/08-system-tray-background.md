@@ -32,7 +32,12 @@ and enforces **single-instance** behaviour so the hotkeys keep working without a
 - **Close to tray:** closing the window also hides it to the tray instead of exiting (app keeps
   running + hotkeys active). Quit (menu) exits fully.
 - **Start minimized to the tray:** when enabled, launch with no window shown.
-- **Launch at startup:** when enabled, Amplify starts on Windows sign-in.
+- **Launch at startup:** when enabled, Amplify starts on Windows sign-in. **Off by default** and only
+  registered once the user opts in from Settings — which is unreachable until onboarding is complete —
+  so a fresh install, a reset, or a disconnect never launches at sign-in while there is no account set
+  up. The OS entry is held **off for as long as the app is in the onboarding (not-connected) state**;
+  on a disconnect the stored preference is preserved and silently re-applied when the user reconnects,
+  while a reset clears it back to off.
 
 ## Acceptance criteria
 
@@ -75,7 +80,14 @@ and enforces **single-instance** behaviour so the hotkeys keep working without a
   - **Manifest:** this requires a `windows.startupTask` extension (with a `TaskId`) declared in
     `Package.appxmanifest` — `StartupTask.GetAsync(taskId)` uses that same id. Add it as part of
     this feature; it is **not** handled by the release/packaging feature
-    ([14](./14-release.md)).
+    ([14](./14-release.md)). Ship it **`Enabled="false"`** so a fresh install doesn't launch at
+    sign-in before onboarding; the app enables it from code once the user opts in
+    (`RequestEnableAsync`/`Disable` are silent for a packaged desktop app).
+  - **Onboarding gate:** the OS entry must stay **off while the app has no account** (the onboarding
+    route). Force it off when the app enters onboarding — including on the return trip from a reset
+    or disconnect — without rewriting the stored preference, and re-apply the stored preference when
+    the user connects. This keeps the setting (default off, unreachable during onboarding) from ever
+    producing a sign-in launch on a not-yet-set-up install.
 - **Single instance:** use Windows App SDK single-instancing (`AppInstance.FindOrRegisterForKey`
   + redirect activation) so a second launch activates the first instance.
 - **Lifetime:** the app's process lifetime is decoupled from window visibility; hotkeys

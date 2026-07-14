@@ -26,4 +26,20 @@ public static class StartupTaskReconciler
     /// </summary>
     public static bool ShouldPersist(StartupState state, bool storedLaunchAtStartup) =>
         ToToggleValue(state) != storedLaunchAtStartup;
+
+    /// <summary>
+    /// While the app is onboarding it has no account and must not launch at sign-in. True when the OS
+    /// entry is effectively on and the app is allowed to turn it off (not fixed on by policy). The
+    /// stored preference is deliberately left untouched by this path so it can be restored on connect.
+    /// </summary>
+    public static bool ShouldDisableForOnboarding(StartupState state) =>
+        ToToggleValue(state) && IsUserConfigurable(state);
+
+    /// <summary>
+    /// On becoming connected, restore the user's stored preference onto the OS entry: true when the
+    /// preference is on, the entry is currently off, and the app is allowed to enable it (so a
+    /// user/policy-disabled entry is respected rather than forced back on).
+    /// </summary>
+    public static bool ShouldEnableForPreference(StartupState state, bool storedLaunchAtStartup) =>
+        storedLaunchAtStartup && !ToToggleValue(state) && IsUserConfigurable(state);
 }

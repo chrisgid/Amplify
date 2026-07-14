@@ -84,7 +84,7 @@ public sealed class AppSettings
     public const int CurrentSchemaVersion = 1;
 
     // General (feature 08 / 09)
-    public bool LaunchAtStartup { get; set; } = true;
+    public bool LaunchAtStartup { get; set; } = false;  // off until the user opts in post-onboarding
     public bool StartMinimizedToTray { get; set; } = true;
     public bool MinimizeToTrayOnClose { get; set; } = true;   // close-to-tray vs exit
 

@@ -71,7 +71,7 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(AppSettings.CurrentSchemaVersion, service.Current.SchemaVersion);
         Assert.Equal(5, service.Current.VolumeStep);
         Assert.False(service.Current.TrayHintShown);
-        Assert.True(service.Current.LaunchAtStartup);
+        Assert.False(service.Current.LaunchAtStartup);
         Assert.True(service.Current.StartMinimizedToTray);
         Assert.Equal(ThemeMode.System, service.Current.ThemeMode);
     }
@@ -83,7 +83,7 @@ public sealed class SettingsServiceTests : IDisposable
         await service.LoadAsync();
         AppSettings s = service.Current;
 
-        Assert.True(s.LaunchAtStartup);
+        Assert.False(s.LaunchAtStartup);
         Assert.True(s.StartMinimizedToTray);
         Assert.True(s.MinimizeToTrayOnClose);
         Assert.False(s.TrayHintShown);

@@ -44,9 +44,11 @@
       </uap:VisualElements>
       <Extensions>
         <!--
-          Launch-at-startup entry. Enabled by default to match the app's default preference; the user
-          controls it via the in-app toggle and Windows' Startup settings. TaskId matches the id the
-          app uses with StartupTask.GetAsync.
+          Launch-at-startup entry. Ships disabled so a fresh install never launches at sign-in before
+          the user has set up an account; the app enables it from the in-app toggle once onboarding is
+          complete (RequestEnableAsync is silent for a packaged desktop app). The user stays in control
+          via that toggle and Windows' Startup settings. TaskId matches the id the app uses with
+          StartupTask.GetAsync.
         -->
         <desktop:Extension
           Category="windows.startupTask"
@@ -54,7 +56,7 @@
           EntryPoint="Windows.FullTrustApplication">
           <desktop:StartupTask
             TaskId="AmplifyStartupTask"
-            Enabled="true"
+            Enabled="false"
             DisplayName="Amplify" />
         </desktop:Extension>
       </Extensions>

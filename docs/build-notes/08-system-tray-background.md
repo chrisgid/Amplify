@@ -163,3 +163,35 @@ and `ShowTrayNotification`.
   2.4.1 source. The event raise and balloon are window/OS-bound, so they stay **manual** checks (no new
   unit tests); the feature-09 build exercises them end-to-end.
 - **Checks:** `dotnet build` clean, `dotnet test` green (203), `dotnet format` clean.
+
+## 2026-07-14 — Fix: no launch-at-startup during onboarding / after reset · fix/launch-at-startup-onboarding
+
+The app launched at Windows sign-in even before onboarding was complete — a fresh install opened once,
+and again after a reset or disconnect (all show the onboarding screen, from which Settings is
+unreachable, so there was no way to turn it off). Two independent defaults both pointed at "on" and
+neither was gated on onboarding: the manifest shipped the `StartupTask` `Enabled="true"` (which, per
+Microsoft docs, enables it the first time a packaged desktop app runs) and `AppSettings.LaunchAtStartup`
+defaulted to `true`. The launch-time reconcile only copied OS→settings; the only disable path was the
+Settings toggle.
+
+- **Default flipped to off.** `AppSettings.LaunchAtStartup` now defaults to `false` and the manifest
+  `StartupTask` ships `Enabled="false"`. This is a deliberate **deviation from the prototype's
+  "startup on" default** (`design/project`) — the product decision was default-off + explicit opt-in
+  after onboarding. `contracts.md` and features 08/10/12 updated to match.
+- **Onboarding gate + preference preservation.** `TrayService` now forces the OS entry **off whenever
+  the app is in the onboarding (not-connected) route** — at launch and on the reset/disconnect return
+  trip — *without* rewriting the stored preference, and **re-applies the stored preference on the
+  Onboarding→Main transition** (reconnect). So a disconnect keeps a user's launch-at-startup choice and
+  silently restores it on reconnect, while a reset (which resets settings to `false` first) genuinely
+  clears it. The transition is detected via a tracked previous route; the launch-while-onboarded path
+  keeps the existing OS-is-source-of-truth copy so Task-Manager overrides still win.
+- **Pure logic** lives in `StartupTaskReconciler.ShouldDisableForOnboarding` (on + user-configurable)
+  and `ShouldEnableForPreference` (pref on + currently off + user-configurable), both unit-tested;
+  respecting `IsUserConfigurable` means a `DisabledByUser`/policy entry is never fought.
+- **Verified** against Microsoft docs that `RequestEnableAsync`/`Disable()` are **silent (no consent
+  dialog) for a packaged desktop app** once launched once — so enabling from code on reconnect needs no
+  prompt. The startup-entry behaviour is OS-bound, so it stays a **manual** check (see the plan's
+  verification steps); pure reconciler logic and the settings-default change are unit-covered.
+- **Checks:** `dotnet build` clean (Core + WinUI App, `TreatWarningsAsErrors`), `dotnet test` green
+  (232), incl. new `ShouldDisableForOnboarding`/`ShouldEnableForPreference` theories and the flipped
+  `SettingsService` default assertions.

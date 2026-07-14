@@ -36,4 +36,31 @@ public class StartupTaskReconcilerTests
     public void ShouldPersistWhenStoredPreferenceDisagreesWithOsState(
         StartupState state, bool storedLaunchAtStartup, bool expected) =>
         Assert.Equal(expected, StartupTaskReconciler.ShouldPersist(state, storedLaunchAtStartup));
+
+    [Theory]
+    // Effectively on and the app may change it: disable so onboarding can't launch at sign-in.
+    [InlineData(StartupState.Enabled, true)]
+    // Already off, or fixed by the user/policy: nothing to (or nothing we may) turn off.
+    [InlineData(StartupState.Disabled, false)]
+    [InlineData(StartupState.DisabledByUser, false)]
+    [InlineData(StartupState.DisabledByPolicy, false)]
+    [InlineData(StartupState.EnabledByPolicy, false)]
+    public void ShouldDisableForOnboardingOnlyWhenOnAndConfigurable(StartupState state, bool expected) =>
+        Assert.Equal(expected, StartupTaskReconciler.ShouldDisableForOnboarding(state));
+
+    [Theory]
+    // Preference on, entry currently off, and the app may change it: re-enable on reconnect.
+    [InlineData(StartupState.Disabled, true, true)]
+    // Preference off: leave the entry alone.
+    [InlineData(StartupState.Disabled, false, false)]
+    // Already on: nothing to enable.
+    [InlineData(StartupState.Enabled, true, false)]
+    // Fixed off by the user or policy: respect that rather than forcing it back on.
+    [InlineData(StartupState.DisabledByUser, true, false)]
+    [InlineData(StartupState.DisabledByPolicy, true, false)]
+    // Forced on by policy: already effectively on, nothing to do.
+    [InlineData(StartupState.EnabledByPolicy, false, false)]
+    public void ShouldEnableForPreferenceOnlyWhenWantedAndConfigurablyOff(
+        StartupState state, bool storedLaunchAtStartup, bool expected) =>
+        Assert.Equal(expected, StartupTaskReconciler.ShouldEnableForPreference(state, storedLaunchAtStartup));
 }

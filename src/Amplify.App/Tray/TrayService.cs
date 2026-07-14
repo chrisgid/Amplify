@@ -34,6 +34,7 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
     private readonly ResourceLoader _strings = new();
 
     private TaskbarIcon? _trayIcon;
+    private ShellRoute _lastRoute;
     private bool _quitting;
     private bool _disposed;
 
@@ -105,6 +106,7 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
 
         // The tray persona only applies once the app is a background utility; while onboarding it's a
         // plain window, so the icon is hidden and follows the route from here on.
+        _lastRoute = _shell.CurrentRoute;
         ApplyTrayVisibility(_shell.CurrentRoute);
         _shell.RouteChanged += OnShellRouteChanged;
 
@@ -215,7 +217,25 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
     private bool IsOnboarding => _shell.CurrentRoute == ShellRoute.Onboarding;
 
     private void OnShellRouteChanged(object? sender, ShellRoute route) =>
-        _dispatcher.RunOnUi(() => ApplyTrayVisibility(route));
+        _dispatcher.RunOnUi(() =>
+        {
+            ShellRoute previous = _lastRoute;
+            _lastRoute = route;
+            ApplyTrayVisibility(route);
+
+            // Leaving onboarding for the main screen means the user just connected: restore the
+            // launch-at-startup preference that was preserved while onboarding. Returning to onboarding
+            // (a reset or disconnect) forces the startup entry off. Plain main<->settings navigation is
+            // neither, so it doesn't touch the startup entry.
+            if (route == ShellRoute.Onboarding)
+            {
+                _ = SafeReconcileAsync(ForceStartupOffForOnboardingAsync);
+            }
+            else if (route == ShellRoute.Main && previous == ShellRoute.Onboarding)
+            {
+                _ = SafeReconcileAsync(RestoreStartupPreferenceAsync);
+            }
+        });
 
     private void ApplyTrayVisibility(ShellRoute route)
     {
@@ -225,11 +245,69 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
         }
     }
 
+    // Runs a startup-entry reconcile that is fired and forgotten from a route change, so it has no
+    // caller to observe a failure: catch and log rather than leaking an unobserved faulted task.
+    private async Task SafeReconcileAsync(Func<Task> reconcile)
+    {
+        try
+        {
+            await reconcile();
+        }
+        catch (Exception ex)
+        {
+            LogStartupReconcileFailed(_logger, ex);
+        }
+    }
+
     private async Task ReconcileStartupStateAsync()
     {
-        // The OS is the source of truth for whether the app actually launches at sign-in (the user can
-        // change it in Task Manager), so bring the stored preference in line with reality at launch.
         StartupState state = await _startupTasks.GetStateAsync();
+
+        // Before onboarding is complete the app has no account and must not launch at sign-in, so force
+        // the entry off — but leave the stored preference untouched so it can be restored on connect.
+        // This also cleans up a fresh install (or an upgrade) whose entry was enabled by an old build.
+        if (IsOnboarding)
+        {
+            if (StartupTaskReconciler.ShouldDisableForOnboarding(state))
+            {
+                await _startupTasks.DisableAsync();
+            }
+
+            return;
+        }
+
+        // Onboarded: the OS is the source of truth for whether the app actually launches at sign-in (the
+        // user can change it in Task Manager/Settings), so bring the stored preference in line with it.
+        PersistToMatch(state);
+    }
+
+    // Onboarding was (re-)entered via a reset or disconnect: force the startup entry off so the app can't
+    // launch at sign-in while there is no account, without disturbing the stored preference.
+    private async Task ForceStartupOffForOnboardingAsync()
+    {
+        StartupState state = await _startupTasks.GetStateAsync();
+        if (StartupTaskReconciler.ShouldDisableForOnboarding(state))
+        {
+            await _startupTasks.DisableAsync();
+        }
+    }
+
+    // The user just connected: re-apply the preference that survived onboarding. If they had launch-at-
+    // startup on, silently re-enable the entry (no consent dialog for a packaged desktop app), then
+    // reflect whatever the OS actually allows back into settings (e.g. a Task-Manager override).
+    private async Task RestoreStartupPreferenceAsync()
+    {
+        StartupState state = await _startupTasks.GetStateAsync();
+        if (StartupTaskReconciler.ShouldEnableForPreference(state, _settings.Current.LaunchAtStartup))
+        {
+            state = await _startupTasks.TryEnableAsync();
+        }
+
+        PersistToMatch(state);
+    }
+
+    private void PersistToMatch(StartupState state)
+    {
         if (StartupTaskReconciler.ShouldPersist(state, _settings.Current.LaunchAtStartup))
         {
             _settings.Update(s => s.LaunchAtStartup = StartupTaskReconciler.ToToggleValue(state));
@@ -254,4 +332,7 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The system tray icon could not be created; the window remains the only access point.")]
     private static partial void LogTrayUnavailable(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Reconciling the launch-at-startup entry failed; it was left unchanged.")]
+    private static partial void LogStartupReconcileFailed(ILogger logger, Exception exception);
 }

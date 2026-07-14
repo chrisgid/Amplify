@@ -51,7 +51,8 @@ the app's shared `Resources.resw`** (localized strings) that every later screen 
 - [ ] All listed settings are present, use native controls, and apply immediately on change.
 - [ ] Settings persist across restarts and are loaded at startup before features initialise.
 - [ ] Changing a setting notifies interested features (e.g. theme, step size, startup) live.
-- [ ] Defaults match the prototype (tray/startup on; step 5%; theme = system).
+- [ ] Defaults match the documented values (tray on; **launch-at-startup off** — the user opts in
+      after onboarding, see [feature 08](./08-system-tray-background.md); step 5%; theme = system).
 - [ ] Back navigation returns to Main.
 - [ ] Stands up the shared **`Resources.resw`** and the `x:Uid`/`ResourceLoader` plumbing; the
       Settings screen's user-facing strings are sourced from it via `Settings_*`-prefixed keys (no
