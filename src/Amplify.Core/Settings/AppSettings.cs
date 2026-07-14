@@ -17,8 +17,13 @@ public sealed class AppSettings
     /// </summary>
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
-    /// <summary>Launch Amplify automatically when the user signs in to Windows.</summary>
-    public bool LaunchAtStartup { get; set; } = true;
+    /// <summary>
+    /// Launch Amplify automatically when the user signs in to Windows. Off by default: the app only
+    /// registers itself for startup once the user opts in from Settings, which is unreachable until
+    /// onboarding is complete — so a fresh install, a reset, or a disconnect never launches at sign-in
+    /// while there is no account set up.
+    /// </summary>
+    public bool LaunchAtStartup { get; set; }
 
     /// <summary>Open into the tray rather than showing the window on launch.</summary>
     public bool StartMinimizedToTray { get; set; } = true;

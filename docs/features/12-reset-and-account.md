@@ -32,7 +32,10 @@ destructive reset.
   [feature 10](./10-settings-persistence.md)). It is captured at onboarding
   ([feature 04](./04-onboarding.md)) and the **only** way to change it is a full Reset.
 - **Disconnect:** clears tokens and returns the app to the onboarding/not-connected state. It does
-  **not** clear the stored Client ID, so Reconnect can reuse it without re-entry.
+  **not** clear the stored Client ID, so Reconnect can reuse it without re-entry. Returning to
+  onboarding also forces the launch-at-startup entry **off** (the app must not launch at sign-in while
+  there's no account) but **preserves** the stored preference, so Reconnect silently restores it — see
+  [feature 08](./08-system-tray-background.md).
 - **Reset Amplify (danger):** row with a "Reset…" button → opens a **`ContentDialog`** confirming:
   "This removes your keyboard shortcuts and Client ID, and disconnects your Spotify account. You'll
   need to set up Amplify again. This can't be undone." with **Reset everything** (destructive) and
@@ -53,6 +56,8 @@ destructive reset.
 - [ ] Reset restores default shortcuts (`Ctrl+Alt+↑/↓`), default step (5%), and default settings,
       **clears the stored Client ID**, and disconnects Spotify.
 - [ ] After reset, the app behaves as first-run (routes to onboarding).
+- [ ] Neither Reset nor Disconnect leaves the OS launch-at-startup entry enabled while onboarding;
+      Reset clears the preference to off, Disconnect preserves it for a later Reconnect.
 - [ ] Cancel makes no changes.
 
 ## Implementation guidance

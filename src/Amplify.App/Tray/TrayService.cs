@@ -34,6 +34,16 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
     private readonly ResourceLoader _strings = new();
 
     private TaskbarIcon? _trayIcon;
+
+    // Reconciles run one after another (never overlapping) so a burst of route changes can't interleave
+    // the OS enable/disable calls; each link reads the live route + state, so the last one wins. Only
+    // ever touched on the UI thread (launch + marshalled route changes), so it needs no synchronisation.
+    private Task _reconcileChain = Task.CompletedTask;
+
+    // Whether the last handled route was the onboarding screen. The startup decision depends only on this
+    // (onboarding forces the entry off; connected applies the preference), so it's used to skip reconciles
+    // for route changes that don't cross the onboarding boundary — e.g. plain main<->settings navigation.
+    private bool _wasOnboarding;
     private bool _quitting;
     private bool _disposed;
 
@@ -72,7 +82,7 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
     public async Task OnLaunchedAsync(CancellationToken ct)
     {
         Initialize();
-        await ReconcileStartupStateAsync();
+        await ReconcileStartupAsync();
     }
 
     /// <inheritdoc />
@@ -105,6 +115,7 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
 
         // The tray persona only applies once the app is a background utility; while onboarding it's a
         // plain window, so the icon is hidden and follows the route from here on.
+        _wasOnboarding = IsOnboarding;
         ApplyTrayVisibility(_shell.CurrentRoute);
         _shell.RouteChanged += OnShellRouteChanged;
 
@@ -215,7 +226,24 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
     private bool IsOnboarding => _shell.CurrentRoute == ShellRoute.Onboarding;
 
     private void OnShellRouteChanged(object? sender, ShellRoute route) =>
-        _dispatcher.RunOnUi(() => ApplyTrayVisibility(route));
+        _dispatcher.RunOnUi(() =>
+        {
+            ApplyTrayVisibility(route);
+
+            // The startup decision depends only on whether the app is onboarding, so only reconcile when
+            // that actually changes — a connect (onboarding -> main) or a disconnect/reset (-> onboarding).
+            // Plain main<->settings navigation can't change it, so it doesn't spend a StartupTask lookup.
+            bool onboarding = route == ShellRoute.Onboarding;
+            if (onboarding == _wasOnboarding)
+            {
+                return;
+            }
+
+            _wasOnboarding = onboarding;
+
+            // The reconcile reads the live route itself, so this fire-and-forget call needs no argument.
+            _ = ReconcileStartupAsync();
+        });
 
     private void ApplyTrayVisibility(ShellRoute route)
     {
@@ -225,11 +253,50 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
         }
     }
 
-    private async Task ReconcileStartupStateAsync()
+    // Queues a reconcile onto the serialized chain and returns its task (the launch path awaits it; route
+    // changes fire and forget). Runs on the UI thread, so appending to the chain needs no lock.
+    private Task ReconcileStartupAsync()
     {
-        // The OS is the source of truth for whether the app actually launches at sign-in (the user can
-        // change it in Task Manager), so bring the stored preference in line with reality at launch.
-        StartupState state = await _startupTasks.GetStateAsync();
+        _reconcileChain = RunReconcileAfterAsync(_reconcileChain);
+        return _reconcileChain;
+    }
+
+    private async Task RunReconcileAfterAsync(Task previous)
+    {
+        // Wait for the previous reconcile to finish before touching the entry. Every link catches its own
+        // failure below, so this task never faults and awaiting the predecessor can't throw or break the
+        // chain — the reads below then see the settled route and the entry's actual state.
+        await previous;
+
+        try
+        {
+            // Snapshot the live route: while onboarding the off-state is app-imposed, so the stored
+            // preference is preserved (and restored on connect); once onboarded the OS is the source of
+            // truth, so settings are synced to it.
+            bool onboarding = IsOnboarding;
+            StartupState state = await _startupTasks.GetStateAsync();
+
+            state = StartupTaskReconciler.DecideReconcile(onboarding, state, _settings.Current.LaunchAtStartup) switch
+            {
+                // RequestEnableAsync/Disable are silent for a packaged desktop app, so no consent dialog.
+                StartupAction.Enable => await _startupTasks.TryEnableAsync(),
+                StartupAction.Disable => await _startupTasks.DisableAsync(),
+                _ => state,
+            };
+
+            if (!onboarding)
+            {
+                PersistToMatch(state);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogStartupReconcileFailed(_logger, ex);
+        }
+    }
+
+    private void PersistToMatch(StartupState state)
+    {
         if (StartupTaskReconciler.ShouldPersist(state, _settings.Current.LaunchAtStartup))
         {
             _settings.Update(s => s.LaunchAtStartup = StartupTaskReconciler.ToToggleValue(state));
@@ -254,4 +321,7 @@ public sealed partial class TrayService : ITrayService, IStartupInitializer, IDi
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The system tray icon could not be created; the window remains the only access point.")]
     private static partial void LogTrayUnavailable(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Reconciling the launch-at-startup entry failed; it was left unchanged.")]
+    private static partial void LogStartupReconcileFailed(ILogger logger, Exception exception);
 }
