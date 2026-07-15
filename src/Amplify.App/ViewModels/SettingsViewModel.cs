@@ -313,7 +313,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         catch (InvalidOperationException)
         {
             // No package identity (unpackaged run): fall back to a placeholder version.
-            return "1.0.0";
+            return "0.0.0";
         }
     }
 }

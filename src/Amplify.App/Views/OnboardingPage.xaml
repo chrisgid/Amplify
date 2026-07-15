@@ -7,28 +7,27 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <ScrollViewer Padding="24,16,24,24">
+    <ScrollViewer Padding="24,10,24,0">
         <StackPanel
-            MaxWidth="520"
+            MaxWidth="800"
             HorizontalAlignment="Stretch"
             Spacing="12">
 
-            <!-- Welcome -->
-            <TextBlock x:Uid="Onboarding_Title" Style="{StaticResource TitleTextBlockStyle}" />
+            <!-- Welcome: a short screen title, styled like the section titles that head the cards on
+                 the other screens (SemiBold body-strong). -->
             <TextBlock
-                x:Uid="Onboarding_Tagline"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource BodyTextBlockStyle}"
-                TextWrapping="Wrap" />
+                x:Uid="Onboarding_Title"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
+                TextWrapping="Wrap"
+                Margin="1,12,0,0"/>
 
             <!-- Setup guide -->
             <Border
-                Margin="0,8,0,0"
                 Padding="16"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="8">
+                CornerRadius="4">
                 <StackPanel Spacing="10">
                     <TextBlock Style="{StaticResource BodyTextBlockStyle}" TextWrapping="Wrap">
                         <Run x:Uid="Onboarding_Step1_Prefix" /><Hyperlink NavigateUri="{x:Bind ViewModel.DashboardUri}"><Run x:Uid="Onboarding_Step1_Link" /></Hyperlink><Run x:Uid="Onboarding_Step1_Suffix" />
@@ -44,7 +43,7 @@
                         </Grid.ColumnDefinitions>
                         <Border
                             Grid.Column="0"
-                            Padding="10,6"
+                            Padding="10,8"
                             Background="{ThemeResource ControlFillColorDefaultBrush}"
                             CornerRadius="4">
                             <TextBlock

@@ -94,3 +94,21 @@
   - **`SettingsCard` wraps its content below the header when narrower than `SettingsCardWrapThreshold`
     = 476px** (and collapses the icon below `SettingsCardWrapNoIconThreshold` = 286px); both are
     overridable `x:Double` theme resources, but here the layout was widened instead of overriding them.
+
+- **PR — UI refinement · feat/ui-visual-refinements (2026-07-15)**
+  - **Deviations from spec/contracts:** none (view-model/persistence unchanged).
+  - **Grouped startup settings (design decision):** "Launch at startup" and "Start minimized to the
+    tray" are now one connected, **always-visible** group — start-minimized only takes effect when the
+    app launches at startup, so it sits indented beneath the launch toggle and is disabled (greyed)
+    whenever `LaunchAtStartup` is off (`IsEnabled="{x:Bind ViewModel.LaunchAtStartup}"`, distinct from
+    the parent toggle's own `LaunchAtStartupConfigurable` gate). **Deliberately not a
+    `SettingsExpander`:** the toolkit has no supported "non-collapsible" flag and hiding its chevron
+    needs undocumented template internals, so the grouped look is hand-built from two `SettingsCard`s —
+    squared inner corners (`4,4,0,0` / `0,0,4,4`), a `-1` top margin so their borders merge into one
+    unit, and the child indented via the toolkit's own `SettingsCardLeftIndention` (`40`) resource.
+    This keeps the second setting always discoverable, which was the goal.
+  - **In-page header removed:** the Settings screen's title + back button moved into the window title
+    bar (see build-notes 01); `MaxWidth` raised 520→800 to match the other screens. The
+    `Settings_Back` resource string is now unused but left in place.
+  - **Checks:** build 0/0, `dotnet test` 244 passed. Visual grouping/indent is a manual check (no UI
+    run this session).
