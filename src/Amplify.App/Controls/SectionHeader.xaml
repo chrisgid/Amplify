@@ -16,10 +16,9 @@
         is present.
     -->
     <StackPanel Margin="1,16,0,6">
-        <TextBlock
-            FontWeight="SemiBold"
-            Style="{StaticResource BodyStrongTextBlockStyle}"
-            Text="{x:Bind Title, Mode=OneWay}" />
+        <!-- BodyStrongTextBlockStyle is already SemiBold, so no local FontWeight — this header
+             follows the style if its weight is ever retuned. -->
+        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind Title, Mode=OneWay}" />
         <!-- Collapses to zero height when no subtitle is supplied, so title-only sections are unaffected. -->
         <ContentPresenter Content="{x:Bind Subtitle, Mode=OneWay}" />
     </StackPanel>

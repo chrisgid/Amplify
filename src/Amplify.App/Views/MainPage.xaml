@@ -208,7 +208,7 @@
                 <!-- Keyboard shortcuts: two rebindable rows in cards, headed by the title + shared
                      status line (hint/prompt, or a conflict message). -->
                 <StackPanel Spacing="4">
-                    <controls:SectionHeader x:Uid="Hotkey_SectionTitle" Margin="0,0,0,0">
+                    <controls:SectionHeader x:Uid="Hotkey_SectionTitle">
                         <!-- Subtitle: the shared status line — secondary for hint/prompt, caution for a
                              conflict message (only one shows at a time). -->
                         <StackPanel>

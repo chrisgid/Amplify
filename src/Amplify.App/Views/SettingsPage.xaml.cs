@@ -9,12 +9,12 @@ namespace Amplify.App.Views;
 /// <summary>
 /// Settings screen: groups the user preferences into native cards bound to <see cref="SettingsViewModel"/>,
 /// shows the connected account with its disconnect/reconnect action and a read-only view of the
-/// stored Client ID, gates the destructive reset behind a confirmation dialog, and routes back to the
-/// main screen. All user-facing text comes from the shared resource file via <c>x:Uid</c> / the view-model.
+/// stored Client ID, and gates the destructive reset behind a confirmation dialog. Back navigation
+/// lives in the window title bar (see <c>MainWindow</c>), not here. All user-facing text comes from
+/// the shared resource file via <c>x:Uid</c> / the view-model.
 /// </summary>
 public sealed partial class SettingsPage : Page
 {
-    private readonly ShellViewModel _shell;
     private readonly ResourceLoader _strings = new();
 
     public SettingsPage()
@@ -22,14 +22,11 @@ public sealed partial class SettingsPage : Page
         // Resolve the view-model before InitializeComponent so x:Bind (including one-time bindings)
         // sees it as the bindings are wired up.
         ViewModel = App.Services.GetRequiredService<SettingsViewModel>();
-        _shell = App.Services.GetRequiredService<ShellViewModel>();
         InitializeComponent();
     }
 
     /// <summary>The bound settings view-model; public so generated <c>x:Bind</c> code can read it.</summary>
     public SettingsViewModel ViewModel { get; }
-
-    private void OnBackClick(object sender, RoutedEventArgs e) => _shell.GoBackCommand.Execute(null);
 
     // Reset is destructive and can't be undone, so it's gated behind a native confirmation dialog; the
     // view-model's reset only runs when the user picks the primary action.

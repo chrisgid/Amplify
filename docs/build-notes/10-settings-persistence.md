@@ -108,7 +108,8 @@
     unit, and the child indented via the toolkit's own `SettingsCardLeftIndention` (`40`) resource.
     This keeps the second setting always discoverable, which was the goal.
   - **In-page header removed:** the Settings screen's title + back button moved into the window title
-    bar (see build-notes 01); `MaxWidth` raised 520→800 to match the other screens. The
-    `Settings_Back` resource string is now unused but left in place.
+    bar (see build-notes 01); `MaxWidth` raised 520→800 to match the other screens. The now-unused
+    `Settings_Back` resource strings and the orphaned `OnBackClick` handler + `_shell` field were
+    removed in the ui-visual-refinements branch.
   - **Checks:** build 0/0, `dotnet test` 244 passed. Visual grouping/indent is a manual check (no UI
     run this session).
