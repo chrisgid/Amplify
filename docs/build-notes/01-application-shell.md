@@ -396,7 +396,8 @@ restores its last footprint on subsequent launches.
   (Not the `SectionHeader` control: its baked-in card-gap margin is tuned for the 4px-spacing card lists;
   onboarding's looser 12px spacing already gives the right gap, so only the text style was matched.)
   The onboarding `ScrollViewer` also lost its bottom padding (24→0) to match the other screens.
-- **Manual/integration checks:** none run this session (no UI run); visual verification of the
-  title-bar swap, the MainPage footer settings button, the `SectionHeader` layout (esp. that the
-  `x:Uid`→`Title` localization resolves at runtime), the onboarding heading, the card reorder, and the
-  checkmark placement is deferred to a manual pass. Build 0/0, `dotnet test` 244 passed.
+- **Manual/integration checks:** build 0/0, `dotnet test` 244 passed. UI verified by the user on a
+  packaged run — the seven `SectionHeader` instances all render their titles, confirming
+  **`x:Uid` populates a custom dependency property (`Title`) at runtime**, which had been the one
+  runtime-unverifiable assumption behind the control. The title-bar swap, MainPage footer settings
+  button, onboarding heading, card reorder, and checkmark placement were part of the same visual pass.

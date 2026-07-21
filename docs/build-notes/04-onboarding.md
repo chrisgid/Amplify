@@ -180,6 +180,8 @@ Eight review findings, all addressed:
   - `dotnet build Amplify.slnx -c Release -p:Platform=x64` → **0 warnings, 0 errors**.
   - `dotnet test --filter "Category!=RequiresSpotify"` → **244 passed**. No test churn: the
     onboarding view-model lives in `Amplify.App` and was never covered by the Core-only suite.
-  - **Not verified at runtime (deferred manual check):** that the template resolves, the storyboard
-    is found by `GetTemplateChild`, and the animation reads correctly in light/dark. This session
-    cannot launch the packaged app.
+  - **Verified on a packaged run (by the user):** the implicit style attaches, the storyboard is
+    found by `GetTemplateChild` and plays, and the copy button announces to screen readers —
+    confirming `x:Uid` sets the custom `CopiedMessage` dependency property. (The light/dark contrast
+    of the animation itself was not separately called out; the brushes are standard framework
+    `Button*` theme resources, so it follows the platform.)
