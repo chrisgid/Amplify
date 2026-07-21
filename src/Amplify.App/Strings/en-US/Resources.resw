@@ -244,6 +244,9 @@
   <data name="Onboarding_CopyRedirectUri.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
     <value>Copy redirect URI</value>
   </data>
+  <data name="Onboarding_CopyRedirectUri.CopiedMessage" xml:space="preserve">
+    <value>Redirect URI copied to clipboard</value>
+  </data>
   <data name="Onboarding_OwnApp_Caption.Text" xml:space="preserve">
     <value>Due to the unlikelihood of Spotify ever approving Amplify to move out of development mode, you are required to set up your own development mode app registration inside Spotify's developer dashboard. By doing so you are agreeing to </value>
   </data>

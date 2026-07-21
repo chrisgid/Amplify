@@ -79,6 +79,24 @@ under an OSI-approved **permissive** licence compatible with MIT:
   maintaining a bundled **third-party notices** file in the repo/package.
 - Add a `LICENSE` (MIT) file at the repo root.
 
+### Vendored source (copied code, not a package)
+
+Occasionally the right answer is to copy a source file rather than take a dependency — e.g. a
+control from a sample repo that ships no package. The licence rules above apply **unchanged**: the
+same permissive-only allowlist, checked before copying. Three things additionally hold, because
+copied code is invisible to every tool that watches dependencies:
+
+- **Prefer a package.** Vendoring has **no upgrade path** — nothing restores it, no audit lists it,
+  and an upstream fix only lands if someone deliberately ports it. Copy only when there is no
+  package, and keep the copy small.
+- **Attribution is per-file.** MIT and BSD require the copyright and permission notice travel with
+  the source, so each copied file carries a header naming its origin, copyright holder, licence,
+  and what was modified. Record it in [`THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md) under
+  **Vendored source**, kept separate from the package table.
+- **Pin the upstream link to a commit SHA, not a branch.** A `main` link drifts and stops
+  evidencing what was actually copied — which is the only thing that makes a future re-sync
+  diffable. For the same reason, keep upstream's filenames and file layout where practical.
+
 ## 4. Configuration & the per-user Client ID model
 
 **Amplify does not ship a Spotify Client ID.** A single shipped app would hit Spotify's

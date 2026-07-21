@@ -19,6 +19,30 @@ below, each under its own licence. This file collects the required attribution/n
 | NSubstitute | BSD-3-Clause | https://github.com/nsubstitute/NSubstitute |
 | Castle.Core (via NSubstitute) | Apache-2.0 | https://github.com/castleproject/Core |
 
+Source copied into this repository, rather than referenced as a package, is listed separately under
+[Vendored source](#vendored-source) — it will not appear in any package or dependency audit, so it
+has to be tracked by hand.
+
+---
+
+## Vendored source
+
+These files were copied into Amplify and modified. They are not dependencies: nothing restores or
+upgrades them, so any upstream fix has to be ported deliberately. Each file carries a header comment
+naming its origin, its copyright holder, its licence, and what was changed. The rules for adding to
+this list are in the
+[vendored source policy](./docs/getting-started.md#vendored-source-copied-code-not-a-package).
+
+| Amplify file | Copied from | Upstream commit | Licence |
+| --- | --- | --- | --- |
+| `src/Amplify.App/Controls/CopyButton.cs` | `WinUIGallery/Controls/CopyButton.xaml.cs` in [microsoft/WinUI-Gallery](https://github.com/microsoft/WinUI-Gallery) | [`29f6247`](https://github.com/microsoft/WinUI-Gallery/blob/29f62479d5c046a0b854a5868e5a7cd484572d87/WinUIGallery/Controls/CopyButton.xaml.cs) | MIT |
+| `src/Amplify.App/Controls/CopyButton.xaml` | `WinUIGallery/Controls/CopyButton.xaml` in [microsoft/WinUI-Gallery](https://github.com/microsoft/WinUI-Gallery) | [`29f6247`](https://github.com/microsoft/WinUI-Gallery/blob/29f62479d5c046a0b854a5868e5a7cd484572d87/WinUIGallery/Controls/CopyButton.xaml) | MIT |
+
+Both are `Copyright (c) Microsoft Corporation`, licensed under the MIT License reproduced below.
+
+> Commit links are pinned to a SHA, not a branch: a `main` link drifts and stops evidencing what was
+> actually copied. Re-pin if the files are ever re-synced from upstream.
+
 ---
 
 ## MIT-licensed components
