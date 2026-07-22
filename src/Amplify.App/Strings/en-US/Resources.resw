@@ -117,28 +117,22 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="Settings_Back.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
-    <value>Back</value>
-  </data>
-  <data name="Settings_Back.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
-    <value>Back</value>
-  </data>
   <data name="Settings_Title.Text" xml:space="preserve">
     <value>Settings</value>
   </data>
-  <data name="Settings_General_Header.Text" xml:space="preserve">
+  <data name="Settings_General_Header.Title" xml:space="preserve">
     <value>General</value>
   </data>
-  <data name="Settings_Appearance_Header.Text" xml:space="preserve">
+  <data name="Settings_Appearance_Header.Title" xml:space="preserve">
     <value>Appearance</value>
   </data>
-  <data name="Settings_Volume_Header.Text" xml:space="preserve">
+  <data name="Settings_Volume_Header.Title" xml:space="preserve">
     <value>Volume</value>
   </data>
-  <data name="Settings_Account_Header.Text" xml:space="preserve">
+  <data name="Settings_Account_Header.Title" xml:space="preserve">
     <value>Account</value>
   </data>
-  <data name="Settings_Reset_Header.Text" xml:space="preserve">
+  <data name="Settings_Reset_Header.Title" xml:space="preserve">
     <value>Reset</value>
   </data>
   <data name="Settings_LaunchStartup.Header" xml:space="preserve">
@@ -184,7 +178,7 @@
     <value>Spotify Client ID</value>
   </data>
   <data name="Settings_ClientId.Description" xml:space="preserve">
-    <value>From your Spotify Developer app. Reset Amplify to change it.</value>
+    <value>Disconnect your account or reset Amplify to change it</value>
   </data>
   <data name="Settings_ClientId_NotSet" xml:space="preserve">
     <value>Not set</value>
@@ -224,9 +218,6 @@
     <value>Your volume shortcuts keep working. This is a one-time notification that won't be shown again.</value>
   </data>
   <data name="Onboarding_Title.Text" xml:space="preserve">
-    <value>Amplify</value>
-  </data>
-  <data name="Onboarding_Tagline.Text" xml:space="preserve">
     <value>Set up your Spotify connection</value>
   </data>
   <data name="Onboarding_Step3.Text" xml:space="preserve">
@@ -246,6 +237,9 @@
   </data>
   <data name="Onboarding_CopyRedirectUri.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
     <value>Copy redirect URI</value>
+  </data>
+  <data name="Onboarding_CopyRedirectUri.CopiedMessage" xml:space="preserve">
+    <value>Redirect URI copied to clipboard</value>
   </data>
   <data name="Onboarding_OwnApp_Caption.Text" xml:space="preserve">
     <value>Due to the unlikelihood of Spotify ever approving Amplify to move out of development mode, you are required to set up your own development mode app registration inside Spotify's developer dashboard. By doing so you are agreeing to </value>
@@ -342,17 +336,20 @@
   <data name="Hotkey_Footer_Hint" xml:space="preserve">
     <value>Shortcuts work globally, even when Amplify is in the background.</value>
   </data>
-  <data name="Hotkey_SectionTitle.Text" xml:space="preserve">
+  <data name="Hotkey_SectionTitle.Title" xml:space="preserve">
     <value>Keyboard shortcuts</value>
   </data>
   <data name="Hotkey_Listening.Text" xml:space="preserve">
     <value>Listening…</value>
   </data>
-  <data name="Volume_SectionTitle.Text" xml:space="preserve">
+  <data name="Volume_SectionTitle.Title" xml:space="preserve">
     <value>Spotify</value>
   </data>
   <data name="Volume_Header.Header" xml:space="preserve">
     <value>Volume</value>
+  </data>
+  <data name="Main_SettingsButton.Text" xml:space="preserve">
+    <value>Settings</value>
   </data>
   <data name="Tray_Tooltip" xml:space="preserve">
     <value>Amplify</value>

@@ -22,9 +22,6 @@ namespace Amplify.App.ViewModels;
 /// </summary>
 public sealed partial class OnboardingViewModel : ObservableObject
 {
-    // How long the copy-to-clipboard chip shows its "Copied" glyph before reverting.
-    private static readonly TimeSpan _copyFeedbackDuration = TimeSpan.FromSeconds(1.5);
-
     private readonly IAuthService _auth;
     private readonly ISettingsService _settings;
     private readonly OnboardingFlow _flow = new();
@@ -34,17 +31,6 @@ public sealed partial class OnboardingViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string ClientId { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial bool RedirectUriCopied { get; set; }
-
-    /// <summary>The inverse of <see cref="RedirectUriCopied"/>, for the chip's idle-glyph visibility.</summary>
-    /// <remarks>
-    /// Kept as a real property rather than negating <see cref="RedirectUriCopied"/> inline in XAML —
-    /// <c>x:Bind</c>'s parser does not accept a leading <c>!</c> in a property path (confirmed: it
-    /// fails to compile), so there is no shorter equivalent here.
-    /// </remarks>
-    public bool RedirectUriNotCopied => !RedirectUriCopied;
 
     public OnboardingViewModel(
         IAuthService auth,
@@ -188,16 +174,16 @@ public sealed partial class OnboardingViewModel : ObservableObject
         _flow.Cancel();
     }
 
+    /// <summary>
+    /// Copies the redirect URI to the clipboard. The "copied" confirmation is the view's concern —
+    /// <c>CopyButton</c> animates itself on click — so no feedback state is tracked here.
+    /// </summary>
     [RelayCommand]
-    private async Task CopyRedirectUriAsync()
+    private void CopyRedirectUri()
     {
         var package = new DataPackage();
         package.SetText(RedirectUri);
         Clipboard.SetContent(package);
-
-        RedirectUriCopied = true;
-        await Task.Delay(_copyFeedbackDuration);
-        RedirectUriCopied = false;
     }
 
     partial void OnClientIdChanged(string value)
@@ -206,8 +192,6 @@ public sealed partial class OnboardingViewModel : ObservableObject
         OnPropertyChanged(nameof(HelperText));
         ConnectCommand.NotifyCanExecuteChanged();
     }
-
-    partial void OnRedirectUriCopiedChanged(bool value) => OnPropertyChanged(nameof(RedirectUriNotCopied));
 
     private void NotifyFlowChanged()
     {

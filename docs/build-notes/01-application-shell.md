@@ -341,3 +341,63 @@ restores its last footprint on subsequent launches.
   (first-run/off-screen) path still uses the construction monitor's DPI, which is correct because the
   window opens there. `WindowPlacement` and its tests are unchanged — it's now simply fed the correct
   minimum. Re-verified: build 0/0, `dotnet test` 203 passed, `dotnet format` clean.
+
+## 2026-07-15 — UI refinement: route-aware title bar · feat/ui-visual-refinements
+- **Deviations from spec/contracts:** none (no contract touched).
+- **Change:** the shared `TitleBar` is now **route-aware**, set in `MainWindow.NavigateTo` via a new
+  `ApplyTitleBar(route)`. On the **Settings** route it shows the screen title + the control's built-in
+  back button and clears the icon; every other route restores the app name + logo and hides the back
+  button. The Settings screen dropped its own in-page header (title + back button) accordingly — that
+  UI now lives in the window chrome, so the back navigation has two entry points (title-bar button and
+  the shell's existing `GoBackCommand`) that share one path.
+- **Verified facts:** confirmed via `microsoft-docs` that `Microsoft.UI.Xaml.Controls.TitleBar`
+  (WinAppSDK 2.2) exposes `IsBackButtonVisible` / `IsBackButtonEnabled` and a `BackRequested`
+  (`TypedEventHandler<TitleBar, object>`) event — the Fluent-standard back button, no custom chrome.
+  `AppTitleBar.BackRequested` is subscribed in the ctor and detached in `Dispose`. The default
+  identity (icon `IconSource` + `Title`) is captured from XAML **once** before the first navigation so
+  it can be restored; the Settings title is reused from the existing `Settings_Title.Text` resource via
+  `ResourceLoader.GetString("Settings_Title/Text")` (the `.`→`/` scoped-resource lookup) rather than
+  adding a duplicate string.
+- **MainPage chrome:** removed the redundant in-page "Amplify" title (the title bar already shows it).
+  Content `MaxWidth` raised 520→800 (window default stays 600, so it only widens when the user resizes).
+- **MainPage layout reorder (same session, later tweak):** the "Spotify" section title
+  (`Volume_SectionTitle`) heads the connected-status card, and the **volume card** moved to directly
+  beneath it (the transient connecting/error `InfoBar`s follow), grouping the account status + volume
+  control under the shared Spotify title. The success **check** glyph moved from beside the account name
+  to sit with the green "Connected" label; the account name is left-aligned. MainPage `ScrollViewer`
+  bottom padding dropped (24→0) to match the Settings screen.
+- **Settings shortcut — final placement is a standard footer button, bottom-right (MainPage).** It's a
+  right-aligned `Button` (a gear icon + "Settings" label, `Main_SettingsButton.Text`); it uses
+  the default button chrome (visible fill + border at rest) so it reads against the Mica background
+  without hovering; it's wired to the shell's `GoToSettingsCommand`. (An earlier
+  transparent "subtle footer link" styling was dropped — it was invisible until hovered.) Two earlier
+  placements were also trialled and dropped by preference:
+  a top-right transparent `CommandBar` on its own row, and the cog **in the title bar** via
+  `AppTitleBar.RightHeader` (made flush by overriding `TitleBarRightHeaderVerticalAlignment` → `Stretch`
+  and `TitleBarMinDragRegionWidth` → `0` in `<TitleBar.Resources>`, read from the 2.2.1 `generic.xaml`).
+  The title bar now hosts only the app identity + route-aware back button.
+- **Reusable `SectionHeader` control (`Controls/SectionHeader.xaml`).** Factored the page's "title +
+  optional subtitle before a card" pattern into a small `UserControl`: a `Title` string DP (localizable
+  via `x:Uid` with a `<uid>.Title` resw key — the two MainPage keys were renamed `.Text`→`.Title`) and a
+  `Subtitle` content DP (the `[ContentProperty]`, so the subtitle is nested as child content). Its inner
+  `StackPanel` bakes in the whole section rhythm via `Margin="1,16,0,6"` — 16px above to separate it from
+  the previous section, a 1px left inset, and 6px below (which, with the host panel's 4px spacing, gives
+  the standard ~10px title-to-card gap) — so callers just drop the control in without their own margins,
+  whether or not a subtitle is present; the subtitle sits directly under the title with no gap beyond
+  line height, and its `ContentPresenter` collapses to zero height when empty.
+  MainPage's "Spotify" (title-only) and "Keyboard shortcuts" (title + the hotkey status line as subtitle)
+  headers use it, as do all five Settings per-section titles (General/Appearance/Volume/Account/Reset,
+  all title-only) — their `Settings_*_Header` resw keys were likewise renamed `.Text`→`.Title`.
+- **Onboarding heading simplified.** Dropped the large "Amplify" `TitleTextBlockStyle` heading (the
+  window title bar already shows the app name) and promoted the tagline ("Set up your Spotify
+  connection") to the screen's title, restyled `BodyStrongTextBlockStyle` to match the section titles
+  above the cards on the other screens. The now-unused `Onboarding_Title` resw entry was removed, and the
+  setup-guide card's extra 8px top margin dropped so the title sits above it at the page's 12px rhythm.
+  (Not the `SectionHeader` control: its baked-in card-gap margin is tuned for the 4px-spacing card lists;
+  onboarding's looser 12px spacing already gives the right gap, so only the text style was matched.)
+  The onboarding `ScrollViewer` also lost its bottom padding (24→0) to match the other screens.
+- **Manual/integration checks:** build 0/0, `dotnet test` 244 passed. UI verified by the user on a
+  packaged run — the seven `SectionHeader` instances all render their titles, confirming
+  **`x:Uid` populates a custom dependency property (`Title`) at runtime**, which had been the one
+  runtime-unverifiable assumption behind the control. The title-bar swap, MainPage footer settings
+  button, onboarding heading, card reorder, and checkmark placement were part of the same visual pass.

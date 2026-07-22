@@ -10,7 +10,9 @@ using Amplify.Core.Windowing;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.Windows.ApplicationModel.Resources;
 using Windows.Graphics;
 
 namespace Amplify.App;
@@ -27,14 +29,20 @@ public sealed partial class MainWindow : Window, IDisposable
     // control below the text once they're narrower than ~476px, so the content area is kept above
     // that, and the minimum width holds the same floor while staying resizable.
     private const int _initialWidth = 600;
-    private const int _initialHeight = 760;
-    private const int _minWidth = 560;
-    private const int _minHeight = 480;
+    private const int _initialHeight = 564;
+    private const int _minWidth = 600;
+    private const int _minHeight = 564;
 
     private readonly ShellViewModel _shell;
     private readonly PlayerStateProvider _playerState;
     private readonly ThemeService _theme;
     private readonly ISettingsService _settings;
+
+    // The default title-bar identity (app name + logo), captured from XAML so it can be swapped for the
+    // Settings screen's own title + back button and restored on the way back.
+    private readonly IconSource? _appTitleBarIcon;
+    private readonly string _appTitle;
+    private readonly string _settingsTitle;
 
     // The window's last normal footprint (device pixels), captured as the user moves/resizes and
     // written back to settings when the window is put away or closed. Null until the first change.
@@ -54,6 +62,11 @@ public sealed partial class MainWindow : Window, IDisposable
         _settings = settings;
         InitializeComponent();
 
+        // Capture the default title-bar identity before a route can swap it for the Settings variant.
+        _appTitleBarIcon = AppTitleBar.IconSource;
+        _appTitle = AppTitleBar.Title;
+        _settingsTitle = new ResourceLoader().GetString("Settings_Title/Text");
+
         ConfigureWindowChrome();
         ApplyTheme();
 
@@ -65,6 +78,8 @@ public sealed partial class MainWindow : Window, IDisposable
         _shell.RouteChanged += OnShellRouteChanged;
         _theme.ThemeChanged += OnThemeChanged;
         VisibilityChanged += OnVisibilityChanged;
+        // The title bar's built-in back button drives the same back navigation as the on-screen route.
+        AppTitleBar.BackRequested += OnTitleBarBackRequested;
         // Subscribed after the initial placement so only user-driven moves/resizes are remembered.
         AppWindow.Changed += OnAppWindowChanged;
         Closed += OnClosed;
@@ -183,6 +198,8 @@ public sealed partial class MainWindow : Window, IDisposable
 
     private void NavigateTo(ShellRoute route)
     {
+        ApplyTitleBar(route);
+
         switch (route)
         {
             case ShellRoute.Onboarding:
@@ -210,6 +227,18 @@ public sealed partial class MainWindow : Window, IDisposable
                 break;
         }
     }
+
+    // The Settings screen shows its title and a back button in the window title bar (replacing the app
+    // name + logo); every other route restores the default identity and hides the back button.
+    private void ApplyTitleBar(ShellRoute route)
+    {
+        bool isSettings = route == ShellRoute.Settings;
+        AppTitleBar.IsBackButtonVisible = isSettings;
+        AppTitleBar.Title = isSettings ? _settingsTitle : _appTitle;
+        AppTitleBar.IconSource = isSettings ? null : _appTitleBarIcon;
+    }
+
+    private void OnTitleBarBackRequested(TitleBar sender, object args) => _shell.GoBackCommand.Execute(null);
 
     // Minimising fires this with Visible=false (and restoring with true) — used to pause the shared
     // Spotify player-state polling while nobody can see it, and to read once on the way back so the
@@ -282,6 +311,7 @@ public sealed partial class MainWindow : Window, IDisposable
         _shell.RouteChanged -= OnShellRouteChanged;
         _theme.ThemeChanged -= OnThemeChanged;
         VisibilityChanged -= OnVisibilityChanged;
+        AppTitleBar.BackRequested -= OnTitleBarBackRequested;
         AppWindow.Changed -= OnAppWindowChanged;
     }
 
