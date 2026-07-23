@@ -13,7 +13,7 @@ public sealed class SpotifyTokenClientTests
         StubHttpMessageHandler handler = Ok("""{ "access_token": "new-access", "expires_in": 3600 }""");
         SpotifyTokenClient client = CreateClient(handler);
 
-        await client.RefreshAsync("client-123", "refresh-abc");
+        await client.RefreshAsync("client-123", "refresh-abc", TestContext.Current.CancellationToken);
 
         string body = Assert.Single(handler.Bodies)!;
         Assert.Equal(SpotifyOAuthConstants.TokenEndpoint, handler.Requests[0].RequestUri?.ToString());
@@ -28,7 +28,7 @@ public sealed class SpotifyTokenClientTests
         SpotifyTokenClient client = CreateClient(
             Ok("""{ "access_token": "a", "refresh_token": "rotated", "expires_in": 3600 }"""));
 
-        TokenSet tokens = await client.RefreshAsync("cid", "old");
+        TokenSet tokens = await client.RefreshAsync("cid", "old", TestContext.Current.CancellationToken);
 
         Assert.Equal("a", tokens.AccessToken);
         Assert.Equal("rotated", tokens.RefreshToken);
@@ -39,7 +39,7 @@ public sealed class SpotifyTokenClientTests
     {
         SpotifyTokenClient client = CreateClient(Ok("""{ "access_token": "a", "expires_in": 3600 }"""));
 
-        TokenSet tokens = await client.RefreshAsync("cid", "keep-me");
+        TokenSet tokens = await client.RefreshAsync("cid", "keep-me", TestContext.Current.CancellationToken);
 
         Assert.Null(tokens.RefreshToken);
     }
@@ -50,7 +50,12 @@ public sealed class SpotifyTokenClientTests
         StubHttpMessageHandler handler = Ok("""{ "access_token": "a", "expires_in": 3600 }""");
         SpotifyTokenClient client = CreateClient(handler);
 
-        await client.ExchangeCodeAsync("cid", "http://127.0.0.1:49737/callback", "the-code", "the-verifier");
+        await client.ExchangeCodeAsync(
+            "cid",
+            "http://127.0.0.1:49737/callback",
+            "the-code",
+            "the-verifier",
+            TestContext.Current.CancellationToken);
 
         string body = Assert.Single(handler.Bodies)!;
         Assert.Contains("grant_type=authorization_code", body, StringComparison.Ordinal);
@@ -73,7 +78,7 @@ public sealed class SpotifyTokenClientTests
             return Task.CompletedTask;
         });
 
-        TokenSet tokens = await client.RefreshAsync("cid", "rt");
+        TokenSet tokens = await client.RefreshAsync("cid", "rt", TestContext.Current.CancellationToken);
 
         Assert.Equal("after-retry", tokens.AccessToken);
         Assert.Equal(2, handler.Requests.Count);
@@ -94,7 +99,7 @@ public sealed class SpotifyTokenClientTests
             return Task.CompletedTask;
         });
 
-        await client.RefreshAsync("cid", "rt");
+        await client.RefreshAsync("cid", "rt", TestContext.Current.CancellationToken);
 
         // "Retry-After: 0" must be honoured as zero delay, not fall through to the exponential backoff.
         Assert.Equal(TimeSpan.Zero, Assert.Single(delays));
@@ -105,7 +110,7 @@ public sealed class SpotifyTokenClientTests
     {
         SpotifyTokenClient client = CreateClient(Ok("""{ "display_name": "Jane Doe" }"""));
 
-        Account account = await client.GetAccountAsync("token");
+        Account account = await client.GetAccountAsync("token", TestContext.Current.CancellationToken);
 
         Assert.Equal("Jane Doe", account.DisplayName);
         Assert.Equal("JD", account.Initials);
@@ -116,7 +121,7 @@ public sealed class SpotifyTokenClientTests
     {
         SpotifyTokenClient client = CreateClient(Ok("""{ }"""));
 
-        Account account = await client.GetAccountAsync("token");
+        Account account = await client.GetAccountAsync("token", TestContext.Current.CancellationToken);
 
         Assert.Equal("Spotify user", account.DisplayName);
     }
@@ -127,7 +132,7 @@ public sealed class SpotifyTokenClientTests
         StubHttpMessageHandler handler = Ok("""{ "display_name": "A" }""");
         SpotifyTokenClient client = CreateClient(handler);
 
-        await client.GetAccountAsync("tok-xyz");
+        await client.GetAccountAsync("tok-xyz", TestContext.Current.CancellationToken);
 
         Assert.Equal(SpotifyOAuthConstants.CurrentUserEndpoint, handler.Requests[0].RequestUri?.ToString());
         Assert.Equal("Bearer", handler.Requests[0].Headers.Authorization?.Scheme);
