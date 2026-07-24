@@ -3,8 +3,11 @@
   <!--
     xunit v3 (package `xunit.v3`); the v2 `xunit` metapackage is deprecated. v3 test projects are
     standalone executables that host their own runner, so OutputType must be Exe. Keeping
-    Microsoft.NET.Test.Sdk + xunit.runner.visualstudio 3.x runs them under VSTest as before, so
-    the `dotnet test` filter in CI behaves exactly as it did on v2.
+    Microsoft.NET.Test.Sdk + xunit.runner.visualstudio 3.x runs them under VSTest rather than
+    switching to the Microsoft.Testing.Platform runner xunit.v3 now ships, so the CI `dotnet test`
+    command line still works unchanged. Note the trait filter that command passes is currently a
+    no-op: no [Trait] attribute exists anywhere in the suite, so its behaviour under the v3 adapter
+    is untested — see docs/build-notes/02-ci-pr-tests.md.
   -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>

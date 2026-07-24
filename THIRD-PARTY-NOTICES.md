@@ -14,8 +14,9 @@ below, each under its own licence. This file collects the required attribution/n
 | CommunityToolkit.Mvvm | MIT | https://github.com/CommunityToolkit/dotnet |
 | CommunityToolkit.WinUI.Controls.SettingsControls | MIT | https://github.com/CommunityToolkit/Windows |
 | H.NotifyIcon.WinUI | MIT | https://github.com/HavenDV/H.NotifyIcon |
-| xunit | Apache-2.0 | https://github.com/xunit/xunit |
+| xunit.v3 | Apache-2.0 | https://github.com/xunit/xunit |
 | xunit.runner.visualstudio | MIT | https://github.com/xunit/visualstudio.xunit |
+| Microsoft.Testing.Platform (via xunit.v3) | MIT | https://github.com/microsoft/testfx |
 | NSubstitute | BSD-3-Clause | https://github.com/nsubstitute/NSubstitute |
 | Castle.Core (via NSubstitute) | Apache-2.0 | https://github.com/castleproject/Core |
 
@@ -48,8 +49,8 @@ Both are `Copyright (c) Microsoft Corporation`, licensed under the MIT License r
 ## MIT-licensed components
 
 Microsoft.WindowsAppSDK, Microsoft.Extensions.*, CommunityToolkit.Mvvm,
-CommunityToolkit.WinUI.Controls.SettingsControls, H.NotifyIcon.WinUI, and
-xunit.runner.visualstudio are distributed under the MIT License:
+CommunityToolkit.WinUI.Controls.SettingsControls, H.NotifyIcon.WinUI,
+xunit.runner.visualstudio, and Microsoft.Testing.Platform are distributed under the MIT License:
 
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
@@ -72,15 +73,18 @@ Refer to each project's repository for its exact copyright lines.
 
 ---
 
-## Apache-2.0 components — xunit, Castle.Core
+## Apache-2.0 components — xunit.v3, Castle.Core
 
 These components are licensed under the Apache License, Version 2.0. You may obtain a copy of the
 licence at: http://www.apache.org/licenses/LICENSE-2.0
 
 Apache-2.0 §4(d) only requires reproducing an upstream `NOTICE` file when one is distributed. As of
-the referenced versions, neither xunit nor Castle.Core ships a `NOTICE` file — each provides only the
-Apache-2.0 `LICENSE` (Castle.Core additionally restates it as `ASL - Apache Software Foundation
-License.txt`) — so there is no additional NOTICE text to reproduce. Re-check on upgrade.
+the referenced versions, neither xunit.v3 nor Castle.Core ships a `NOTICE` file — so there is no
+additional NOTICE text to reproduce. Castle.Core provides only the Apache-2.0 `LICENSE` (additionally
+restated as `ASL - Apache Software Foundation License.txt`); the eight xunit.v3 3.2.2 nupkgs that
+restore (`xunit.v3`, `.assert`, `.common`, `.core.mtp-v1`, `.extensibility.core`, `.mtp-v1`,
+`.runner.common`, `.runner.inproc.console`) carry no licence file at all, only the `Apache-2.0` SPDX
+expression in their nuspec — each was inspected on the v2 → v3 upgrade. Re-check on upgrade.
 
 ---
 

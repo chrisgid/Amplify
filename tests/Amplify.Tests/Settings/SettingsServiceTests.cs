@@ -30,6 +30,10 @@ public sealed class SettingsServiceTests : IDisposable
 
     private SettingsService NewService() => new(_dir, NullLogger<SettingsService>.Instance);
 
+    // xunit v3 wants the test's own cancellation token on every awaited call (xUnit1051); aliased
+    // so the file's file-IO one-liners stay one-liners.
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
     // A migrator that bumps the volume step so its effect is visible after load.
     private sealed class StepMigrator(int fromVersion) : ISettingsMigrator
     {
@@ -191,7 +195,7 @@ public sealed class SettingsServiceTests : IDisposable
         SettingsService service = NewService();
         await service.LoadAsync();
 
-        string json = await File.ReadAllTextAsync(_file, TestContext.Current.CancellationToken);
+        string json = await File.ReadAllTextAsync(_file, Ct);
         int schemaIndex = json.IndexOf("\"schemaVersion\"", StringComparison.Ordinal);
         int volumeIndex = json.IndexOf("\"volumeStep\"", StringComparison.Ordinal);
 
@@ -202,7 +206,7 @@ public sealed class SettingsServiceTests : IDisposable
     [Fact]
     public async Task CorruptFileRecoversToDefaultsAndBacksUp()
     {
-        await File.WriteAllTextAsync(_file, "{ this is not valid json", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(_file, "{ this is not valid json", Ct);
 
         SettingsService service = NewService();
         await service.LoadAsync();
@@ -211,7 +215,7 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.True(File.Exists(Path.Combine(_dir, "settings.corrupt.bak")));
 
         // The clean file is valid JSON again.
-        string rewritten = await File.ReadAllTextAsync(_file, TestContext.Current.CancellationToken);
+        string rewritten = await File.ReadAllTextAsync(_file, Ct);
         Assert.NotNull(JsonNode.Parse(rewritten));
     }
 
@@ -230,8 +234,7 @@ public sealed class SettingsServiceTests : IDisposable
     public async Task NewerVersionFileResetsToDefaultsAndBacksUp()
     {
         // currentVersion = 1, file claims v2 (a downgrade scenario).
-        await File.WriteAllTextAsync(
-            _file, "{ \"schemaVersion\": 2, \"volumeStep\": 20 }", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(_file, "{ \"schemaVersion\": 2, \"volumeStep\": 20 }", Ct);
 
         var service = new SettingsService(_dir, NullLogger<SettingsService>.Instance, [], 1);
         await service.LoadAsync();
@@ -243,8 +246,7 @@ public sealed class SettingsServiceTests : IDisposable
     [Fact]
     public async Task OlderVersionFileMigratesAndBacksUp()
     {
-        await File.WriteAllTextAsync(
-            _file, "{ \"schemaVersion\": 1, \"volumeStep\": 3 }", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(_file, "{ \"schemaVersion\": 1, \"volumeStep\": 3 }", Ct);
 
         var service = new SettingsService(
             _dir, NullLogger<SettingsService>.Instance, [new StepMigrator(1)], 2);
@@ -262,10 +264,7 @@ public sealed class SettingsServiceTests : IDisposable
     [InlineData(-5, 1)]
     public async Task OutOfRangeVolumeStepIsClampedOnLoad(int stored, int expected)
     {
-        await File.WriteAllTextAsync(
-            _file,
-            $"{{ \"schemaVersion\": 1, \"volumeStep\": {stored} }}",
-            TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(_file, $"{{ \"schemaVersion\": 1, \"volumeStep\": {stored} }}", Ct);
 
         SettingsService service = NewService();
         await service.LoadAsync();
@@ -276,8 +275,7 @@ public sealed class SettingsServiceTests : IDisposable
     [Fact]
     public async Task MigratedOutOfRangeVolumeStepIsClamped()
     {
-        await File.WriteAllTextAsync(
-            _file, "{ \"schemaVersion\": 1, \"volumeStep\": 3 }", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(_file, "{ \"schemaVersion\": 1, \"volumeStep\": 3 }", Ct);
 
         // The migrator pushes the step out of range; the load must still clamp it.
         var service = new SettingsService(
@@ -290,8 +288,7 @@ public sealed class SettingsServiceTests : IDisposable
     [Fact]
     public async Task ThrowingMigratorResetsToDefaults()
     {
-        await File.WriteAllTextAsync(
-            _file, "{ \"schemaVersion\": 1, \"volumeStep\": 3 }", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(_file, "{ \"schemaVersion\": 1, \"volumeStep\": 3 }", Ct);
 
         var service = new SettingsService(
             _dir, NullLogger<SettingsService>.Instance, [new ThrowingMigrator(1)], 2);

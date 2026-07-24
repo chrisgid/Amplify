@@ -192,3 +192,46 @@ entry above against [spec §5](../specification.md#5-design-principles--engineer
   log from inside the log writer itself, hence swallow-with-comment rather than log.)
 - **Manual/integration checks:** `dotnet build … -c Release -p:Platform=x64` → **0 warnings, 0 errors**;
   `dotnet test … --filter "Category!=RequiresSpotify"` → **221 passed**.
+
+## 2026-07-24 — xunit v2 → v3 · branch `chore/upgrade-xunit-v3`
+
+The v2 `xunit` metapackage is deprecated on NuGet. Upgraded to `xunit.v3` — note this is a **package
+rename, not an in-place version bump**, so the `PackageReference` id changes and the old id stops
+restoring entirely.
+
+- **Versions that resolve:** `xunit.v3` **3.2.2** + `xunit.runner.visualstudio` **3.1.5** on
+  `net10.0`. v3 fans out into eight nupkgs (`xunit.v3`, `.assert`, `.common`, `.core.mtp-v1`,
+  `.extensibility.core`, `.mtp-v1`, `.runner.common`, `.runner.inproc.console`) plus
+  `xunit.analyzers` 1.27.0, and newly pulls in **Microsoft.Testing.Platform 1.9.1** and
+  **Microsoft.Testing.Platform.MSBuild 1.9.1** (MIT) transitively. All are recorded in
+  [THIRD-PARTY-NOTICES.md](../../THIRD-PARTY-NOTICES.md); none ships a `NOTICE` file, so the
+  Apache-2.0 §4(d) note there still holds — each was inspected rather than assumed.
+- **`<OutputType>Exe</OutputType>` is required.** v3 test projects are standalone executables that
+  host their own runner; without it the project builds but produces no runnable test host.
+- **Kept Microsoft.NET.Test.Sdk + VSTest; did not switch to the Microsoft.Testing.Platform runner**
+  that xunit.v3 now ships. Retaining the VSTest adapter means `.github/workflows/ci.yml` needs no
+  change at all — same `dotnet test` invocation, same arguments. MTP is the eventual direction and
+  the packages are already restored, so the switch is available later as its own change; bundling it
+  here would have made a mechanical upgrade a behavioural one.
+- **No v3 breaking API was in use** — the suite has no `Xunit.Abstractions`, `ITestOutputHelper`,
+  `IAsyncLifetime`, class/collection fixtures, or `async void` tests, so the migration touched no
+  test logic.
+- **The real churn was analyzer, not API:** v3 ships
+  [xUnit1051](https://xunit.net/xunit.analyzers/rules/xUnit1051) (pass the test's own cancellation
+  token to any call that accepts one), which `TreatWarningsAsErrors=true` turns into hard build
+  errors. 17 call sites in `SpotifyTokenClientTests` and `SettingsServiceTests` now pass
+  `TestContext.Current.CancellationToken`; `SettingsServiceTests` aliases it to a `Ct` property so
+  its file-IO one-liners stay one-liners. The six `CancellationToken.None` sites in
+  `SpotifyAuthorizationHandlerTests`/`RateLimitHandlerTests` were moved over too, for one convention
+  across the suite. **Note:** xUnit1051 does *not* fire on an explicit `CancellationToken.None`, only
+  on an omitted/defaulted argument — so a clean build is not evidence the suite is uniformly
+  cancellable. ~23 `CancellationToken.None` sites remain in `VolumeControllerTests`,
+  `NotificationServiceTests` and `StartupInitializerRunnerTests`, untouched here.
+- **Known gap, pre-existing:** `ci.yml` runs `--filter "Category!=RequiresSpotify"` and its comment
+  says live-Spotify tests are tagged `[Trait("Category", "RequiresSpotify")]`, but **no `[Trait]`
+  attribute exists anywhere in the repo** — the filter has always been a no-op and excludes nothing.
+  This upgrade did not fix that and, because nothing is tagged, did not exercise trait-filter
+  behaviour under the v3 adapter either (v2 and v3 adapters differ here). Anyone adding a
+  live-Spotify test must verify the exclusion actually works rather than trusting the comment.
+- **Manual/integration checks:** `dotnet build Amplify.slnx -c Release -p:Platform=x64` →
+  **0 warnings, 0 errors**; `dotnet test … --filter "Category!=RequiresSpotify"` → **244 passed**.
