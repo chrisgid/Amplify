@@ -14,7 +14,7 @@ public sealed class SpotifyAuthorizationHandlerTests
         var inner = new StubHttpMessageHandler((_, _) => new HttpResponseMessage(HttpStatusCode.OK));
 
         using HttpMessageInvoker invoker = CreateInvoker(provider, inner);
-        await invoker.SendAsync(Request(), CancellationToken.None);
+        await invoker.SendAsync(Request(), TestContext.Current.CancellationToken);
 
         Assert.Equal("Bearer", inner.Requests[0].Headers.Authorization?.Scheme);
         Assert.Equal("access-1", inner.Requests[0].Headers.Authorization?.Parameter);
@@ -31,7 +31,7 @@ public sealed class SpotifyAuthorizationHandlerTests
             new HttpResponseMessage(attempt == 1 ? HttpStatusCode.Unauthorized : HttpStatusCode.OK));
 
         using HttpMessageInvoker invoker = CreateInvoker(provider, inner);
-        HttpResponseMessage response = await invoker.SendAsync(Request(), CancellationToken.None);
+        HttpResponseMessage response = await invoker.SendAsync(Request(), TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(2, inner.Requests.Count);
@@ -48,7 +48,7 @@ public sealed class SpotifyAuthorizationHandlerTests
         var inner = new StubHttpMessageHandler((_, _) => new HttpResponseMessage(HttpStatusCode.NotFound));
 
         using HttpMessageInvoker invoker = CreateInvoker(provider, inner);
-        HttpResponseMessage response = await invoker.SendAsync(Request(), CancellationToken.None);
+        HttpResponseMessage response = await invoker.SendAsync(Request(), TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Single(inner.Requests);
@@ -69,7 +69,7 @@ public sealed class SpotifyAuthorizationHandlerTests
         {
             Content = new StringContent("the-body"),
         };
-        await invoker.SendAsync(request, CancellationToken.None);
+        await invoker.SendAsync(request, TestContext.Current.CancellationToken);
 
         // The retry must carry the original body, not an empty one.
         Assert.Equal(2, inner.Bodies.Count);

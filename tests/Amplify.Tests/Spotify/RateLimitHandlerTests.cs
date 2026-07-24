@@ -15,7 +15,7 @@ public sealed class RateLimitHandlerTests
             attempt == 1 ? Throttled(DateTimeOffset.UtcNow - TimeSpan.FromSeconds(1)) : Ok());
 
         using HttpMessageInvoker invoker = CreateInvoker(inner);
-        HttpResponseMessage response = await invoker.SendAsync(Request(), CancellationToken.None);
+        HttpResponseMessage response = await invoker.SendAsync(Request(), TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(2, inner.Requests.Count);
@@ -27,7 +27,7 @@ public sealed class RateLimitHandlerTests
         var inner = new StubHttpMessageHandler((_, _) => Throttled(DateTimeOffset.UtcNow - TimeSpan.FromSeconds(1)));
 
         using HttpMessageInvoker invoker = CreateInvoker(inner);
-        HttpResponseMessage response = await invoker.SendAsync(Request(), CancellationToken.None);
+        HttpResponseMessage response = await invoker.SendAsync(Request(), TestContext.Current.CancellationToken);
 
         // The final 429 is surfaced rather than looping forever: 1 initial attempt + 3 retries.
         Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);

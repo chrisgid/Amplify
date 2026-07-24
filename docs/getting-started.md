@@ -58,7 +58,7 @@ Amplify.slnx              # XML solution format (the .NET 10 SDK default; VS 202
 | `CommunityToolkit.Mvvm` | `ObservableObject`, `RelayCommand` | MIT |
 | `CommunityToolkit.WinUI.Controls.SettingsControls` | `SettingsCard`/`SettingsExpander` | MIT |
 | `H.NotifyIcon.WinUI` | system tray icon + menu | MIT |
-| `xunit`, `xunit.runner.visualstudio` | unit tests | Apache-2.0 / MIT |
+| `xunit.v3`, `xunit.runner.visualstudio` | unit tests | Apache-2.0 / MIT |
 | `NSubstitute` | mocking in tests | BSD-3-Clause (pulls in Castle.Core, Apache-2.0) |
 
 No third-party Spotify SDK and no third-party logging sink (see §5). Avoid adding dependencies
