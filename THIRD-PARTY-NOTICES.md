@@ -16,7 +16,7 @@ below, each under its own licence. This file collects the required attribution/n
 | H.NotifyIcon.WinUI | MIT | https://github.com/HavenDV/H.NotifyIcon |
 | xunit.v3 | Apache-2.0 | https://github.com/xunit/xunit |
 | xunit.runner.visualstudio | MIT | https://github.com/xunit/visualstudio.xunit |
-| Microsoft.Testing.Platform (via xunit.v3) | MIT | https://github.com/microsoft/testfx |
+| Microsoft.Testing.Platform.* (Platform, MSBuild; via xunit.v3) | MIT | https://github.com/microsoft/testfx |
 | NSubstitute | BSD-3-Clause | https://github.com/nsubstitute/NSubstitute |
 | Castle.Core (via NSubstitute) | Apache-2.0 | https://github.com/castleproject/Core |
 
@@ -50,7 +50,7 @@ Both are `Copyright (c) Microsoft Corporation`, licensed under the MIT License r
 
 Microsoft.WindowsAppSDK, Microsoft.Extensions.*, CommunityToolkit.Mvvm,
 CommunityToolkit.WinUI.Controls.SettingsControls, H.NotifyIcon.WinUI,
-xunit.runner.visualstudio, and Microsoft.Testing.Platform are distributed under the MIT License:
+xunit.runner.visualstudio, and Microsoft.Testing.Platform.* are distributed under the MIT License:
 
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
