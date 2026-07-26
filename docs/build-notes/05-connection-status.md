@@ -165,3 +165,22 @@ treatment, and one functional gap:
   behaviour, one owner. The provider runs as an `IStartupInitializer` (Order 250) so it begins
   polling at launch independent of which screen is shown. `StatusPresentation` and its tests are
   untouched.
+
+## 2026-07-25 — Device line explains a device that can't be volume-controlled (feature 07 fix)
+
+- **Why:** feature 07 now disables the volume card when the active device reports it can't take
+  volume commands (see [`build-notes/07`](./07-volume-control.md)). Without a message the card is
+  simply dead with a named device sitting above it, which reads as a bug.
+- **Where the copy went:** the existing device line, not a new `InfoBar` — the warning-styled
+  `Status_NoActiveDevice` InfoBar was deliberately removed in the 2026-06-26 entry below and is not
+  coming back. `DeviceLineText` is now a three-way switch: no device → `Status_DeviceLine_NoActiveDevice`
+  (unchanged); controllable → the plain device name (unchanged); uncontrollable → new
+  `Status_DeviceLine_VolumeNotSupported` ("{0} · volume control not supported"), formatted with
+  `CultureInfo.CurrentCulture`. The card keeps its green check either way — this is a device
+  capability, not a connection problem.
+- **`StatusPresentation` gained `DeviceSupportsVolume`** (false both when there's no device and when
+  the device can't set volume) so the branch rule stays unit-tested outside WinUI, matching how
+  `HasActiveDevice`/`DeviceName` already work.
+- **Note for a future session:** this feature's doc still describes the yellow warning triangle and
+  no-active-device `InfoBar` that were removed in June; only the device-line bullets have been
+  brought in line with the code.

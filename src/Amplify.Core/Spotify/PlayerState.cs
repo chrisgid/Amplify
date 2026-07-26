@@ -6,7 +6,17 @@ namespace Amplify.Core.Spotify;
 /// volume and name, while a <c>204 No Content</c> means nothing is playing — surfaced here as
 /// <see cref="HasActiveDevice"/> being <c>false</c> rather than as an error.
 /// </summary>
-/// <param name="HasActiveDevice">Whether Spotify has an active device that can be controlled.</param>
+/// <param name="HasActiveDevice">
+/// Whether Spotify has an active device. Presence alone doesn't mean its volume can be changed — see
+/// <paramref name="SupportsVolume"/>.
+/// </param>
 /// <param name="VolumePercent">The active device's volume, 0–100 (0 when there is no device).</param>
 /// <param name="DeviceName">The active device's display name, or <c>null</c> when there is none.</param>
-public sealed record PlayerState(bool HasActiveDevice, int VolumePercent, string? DeviceName);
+/// <param name="SupportsVolume">
+/// Whether the active device accepts volume commands. <c>false</c> when Spotify reports the device
+/// can't be used to set the volume, or that it refuses Web API commands altogether — both mean a
+/// volume call would be rejected, so the control is disabled up front rather than after a failed
+/// write. Always <c>false</c> when there is no active device.
+/// </param>
+public sealed record PlayerState(
+    bool HasActiveDevice, int VolumePercent, string? DeviceName, bool SupportsVolume);

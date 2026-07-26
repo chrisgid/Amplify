@@ -35,8 +35,8 @@ the slider/buttons. Each hotkey press changes volume by the configurable **step 
   (optional; keep subtle and native).
 - **Step size** is 1–25% (default 5%), configured in Settings
   ([10](./10-settings-persistence.md)).
-- The card is **disabled/dimmed** when not connected or when there is no active device — i.e.
-  whenever `IVolumeController.CanControl` is false.
+- The card is **disabled/dimmed** when not connected, when there is no active device, or when the
+  active device can't be volume-controlled — i.e. whenever `IVolumeController.CanControl` is false.
 - Volume **0 = muted** (reflect with the muted speaker glyph).
 - **Active device only:** Amplify always targets Spotify's **current active device**. There is
   **no device picker** — the user selects/switches devices in Spotify itself; Amplify just follows
@@ -50,8 +50,9 @@ the slider/buttons. Each hotkey press changes volume by the configurable **step 
 - [ ] Volume is applied to the active device via
       `PUT /v1/me/player/volume?volume_percent={n}` (confirm shape via OpenAPI).
 - [ ] Current volume is read from `GET /v1/me/player` on load and kept in sync.
-- [ ] When disconnected or with no active device, the control is disabled with clear messaging (the
-      no-active-device notice is owned by [feature 05](./05-connection-status.md)).
+- [ ] When disconnected, with no active device, or with an active device that can't be
+      volume-controlled, the control is disabled with clear messaging (the notice is owned by
+      [feature 05](./05-connection-status.md)).
 - [ ] 429/5xx responses are handled with backoff and don't desync the UI.
 
 ## Implementation guidance
@@ -84,6 +85,11 @@ the slider/buttons. Each hotkey press changes volume by the configurable **step 
   `ISpotifyClient` (the single source of this signal; see [`../contracts.md`](../contracts.md)).
   The user-facing messaging for it is owned by [feature 05](./05-connection-status.md); this
   feature only gates the control.
+- **Active device that can't be volume-controlled** (e.g. a TV or receiver) → disable control the
+  same way, reading **`PlayerState.SupportsVolume`**. This is a *proactive* check: without it the
+  card sits enabled at the device's reported level (often 100%), every write is rejected, and the
+  control flickers off and back on with each poll. `CanControl` is therefore
+  `connected && HasActiveDevice && SupportsVolume`.
 - **Device becomes active while minimised** → the shared poll is suspended when the window isn't
   visible, so `CanControl` can be stale. A hotkey nudge that arrives while `!CanControl` (but
   connected) first triggers a single **on-demand read** (which works while suspended) and, if a
@@ -97,8 +103,9 @@ the slider/buttons. Each hotkey press changes volume by the configurable **step 
 - **Volume call rejected (`403`)** → a restriction means the device isn't controllable right now:
   revert the optimistic value and surface the same no-device/can't-control guidance
   ([feature 05](./05-connection-status.md)). There is **no** Premium pre-check (the API no longer
-  reports subscription level, and Premium is enforced upstream) — the `403`/`404` reactive path is
-  the whole story.
+  reports subscription level, and Premium is enforced upstream). With `SupportsVolume` checked up
+  front this is now the **backstop** for a device that reports itself controllable and still refuses
+  the write, rather than the primary path.
 - **Rapid presses** → coalesce to the latest target; clamp at bounds (no wrap-around).
 - **API failure** → revert optimistic value; show error; keep hotkeys responsive.
 - **External change** (volume changed in Spotify) → reconcile on next read.
@@ -117,9 +124,12 @@ the slider/buttons. Each hotkey press changes volume by the configurable **step 
 - Step math: `NudgeAsync` clamps at 0 and 100; respects configured step; direction sign correct.
 - Coalescing/debounce keeps only the latest target under rapid input.
 - Optimistic update reverts on API failure (mock `ISpotifyClient`).
-- `CanControl` gating: false when disconnected or when no active device. A nudge while disconnected
-  is a no-op with no read; a nudge while connected but with no known device does one throttled
-  on-demand read and only applies if that read finds a device.
+- `CanControl` gating: false when disconnected, when no active device, or when the active device
+  doesn't support volume. A nudge while disconnected is a no-op with no read; a nudge while connected
+  but with nothing controllable does one throttled on-demand read and only applies if that read finds
+  a controllable device.
+- A device that reports it can't set volume never enables the control, and a poll reporting one does
+  not undo a `403` revert.
 - 429 handling backs off and honours `Retry-After`.
 - Muted state at volume 0.
 

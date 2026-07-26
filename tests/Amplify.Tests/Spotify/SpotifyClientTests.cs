@@ -17,6 +17,7 @@ public sealed class SpotifyClientTests
         Assert.False(state.HasActiveDevice);
         Assert.Equal(0, state.VolumePercent);
         Assert.Null(state.DeviceName);
+        Assert.False(state.SupportsVolume);
     }
 
     [Fact]
@@ -24,7 +25,13 @@ public sealed class SpotifyClientTests
     {
         const string json = """
             {
-              "device": { "is_active": true, "name": "Kitchen speaker", "volume_percent": 42 },
+              "device": {
+                "is_active": true,
+                "name": "Kitchen speaker",
+                "volume_percent": 42,
+                "supports_volume": true,
+                "is_restricted": false
+              },
               "is_playing": true
             }
             """;
@@ -36,6 +43,75 @@ public sealed class SpotifyClientTests
         Assert.True(state.HasActiveDevice);
         Assert.Equal(42, state.VolumePercent);
         Assert.Equal("Kitchen speaker", state.DeviceName);
+        Assert.True(state.SupportsVolume);
+    }
+
+    [Fact]
+    public async Task GetPlayerStateReportsADeviceThatCannotSetVolume()
+    {
+        // The device is active and reports a level (typically 100), but won't accept volume commands —
+        // the control has to know that before it tries to write.
+        const string json = """
+            {
+              "device": {
+                "is_active": true,
+                "name": "Living room TV",
+                "volume_percent": 100,
+                "supports_volume": false,
+                "is_restricted": false
+              }
+            }
+            """;
+        (SpotifyClient client, _) = CreateClient(_ => JsonResponse(json));
+
+        PlayerState? state = await client.GetPlayerStateAsync();
+
+        Assert.NotNull(state);
+        Assert.True(state.HasActiveDevice);
+        Assert.Equal(100, state.VolumePercent);
+        Assert.False(state.SupportsVolume);
+    }
+
+    [Fact]
+    public async Task GetPlayerStateReportsARestrictedDeviceAsUncontrollable()
+    {
+        // A restricted device refuses every Web API command, so a volume write would fail the same way.
+        const string json = """
+            {
+              "device": {
+                "is_active": true,
+                "name": "Some receiver",
+                "volume_percent": 55,
+                "supports_volume": true,
+                "is_restricted": true
+              }
+            }
+            """;
+        (SpotifyClient client, _) = CreateClient(_ => JsonResponse(json));
+
+        PlayerState? state = await client.GetPlayerStateAsync();
+
+        Assert.NotNull(state);
+        Assert.True(state.HasActiveDevice);
+        Assert.False(state.SupportsVolume);
+    }
+
+    [Fact]
+    public async Task GetPlayerStateAssumesControllableWhenTheFlagsAreAbsent()
+    {
+        // Missing booleans deserialise to false, which would wrongly disable the control for any
+        // payload that omits them — absent means "assume controllable" and let a rejected write decide.
+        const string json = """
+            {
+              "device": { "is_active": true, "name": "Kitchen speaker", "volume_percent": 42 }
+            }
+            """;
+        (SpotifyClient client, _) = CreateClient(_ => JsonResponse(json));
+
+        PlayerState? state = await client.GetPlayerStateAsync();
+
+        Assert.NotNull(state);
+        Assert.True(state.SupportsVolume);
     }
 
     [Fact]

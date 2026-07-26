@@ -1,3 +1,4 @@
+using System.Globalization;
 using Amplify.Core.Auth;
 using Amplify.Core.ConnectionStatus;
 using Amplify.Core.Spotify;
@@ -63,10 +64,22 @@ public sealed partial class StatusViewModel : ObservableObject
     /// <summary>The active device's label, or <c>null</c> when there is none.</summary>
     public string? DeviceName => Presentation.DeviceName;
 
-    /// <summary>The card's device line: the active device's name, or a "no active device" hint.</summary>
-    public string DeviceLineText => HasActiveDevice
-        ? DeviceName ?? string.Empty
-        : _strings.GetString("Status_DeviceLine_NoActiveDevice");
+    /// <summary>Whether the active device accepts volume commands.</summary>
+    public bool DeviceSupportsVolume => Presentation.DeviceSupportsVolume;
+
+    /// <summary>
+    /// The card's device line: the active device's name, a "no active device" hint, or — for a device
+    /// that can't be volume-controlled — the name plus why the volume control is dimmed.
+    /// </summary>
+    public string DeviceLineText => (HasActiveDevice, DeviceSupportsVolume) switch
+    {
+        (false, _) => _strings.GetString("Status_DeviceLine_NoActiveDevice"),
+        (true, true) => DeviceName ?? string.Empty,
+        (true, false) => string.Format(
+            CultureInfo.CurrentCulture,
+            _strings.GetString("Status_DeviceLine_VolumeNotSupported"),
+            DeviceName),
+    };
 
     /// <summary>The "Connected" label shown beside the card.</summary>
     public string ConnectedLabelText => _strings.GetString("Status_Connected_Label");
@@ -133,6 +146,7 @@ public sealed partial class StatusViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(HasActiveDevice));
         OnPropertyChanged(nameof(DeviceName));
+        OnPropertyChanged(nameof(DeviceSupportsVolume));
         OnPropertyChanged(nameof(DeviceLineText));
     }
 

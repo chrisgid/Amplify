@@ -33,6 +33,10 @@ public enum HotkeyAction { VolumeUp, VolumeDown }                 // feature 06
 > "No active device" is **not** a `ConnectionState` — it is `PlayerState.HasActiveDevice` (below).
 > Feature 05 owns its messaging; feature 07 gates the volume control on it.
 >
+> **Presence is not the same as controllability.** Some active devices can't have their volume set
+> at all. The signal feature 07 gates on is `HasActiveDevice && SupportsVolume`; feature 05 names the
+> device either way and says which of the two cases applies.
+>
 > **There is no Free-vs-Premium distinction in the app.** Amplify requires Premium, but the Web API
 > no longer exposes subscription level (the `product` field was removed), and Spotify enforces
 > Premium upstream — each user runs their **own** developer app, and a Development-mode app requires
@@ -59,7 +63,11 @@ public sealed record Account(
 public sealed record PlayerState(
     bool   HasActiveDevice,
     int    VolumePercent,   // 0..100
-    string? DeviceName);    // active device label, null/empty when none
+    string? DeviceName,     // active device label, null/empty when none
+    bool   SupportsVolume); // device accepts volume commands; false when there is no device.
+                            // Mapped from the device object's supports_volume && !is_restricted —
+                            // a device reporting either would reject a volume write, so the control
+                            // is gated on this rather than on presence alone.
 
 // A global shortcut (feature 06). Canonical string form e.g. "ctrl+alt+arrowup".
 public sealed record Hotkey(
@@ -198,7 +206,7 @@ public interface IHotkeyService
 public interface IVolumeController
 {
     int Volume { get; }                          // last known 0..100
-    bool CanControl { get; }                      // connected + HasActiveDevice
+    bool CanControl { get; }                      // connected + HasActiveDevice + SupportsVolume
     Task SetVolumeAsync(int percent);
     Task NudgeAsync(int direction);              // +1 / -1 * step, clamped 0..100. When !CanControl but
                                                  // connected, does one throttled on-demand read first to
