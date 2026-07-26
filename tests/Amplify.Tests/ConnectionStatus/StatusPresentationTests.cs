@@ -88,10 +88,12 @@ public class StatusPresentationTests
     }
 
     [Fact]
-    public void DeviceNameIsSuppressedWhenThereIsNoActiveDeviceEvenIfPlayerStateCarriesOne()
+    public void DeviceNameAndVolumeSupportAreSuppressedWhenThereIsNoActiveDevice()
     {
-        // Defensive: PlayerState.DeviceName should already be null when HasActiveDevice is false
-        // (per contracts.md), but the presentation shouldn't surface a stale name either way.
+        // Defensive, and deliberately constructs a state the client can no longer produce:
+        // DeviceName should already be null and SupportsVolume false when HasActiveDevice is false
+        // (per contracts.md). PlayerState is a plain record with no invariant of its own, so the
+        // presentation must not surface either value even if some future producer sets them.
         var playerState = new PlayerState(false, 0, "Stale Device", true);
         var presentation = new StatusPresentation(ConnectionState.Connected, playerState);
 

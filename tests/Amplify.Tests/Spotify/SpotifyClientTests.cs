@@ -97,6 +97,31 @@ public sealed class SpotifyClientTests
     }
 
     [Fact]
+    public async Task GetPlayerStateReportsAnInactiveDeviceAsUncontrollable()
+    {
+        // Spotify still describes the last-used device when playback is idle. Nothing is controllable
+        // without an active device, so the flag must not survive independently of is_active.
+        const string json = """
+            {
+              "device": {
+                "is_active": false,
+                "name": "Phone",
+                "volume_percent": 40,
+                "supports_volume": true,
+                "is_restricted": false
+              }
+            }
+            """;
+        (SpotifyClient client, _) = CreateClient(_ => JsonResponse(json));
+
+        PlayerState? state = await client.GetPlayerStateAsync();
+
+        Assert.NotNull(state);
+        Assert.False(state.HasActiveDevice);
+        Assert.False(state.SupportsVolume);
+    }
+
+    [Fact]
     public async Task GetPlayerStateAssumesControllableWhenTheFlagsAreAbsent()
     {
         // Missing booleans deserialise to false, which would wrongly disable the control for any

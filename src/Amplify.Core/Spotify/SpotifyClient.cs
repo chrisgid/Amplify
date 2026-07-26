@@ -42,8 +42,12 @@ public sealed class SpotifyClient(HttpClient http) : ISpotifyClient
 
         // Both flags mean a volume call would be rejected, so treat them as one "can it be
         // controlled" signal. Either being absent from the payload falls back to the permissive
-        // reading — assume controllable and let a rejected write be the backstop.
-        bool supportsVolume = (device.SupportsVolume ?? true) && !(device.IsRestricted ?? false);
+        // reading — assume controllable and let a rejected write be the backstop. Gated on IsActive
+        // too: Spotify still describes the last-used device when playback is idle, and the model's
+        // invariant is that nothing is controllable without an active device.
+        bool supportsVolume = device.IsActive
+            && (device.SupportsVolume ?? true)
+            && !(device.IsRestricted ?? false);
 
         return new PlayerState(
             device.IsActive, device.VolumePercent ?? 0, device.Name, supportsVolume);

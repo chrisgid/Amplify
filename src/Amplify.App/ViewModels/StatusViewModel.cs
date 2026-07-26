@@ -75,6 +75,10 @@ public sealed partial class StatusViewModel : ObservableObject
     {
         (false, _) => _strings.GetString("Status_DeviceLine_NoActiveDevice"),
         (true, true) => DeviceName ?? string.Empty,
+        // Spotify can report a device with no name; the message has to stand on its own then, rather
+        // than formatting an empty name into the separator and leaving it dangling.
+        (true, false) when string.IsNullOrEmpty(DeviceName) =>
+            _strings.GetString("Status_DeviceLine_VolumeNotSupportedUnnamed"),
         (true, false) => string.Format(
             CultureInfo.CurrentCulture,
             _strings.GetString("Status_DeviceLine_VolumeNotSupported"),

@@ -178,6 +178,11 @@ treatment, and one functional gap:
   `Status_DeviceLine_VolumeNotSupported` ("{0} · volume control not supported"), formatted with
   `CultureInfo.CurrentCulture`. The card keeps its green check either way — this is a device
   capability, not a connection problem.
+- **Nameless devices need their own string.** `PlayerState.DeviceName` is nullable, and formatting an
+  empty name into "{0} · …" leaves a dangling separator. A second key,
+  `Status_DeviceLine_VolumeNotSupportedUnnamed` ("Volume control not supported"), covers that case —
+  the separator lives in the resource, so it can't be assembled in code where a translator can't move
+  it. Caught in review.
 - **`StatusPresentation` gained `DeviceSupportsVolume`** (false both when there's no device and when
   the device can't set volume) so the branch rule stays unit-tested outside WinUI, matching how
   `HasActiveDevice`/`DeviceName` already work.
