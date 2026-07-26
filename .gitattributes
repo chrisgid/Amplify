@@ -1,0 +1,12 @@
+# Line endings — make normalisation explicit rather than dependent on each contributor's
+# core.autocrlf. Text files are stored LF in the repository and checked out CRLF in the working
+# tree, which is what .editorconfig (end_of_line = crlf) and `dotnet format` expect. Without this,
+# a contributor with core.autocrlf=false commits CRLF blobs, and one with =input gets an LF working
+# tree that fails `dotnet format --verify-no-changes`.
+* text=auto eol=crlf
+
+# Binary assets — never line-ending-converted or diffed as text. `text=auto` already detects these,
+# but naming them keeps a stray null-free file (e.g. an SVG-ish blob) from being misclassified.
+*.png binary
+*.ico binary
+*.thumbnail binary
