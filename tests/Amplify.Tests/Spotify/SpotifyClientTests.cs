@@ -97,10 +97,11 @@ public sealed class SpotifyClientTests
     }
 
     [Fact]
-    public async Task GetPlayerStateReportsAnInactiveDeviceAsUncontrollable()
+    public async Task GetPlayerStateReportsAnInactiveDeviceAsNoDevice()
     {
-        // Spotify still describes the last-used device when playback is idle. Nothing is controllable
-        // without an active device, so the flag must not survive independently of is_active.
+        // Spotify still describes the last-used device when playback is idle. None of its detail
+        // survives: an inactive device maps to the same empty state as a 204, so no consumer has to
+        // remember to re-check HasActiveDevice before trusting the other fields.
         const string json = """
             {
               "device": {
@@ -118,6 +119,8 @@ public sealed class SpotifyClientTests
 
         Assert.NotNull(state);
         Assert.False(state.HasActiveDevice);
+        Assert.Equal(0, state.VolumePercent);
+        Assert.Null(state.DeviceName);
         Assert.False(state.SupportsVolume);
     }
 

@@ -281,12 +281,13 @@ stayed `false` and the volume hotkeys silently no-opped — exactly when they're
   identical `403`, so both collapse into one controllability signal rather than two flags the
   controller would have to re-combine. Confirmed against the Web API reference for
   `GET /v1/me/player` (device object).
-- **`SupportsVolume` is gated on `is_active` at the mapping.** Spotify still describes the last-used
-  device when playback is idle (`is_active: false` with a real name and `supports_volume: true`), so
-  computing the flag from the two capability fields alone would emit a `PlayerState` that contradicts
-  its own documented invariant ("false when there is no active device"). Every consumer today pairs
-  the flag with `HasActiveDevice`, so nothing misbehaved — but the invariant the whole gate rests on
-  is worth holding at the source rather than in each reader. Caught in review.
+- **An inactive device maps to the same empty state as a `204`.** Spotify still describes the
+  last-used device when playback is idle (`is_active: false` carrying a real name, volume and
+  `supports_volume: true`), and every `PlayerState` field is documented as empty when there's no
+  active device. Mapping the fields through individually contradicted that on three of the four;
+  consumers all re-check `HasActiveDevice` first, so nothing misbehaved, but the invariant now holds
+  structurally via an early return rather than as a conditional repeated per field — and per reader.
+  Caught in review (twice: the first pass fixed only `SupportsVolume` and left its siblings).
 - **Both DTO fields are `bool?` on purpose.** A missing JSON boolean deserialises to `false`, which
   would silently disable the control for any payload that omits them; absent now means *assume
   controllable* (`?? true` / `?? false`) so the behaviour degrades to the pre-fix reactive path

@@ -34,23 +34,22 @@ public sealed class SpotifyClient(HttpClient http) : ISpotifyClient
 
         PlaybackState? state = await response.Content
             .ReadFromJsonAsync<PlaybackState>().ConfigureAwait(false);
+        // An inactive device is the same "nothing to control" state as a 204: Spotify still describes
+        // the last-used device when playback is idle, but none of its detail is usable, and every
+        // field on PlayerState is documented as empty when there's no active device. Returning early
+        // keeps that invariant structural rather than repeating a conditional per field.
         Device? device = state?.Device;
-        if (device is null)
+        if (device is not { IsActive: true })
         {
             return new PlayerState(false, 0, null, false);
         }
 
         // Both flags mean a volume call would be rejected, so treat them as one "can it be
         // controlled" signal. Either being absent from the payload falls back to the permissive
-        // reading — assume controllable and let a rejected write be the backstop. Gated on IsActive
-        // too: Spotify still describes the last-used device when playback is idle, and the model's
-        // invariant is that nothing is controllable without an active device.
-        bool supportsVolume = device.IsActive
-            && (device.SupportsVolume ?? true)
-            && !(device.IsRestricted ?? false);
+        // reading — assume controllable and let a rejected write be the backstop.
+        bool supportsVolume = (device.SupportsVolume ?? true) && !(device.IsRestricted ?? false);
 
-        return new PlayerState(
-            device.IsActive, device.VolumePercent ?? 0, device.Name, supportsVolume);
+        return new PlayerState(true, device.VolumePercent ?? 0, device.Name, supportsVolume);
     }
 
     public async Task SetVolumeAsync(int percent)
