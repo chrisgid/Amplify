@@ -2,9 +2,10 @@ namespace Amplify.Core.Spotify;
 
 /// <summary>
 /// A projection of Spotify's current playback state, limited to what Amplify needs to control
-/// volume. Built from <c>GET /v1/me/player</c>: a <c>200</c> response carries the active device's
-/// volume and name, while a <c>204 No Content</c> means nothing is playing — surfaced here as
-/// <see cref="HasActiveDevice"/> being <c>false</c> rather than as an error.
+/// volume. Built from <c>GET /v1/me/player</c>: a <c>200</c> describing an active device carries its
+/// volume and name. Nothing playing is surfaced as <see cref="HasActiveDevice"/> being <c>false</c>
+/// with every other field empty, rather than as an error — that covers a <c>204 No Content</c>, a
+/// <c>200</c> with no device, and a <c>200</c> whose device is inactive.
 /// </summary>
 /// <param name="HasActiveDevice">
 /// Whether Spotify has an active device. Presence alone doesn't mean its volume can be changed — see

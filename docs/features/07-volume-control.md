@@ -96,7 +96,9 @@ the slider/buttons. Each hotkey press changes volume by the configurable **step 
   device is now present, nudges from the freshly-read volume. A short throttle prevents a mashed
   hotkey from firing a burst of reads when nothing is playing.
 - **Deriving the signal from the API:** `GET /v1/me/player` returns **`204 No Content`** when no
-  device is active — map that (empty body) to `HasActiveDevice == false`, **not** an error. A
+  device is active — map that (empty body) to `HasActiveDevice == false`, **not** an error. Two
+  `200` shapes mean the same thing and map identically: no `device` at all, and a `device` with
+  **`is_active: false`** (Spotify keeps naming the last-used device while playback is idle). A
   `SetVolumeAsync` that returns **`404` ("Device not found")** or **`403`** likewise means no
   controllable device → revert the optimistic value and surface the no-device guidance (feature 05)
   rather than a generic failure.

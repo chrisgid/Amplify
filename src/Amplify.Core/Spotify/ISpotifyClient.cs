@@ -9,8 +9,10 @@ public interface ISpotifyClient
 {
     /// <summary>
     /// Reads the current playback state (<c>GET /v1/me/player</c>). Returns a state with
-    /// <see cref="PlayerState.HasActiveDevice"/> <c>false</c> when Spotify reports no active device
-    /// (HTTP <c>204</c>); <c>null</c> only when the state could not be determined.
+    /// <see cref="PlayerState.HasActiveDevice"/> <c>false</c> — and every other field empty — when
+    /// Spotify reports no active device: an HTTP <c>204</c>, a <c>200</c> carrying no device, or a
+    /// <c>200</c> describing an inactive one (Spotify still names the last-used device while playback
+    /// is idle). <c>null</c> only when the state could not be determined.
     /// </summary>
     Task<PlayerState?> GetPlayerStateAsync();
 
