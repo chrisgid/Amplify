@@ -134,7 +134,8 @@
                         Volume card: a native SettingsCard matching the hotkey rows — "Volume" header, the
                         live percentage as its description, and the slider with step nudge buttons as its
                         content. Disabled (which dims it natively) whenever there is nothing to control; the
-                        status card above owns the "no active device" message.
+                        status card above owns the message explaining why — no active device, or an active
+                        device that can't be volume-controlled.
                     -->
                     <tk:SettingsCard
                         x:Uid="Volume_Header"

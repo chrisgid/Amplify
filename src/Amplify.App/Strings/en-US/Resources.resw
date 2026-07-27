@@ -298,6 +298,14 @@
   <data name="Status_DeviceLine_NoActiveDevice" xml:space="preserve">
     <value>No active device</value>
   </data>
+  <data name="Status_DeviceLine_VolumeNotSupported" xml:space="preserve">
+    <value>{0} · volume control not supported</value>
+    <comment>{0} is the active device name, e.g. Kitchen speaker</comment>
+  </data>
+  <data name="Status_DeviceLine_VolumeNotSupportedUnnamed" xml:space="preserve">
+    <value>Volume control not supported</value>
+    <comment>Used in place of Status_DeviceLine_VolumeNotSupported when Spotify reports no device name</comment>
+  </data>
   <data name="Status_Connecting.Title" xml:space="preserve">
     <value>Connecting to Spotify…</value>
   </data>

@@ -27,20 +27,29 @@ public sealed class SpotifyClient(HttpClient http) : ISpotifyClient
         // No active device: Spotify returns an empty 204 — a normal state, not a failure.
         if (response.StatusCode == HttpStatusCode.NoContent)
         {
-            return new PlayerState(false, 0, null);
+            return new PlayerState(false, 0, null, false);
         }
 
         response.EnsureSuccessStatusCode();
 
         PlaybackState? state = await response.Content
             .ReadFromJsonAsync<PlaybackState>().ConfigureAwait(false);
+        // An inactive device is the same "nothing to control" state as a 204: Spotify still describes
+        // the last-used device when playback is idle, but none of its detail is usable, and every
+        // field on PlayerState is documented as empty when there's no active device. Returning early
+        // keeps that invariant structural rather than repeating a conditional per field.
         Device? device = state?.Device;
-        if (device is null)
+        if (device is not { IsActive: true })
         {
-            return new PlayerState(false, 0, null);
+            return new PlayerState(false, 0, null, false);
         }
 
-        return new PlayerState(device.IsActive, device.VolumePercent ?? 0, device.Name);
+        // Both flags mean a volume call would be rejected, so treat them as one "can it be
+        // controlled" signal. Either being absent from the payload falls back to the permissive
+        // reading — assume controllable and let a rejected write be the backstop.
+        bool supportsVolume = (device.SupportsVolume ?? true) && !(device.IsRestricted ?? false);
+
+        return new PlayerState(true, device.VolumePercent ?? 0, device.Name, supportsVolume);
     }
 
     public async Task SetVolumeAsync(int percent)
@@ -66,8 +75,12 @@ public sealed class SpotifyClient(HttpClient http) : ISpotifyClient
     private sealed record PlaybackState(
         [property: JsonPropertyName("device")] Device? Device);
 
+    // The two controllability flags are nullable on purpose: a missing JSON boolean would otherwise
+    // deserialise to false and wrongly disable the control for any payload that omits them.
     private sealed record Device(
         [property: JsonPropertyName("is_active")] bool IsActive,
         [property: JsonPropertyName("name")] string? Name,
-        [property: JsonPropertyName("volume_percent")] int? VolumePercent);
+        [property: JsonPropertyName("volume_percent")] int? VolumePercent,
+        [property: JsonPropertyName("supports_volume")] bool? SupportsVolume,
+        [property: JsonPropertyName("is_restricted")] bool? IsRestricted);
 }

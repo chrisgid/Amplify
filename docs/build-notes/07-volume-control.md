@@ -264,3 +264,55 @@ stayed `false` and the volume hotkeys silently no-opped — exactly when they're
 - **Manual smoke (unchanged, needs Premium + a device):** minimise with nothing playing → start
   playback → volume-up moves volume (first press may lag one round-trip); mash the key with nothing
   playing → no flood of `GET`s; restore the window → normal 5s polling resumes.
+
+## 2026-07-25 — Fix: uncontrollable active device left the control enabled at 100%
+
+- **Bug:** `GET /v1/me/player` was only read for `is_active`/`name`/`volume_percent`, so a device
+  that can't take volume commands (a TV, a receiver) still satisfied `CanControl`. The card sat
+  enabled at the device's reported level (typically 100%), each change was rejected with `403` →
+  `RevertAndDisableControl`, and the next 5s poll re-enabled it — a visible disable/re-enable
+  flicker on every attempt. The reactive `403` path can't fix this on its own: it only ever fires
+  *after* a rejected write, and the poll immediately undoes it.
+- **Contract change:** `PlayerState` gains `SupportsVolume` (see
+  [`contracts.md`](../contracts.md)) and `IVolumeController.CanControl` becomes
+  `connected && HasActiveDevice && SupportsVolume`. No interface signatures changed.
+- **Mapped from two fields, not one:** `supports_volume && !is_restricted`. Spotify documents
+  `is_restricted` as "no Web API commands will be accepted by this device", which produces the
+  identical `403`, so both collapse into one controllability signal rather than two flags the
+  controller would have to re-combine. Confirmed against the Web API reference for
+  `GET /v1/me/player` (device object).
+- **An inactive device maps to the same empty state as a `204`.** Spotify still describes the
+  last-used device when playback is idle (`is_active: false` carrying a real name, volume and
+  `supports_volume: true`), and every `PlayerState` field is documented as empty when there's no
+  active device. Mapping the fields through individually contradicted that on three of the four;
+  consumers all re-check `HasActiveDevice` first, so nothing misbehaved, but the invariant now holds
+  structurally via an early return rather than as a conditional repeated per field — and per reader.
+  Caught in review (twice: the first pass fixed only `SupportsVolume` and left its siblings).
+- **Both DTO fields are `bool?` on purpose.** A missing JSON boolean deserialises to `false`, which
+  would silently disable the control for any payload that omits them; absent now means *assume
+  controllable* (`?? true` / `?? false`) so the behaviour degrades to the pre-fix reactive path
+  rather than to a dead control. Covered by a test.
+- **Presence vs controllability are kept separate inside `ApplyPlayerState`.** The volume reconcile
+  still keys off `HasActiveDevice` (so the meter tracks an uncontrollable device's real level and is
+  seeded correctly if it later becomes controllable); only the `CanControl` gate, the pending-write
+  reset, and `StateChanged` key off `SupportsVolume`. Field renamed `_hasActiveDevice` →
+  `_canControlDevice` to stop the two being conflated again.
+- **On-demand probe deliberately still runs** when the known device merely lacks volume support —
+  the *active* device may have changed while polling was suspended. Renamed
+  `_noDeviceProbeInterval`/`RecentlyProbedNoDevice` → `_probeInterval`/`RecentlyProbed` to match.
+- **Deferred / known gap:** a device that reports `supports_volume: true` and still `403`s keeps the
+  old revert-then-re-enable-on-next-poll flicker. Latching the rejection per device would need a
+  device id in `PlayerState`; agreed with the user to leave it, as the reported case is now caught
+  before the write.
+- **Tests:** `dotnet test` → **253 passed, 0 skipped**. Added client mapping tests
+  (`supports_volume: false`, `is_restricted: true`, both fields absent) and four controller tests,
+  including `RejectedWriteIsNotUndoneByAPollOnAnUnsupportedDevice` — the direct regression guard.
+  `Harness.Create` gained a `supportsVolume` parameter (defaults true, so existing cases read the
+  same).
+- **Verified facts:** `dotnet build -p:Platform=x64` and `dotnet test` clean.
+  `dotnet format --verify-no-changes` reports **pre-existing** LF-line-ending violations in the
+  three `Reset/*` files only — untouched by this change, and CI doesn't run `dotnet format`.
+- **Manual/integration checks:** verified against a real device reporting `supports_volume: false` —
+  the card is disabled from the first read with no flicker, the device line reads
+  "`{Device}` · volume control not supported", and transferring playback back to a controllable
+  device re-enables the control within one poll.
