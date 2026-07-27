@@ -13,7 +13,9 @@ public interface IVolumeController
 
     /// <summary>
     /// Whether volume can be changed right now — i.e. an account is connected and Spotify reported an
-    /// active device on the last read.
+    /// active device that accepts volume commands on the last read. A device that reports it can't set
+    /// volume (or refuses Web API commands) leaves this false, so the control is disabled up front
+    /// rather than after a rejected write.
     /// </summary>
     bool CanControl { get; }
 

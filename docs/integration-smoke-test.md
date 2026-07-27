@@ -77,6 +77,11 @@ machine with a real Spotify account:
 - [ ] **No active device:** with nothing playing, status guides the user to open Spotify; volume
       control is disabled (`GET /v1/me/player` → `204`, `PUT volume` → `404/403` handled, not a
       crash).
+- [ ] **Device that can't be volume-controlled:** playing on a device reporting
+      `supports_volume: false` (a TV, an AV receiver), the volume card is disabled **from the first
+      read** — no enable-then-disable flicker, no level pinned at 100% — and the status card's device
+      line reads "`{Device}` · volume control not supported". Transferring playback back to a
+      controllable device re-enables it within one poll (~5s).
 - [ ] **Token refresh:** after the access token expires (or on a forced `401`), the next action
       refreshes silently; a rotated refresh token is persisted; concurrent calls don't double-refresh.
 - [ ] **Offline / Spotify unreachable:** the status block shows the error state with Reconnect; the

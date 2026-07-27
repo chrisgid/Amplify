@@ -36,6 +36,9 @@ tier.
   card, a **warning `InfoBar`** — title "No active device", body "Open Spotify and start playback on
   a device, then it'll appear here." This is the same needs-attention treatment feature 07 gates the
   control on.
+- **Connected, device can't be volume-controlled:** the same card, with the device line naming the
+  device and saying so — "`{Device}` · volume control not supported" — because the volume control
+  below it is permanently dimmed and would otherwise be unexplained.
 - **Connecting:** an info `InfoBar` (informational) — "Connecting to Spotify…
   Re-establishing the link to your account." with a spinner.
 - **Error:** an error `InfoBar` — "Can't reach Spotify. Open Spotify on a device, then
@@ -81,6 +84,10 @@ tier.
   [`../contracts.md`](../contracts.md)). **This feature owns the user-facing *messaging*** for it;
   [feature 07](./07-volume-control.md) owns *gating the control*. Both read the same field — neither
   re-implements the check.
+- Active device that can't be volume-controlled → the device line says so. The canonical signal is
+  **`PlayerState.SupportsVolume`**, read by this feature for the *messaging* and by
+  [feature 07](./07-volume-control.md) for *gating the control* — the same split as
+  `HasActiveDevice` above.
 - A volume call rejected with `403` (a restriction) → surfaced with the same "can't control"
   guidance; there is no Premium pre-check because the API no longer reports subscription level.
 - Token refresh failure → error state with Reconnect.

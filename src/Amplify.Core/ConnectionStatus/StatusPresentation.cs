@@ -29,4 +29,11 @@ public readonly record struct StatusPresentation(ConnectionState State, PlayerSt
 
     /// <summary>The active device's label, or <c>null</c> when there is none.</summary>
     public string? DeviceName => HasActiveDevice ? PlayerState?.DeviceName : null;
+
+    /// <summary>
+    /// Whether the active device accepts volume commands. False both when there is no device and when
+    /// the device itself can't be volume-controlled — the card names the device either way, but the
+    /// latter needs its own line so a permanently dimmed volume control isn't left unexplained.
+    /// </summary>
+    public bool DeviceSupportsVolume => PlayerState is { HasActiveDevice: true, SupportsVolume: true };
 }

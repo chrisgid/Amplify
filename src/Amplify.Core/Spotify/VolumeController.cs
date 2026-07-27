@@ -10,9 +10,9 @@ namespace Amplify.Core.Spotify;
 /// The volume model and orchestration over <see cref="ISpotifyClient"/>: it turns global hotkey
 /// presses and direct UI changes into Web API volume calls, keeps the displayed level responsive by
 /// updating optimistically before the call, and coalesces rapid changes into a single trailing write
-/// so a burst of key presses doesn't flood the API. Device presence and the reconciled volume come
-/// from the shared <see cref="IPlayerStateProvider"/>, so a device that becomes active is picked up by
-/// the next poll and the control enables without a manual refresh.
+/// so a burst of key presses doesn't flood the API. Device controllability and the reconciled volume
+/// come from the shared <see cref="IPlayerStateProvider"/>, so a device that becomes active is picked
+/// up by the next poll and the control enables without a manual refresh.
 /// </summary>
 /// <remarks>
 /// Registered once and resolved as both <see cref="IVolumeController"/> and an
@@ -28,11 +28,11 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
     // have read the device before it reflected the change, and applying it would snap the slider back.
     private static readonly TimeSpan _writeSettleWindow = TimeSpan.FromSeconds(2);
 
-    // When a nudge arrives with no known device (e.g. polling is suspended while minimised), a single
-    // on-demand read tries to pick up a device that just became active. If that read still finds none,
-    // suppress further probes for this long so a held/mashed hotkey doesn't fire a burst of reads.
-    // Matches the provider's poll cadence.
-    private static readonly TimeSpan _noDeviceProbeInterval = TimeSpan.FromSeconds(5);
+    // When a nudge arrives with nothing controllable (e.g. polling is suspended while minimised), a
+    // single on-demand read tries to pick up a device that just became active. If that read still finds
+    // nothing controllable, suppress further probes for this long so a held/mashed hotkey doesn't fire a
+    // burst of reads. Matches the provider's poll cadence.
+    private static readonly TimeSpan _probeInterval = TimeSpan.FromSeconds(5);
 
     private readonly ISpotifyClient _client;
     private readonly IHotkeyService _hotkeys;
@@ -45,12 +45,12 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
     private readonly object _gate = new();
     private int _volume;            // last-known/optimistic level shown to the UI (0..100)
     private int _confirmedVolume;   // last level Spotify accepted; the value reverted to on failure
-    private bool _hasActiveDevice;
+    private bool _canControlDevice; // an active device is present *and* it accepts volume commands
     private int? _pendingTarget;    // latest target awaiting a write, collapsing a burst into one call
     private bool _writerRunning;
     private Task _writer = Task.CompletedTask;
     private DateTimeOffset _lastWriteAt = DateTimeOffset.MinValue;
-    private DateTimeOffset _lastNoDeviceProbeAt = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastProbeAt = DateTimeOffset.MinValue;
     private bool _disposed;
 
     public VolumeController(
@@ -78,7 +78,7 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
 
     public bool CanControl
     {
-        get { lock (_gate) { return _auth.State == ConnectionState.Connected && _hasActiveDevice; } }
+        get { lock (_gate) { return _auth.State == ConnectionState.Connected && _canControlDevice; } }
     }
 
     public event EventHandler<int>? VolumeChanged;
@@ -152,10 +152,11 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
         await RequestWrite(target).ConfigureAwait(false);
     }
 
-    // Gate before a volume change. Fast path when a device is already known. Otherwise, while
-    // connected, does one on-demand read (which works even while the poll is suspended — e.g. the
-    // window is minimised) to catch a device that just became active; if it still finds none, a short
-    // throttle stops a mashed hotkey from firing a burst of reads.
+    // Gate before a volume change. Fast path when a controllable device is already known. Otherwise,
+    // while connected, does one on-demand read (which works even while the poll is suspended — e.g. the
+    // window is minimised) to catch a device that just became active; if it still finds nothing
+    // controllable, a short throttle stops a mashed hotkey from firing a burst of reads. Worth reading
+    // even when the known device merely doesn't support volume — the active device may have changed.
     private async Task<bool> EnsureControllableAsync()
     {
         if (CanControl)
@@ -171,14 +172,14 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
 
         lock (_gate)
         {
-            if (RecentlyProbedNoDevice())
+            if (RecentlyProbed())
             {
                 return false;
             }
         }
 
         // Resume on the captured (UI) context so the provider's PlayerStateChanged push — which runs
-        // OnPlayerStateChanged and updates _hasActiveDevice/_volume — is applied before the re-check.
+        // OnPlayerStateChanged and updates _canControlDevice/_volume — is applied before the re-check.
         await _playerState.RefreshAsync().ConfigureAwait(true);
 
         if (CanControl)
@@ -188,15 +189,15 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
 
         lock (_gate)
         {
-            _lastNoDeviceProbeAt = _time.GetUtcNow();
+            _lastProbeAt = _time.GetUtcNow();
         }
 
         return false;
     }
 
-    // True while a recent on-demand probe found no device; called under _gate (reads _lastNoDeviceProbeAt).
-    private bool RecentlyProbedNoDevice() =>
-        _time.GetUtcNow() - _lastNoDeviceProbeAt < _noDeviceProbeInterval;
+    // True while a recent on-demand probe found nothing controllable; called under _gate (reads _lastProbeAt).
+    private bool RecentlyProbed() =>
+        _time.GetUtcNow() - _lastProbeAt < _probeInterval;
 
     // Asks the shared provider to re-read now; the resulting push reconciles this controller. Used for
     // an immediate refresh when the main screen is shown, on top of the provider's background poll.
@@ -225,15 +226,19 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
     // Reconciles the model against a fresh player-state reading from the provider.
     private void ApplyPlayerState(PlayerState? state)
     {
+        // A device that can't take volume commands still reports a level worth tracking (so the meter
+        // seeds correctly if it later becomes controllable), but it must not enable the control —
+        // otherwise every write is rejected and the UI flickers between enabled and disabled.
         bool hasDevice = state is { HasActiveDevice: true };
+        bool controllable = state is { HasActiveDevice: true, SupportsVolume: true };
         int volume;
         bool volumeChanged;
         bool controlChanged;
         lock (_gate)
         {
-            controlChanged = hasDevice != _hasActiveDevice;
-            _hasActiveDevice = hasDevice;
-            if (!hasDevice)
+            controlChanged = controllable != _canControlDevice;
+            _canControlDevice = controllable;
+            if (!controllable)
             {
                 _pendingTarget = null;
             }
@@ -346,8 +351,8 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
     }
 
     // Rolls the optimistic value back to the last accepted level, stops the writer, and disables
-    // control after Spotify rejects the device (403/404). Control re-enables on the next reading that
-    // reports a controllable device.
+    // control after Spotify rejects the device (403/404) despite it reporting itself controllable.
+    // Control re-enables on the next reading that reports a controllable device.
     private void RevertAndDisableControl()
     {
         int reverted;
@@ -355,7 +360,7 @@ public sealed partial class VolumeController : IVolumeController, IStartupInitia
         {
             _pendingTarget = null;
             _writerRunning = false;
-            _hasActiveDevice = false;
+            _canControlDevice = false;
             _volume = _confirmedVolume;
             reverted = _volume;
         }

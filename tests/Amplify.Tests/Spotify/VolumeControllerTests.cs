@@ -86,7 +86,7 @@ public sealed class VolumeControllerTests
     public async Task NudgeProbesOnceThenNoOpsWhenNoActiveDevice()
     {
         Harness h = Harness.Create(step: 5, startVolume: 50);
-        h.Provider.Current.Returns(new PlayerState(false, 0, null));
+        h.Provider.Current.Returns(new PlayerState(false, 0, null, false));
         await h.Controller.OnLaunchedAsync(CancellationToken.None);
 
         await h.Controller.NudgeAsync(1);
@@ -103,14 +103,14 @@ public sealed class VolumeControllerTests
         // The device starts playing while polling is suspended (window minimised): the first hotkey
         // nudge does an on-demand read that finds it, then nudges from the freshly-read volume.
         Harness h = Harness.Create(step: 5, startVolume: 0);
-        h.Provider.Current.Returns(new PlayerState(false, 0, null));
+        h.Provider.Current.Returns(new PlayerState(false, 0, null, false));
         await h.Controller.OnLaunchedAsync(CancellationToken.None);
         Assert.False(h.Controller.CanControl);
 
         h.Provider.RefreshAsync().Returns(_ =>
         {
             h.Provider.PlayerStateChanged +=
-                Raise.Event<EventHandler<PlayerState?>>(h.Provider, new PlayerState(true, 40, "Speaker"));
+                Raise.Event<EventHandler<PlayerState?>>(h.Provider, new PlayerState(true, 40, "Speaker", true));
             return Task.CompletedTask;
         });
 
@@ -126,7 +126,7 @@ public sealed class VolumeControllerTests
     {
         var time = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         Harness h = Harness.Create(step: 5, startVolume: 50, time: time);
-        h.Provider.Current.Returns(new PlayerState(false, 0, null));
+        h.Provider.Current.Returns(new PlayerState(false, 0, null, false));
         await h.Controller.OnLaunchedAsync(CancellationToken.None);
 
         // Nothing playing: each nudge would probe, but a mashed hotkey must not fire a burst of reads.
@@ -148,18 +148,98 @@ public sealed class VolumeControllerTests
         // The behaviour the shared provider buys: a device that starts playing while Amplify is open
         // is picked up by the next poll and the control enables without a manual refresh.
         Harness h = Harness.Create(step: 5, startVolume: 0);
-        h.Provider.Current.Returns(new PlayerState(false, 0, null));
+        h.Provider.Current.Returns(new PlayerState(false, 0, null, false));
         await h.Controller.OnLaunchedAsync(CancellationToken.None);
         Assert.False(h.Controller.CanControl);
 
         var stateChanged = false;
         h.Controller.StateChanged += (_, _) => stateChanged = true;
         h.Provider.PlayerStateChanged +=
-            Raise.Event<EventHandler<PlayerState?>>(h.Provider, new PlayerState(true, 30, "Speaker"));
+            Raise.Event<EventHandler<PlayerState?>>(h.Provider, new PlayerState(true, 30, "Speaker", true));
 
         Assert.True(h.Controller.CanControl);
         Assert.Equal(30, h.Controller.Volume);
         Assert.True(stateChanged);
+    }
+
+    [Fact]
+    public async Task ActiveDeviceThatDoesNotSupportVolumeCannotBeControlled()
+    {
+        // Spotify reports the device but says it can't set volume — every write would be rejected, so
+        // the control must never enable in the first place.
+        Harness h = Harness.Create(step: 5, startVolume: 100, supportsVolume: false);
+
+        await h.Controller.OnLaunchedAsync(CancellationToken.None);
+
+        Assert.False(h.Controller.CanControl);
+    }
+
+    [Fact]
+    public async Task NudgeSendsNothingWhenTheDeviceDoesNotSupportVolume()
+    {
+        Harness h = Harness.Create(step: 5, startVolume: 100, supportsVolume: false);
+        await h.Controller.OnLaunchedAsync(CancellationToken.None);
+
+        await h.Controller.NudgeAsync(-1);
+        await h.Controller.SetVolumeAsync(20);
+
+        // The probe still runs once (the active device may have changed), but nothing is written.
+        await h.Provider.Received(1).RefreshAsync();
+        await h.Client.DidNotReceive().SetVolumeAsync(Arg.Any<int>());
+        Assert.Equal(100, h.Controller.Volume);
+    }
+
+    [Fact]
+    public async Task PollReportingAnUnsupportedDeviceDisablesControl()
+    {
+        // Playback moves to a device that can't be volume-controlled: the next poll must disable the
+        // control and say so, rather than leaving it enabled until a write is rejected.
+        Harness h = Harness.Create(step: 5, startVolume: 50);
+        await h.Controller.OnLaunchedAsync(CancellationToken.None);
+        Assert.True(h.Controller.CanControl);
+
+        var stateChanged = false;
+        h.Controller.StateChanged += (_, _) => stateChanged = true;
+        h.Provider.PlayerStateChanged +=
+            Raise.Event<EventHandler<PlayerState?>>(h.Provider, new PlayerState(true, 100, "TV", false));
+
+        Assert.False(h.Controller.CanControl);
+        Assert.True(stateChanged);
+    }
+
+    [Fact]
+    public async Task RejectedWriteIsNotUndoneByAPollOnAnUnsupportedDevice()
+    {
+        // The regression this guards: a device that 403s but keeps reporting itself active used to be
+        // re-enabled by the very next poll, so the control flickered and the level snapped back.
+        Harness h = Harness.Create(step: 5, startVolume: 50);
+        await h.Controller.OnLaunchedAsync(CancellationToken.None);
+        h.Client.SetVolumeAsync(Arg.Any<int>())
+            .Returns(_ => Task.FromException(new DeviceNotControllableException()));
+
+        await h.Controller.NudgeAsync(1);
+        Assert.False(h.Controller.CanControl);
+
+        h.Provider.PlayerStateChanged +=
+            Raise.Event<EventHandler<PlayerState?>>(h.Provider, new PlayerState(true, 100, "TV", false));
+
+        Assert.False(h.Controller.CanControl);
+    }
+
+    [Fact]
+    public async Task DeviceGainingVolumeSupportEnablesControl()
+    {
+        // Playback moves back to a controllable device: the next poll re-enables without a manual
+        // refresh, seeded with that device's level.
+        Harness h = Harness.Create(step: 5, startVolume: 100, supportsVolume: false);
+        await h.Controller.OnLaunchedAsync(CancellationToken.None);
+        Assert.False(h.Controller.CanControl);
+
+        h.Provider.PlayerStateChanged +=
+            Raise.Event<EventHandler<PlayerState?>>(h.Provider, new PlayerState(true, 30, "Speaker", true));
+
+        Assert.True(h.Controller.CanControl);
+        Assert.Equal(30, h.Controller.Volume);
     }
 
     [Fact]
@@ -274,7 +354,7 @@ public sealed class VolumeControllerTests
 
         // A further poll with the device still present (no availability change) must not notify.
         h.Provider.PlayerStateChanged +=
-            Raise.Event<EventHandler<PlayerState?>>(h.Provider, new PlayerState(true, 50, "Test device"));
+            Raise.Event<EventHandler<PlayerState?>>(h.Provider, new PlayerState(true, 50, "Test device", true));
 
         Assert.Equal(0, stateChanges);
     }
@@ -291,13 +371,13 @@ public sealed class VolumeControllerTests
 
         // A poll that read the device before it reflected the write reports the old value.
         h.Provider.PlayerStateChanged +=
-            Raise.Event<EventHandler<PlayerState?>>(h.Provider, new PlayerState(true, 50, "dev"));
+            Raise.Event<EventHandler<PlayerState?>>(h.Provider, new PlayerState(true, 50, "dev", true));
         Assert.Equal(55, h.Controller.Volume);   // suppressed — no snap-back
 
         // Past the settle window the same reading is honoured (a genuine external change).
         time.Advance(TimeSpan.FromSeconds(5));
         h.Provider.PlayerStateChanged +=
-            Raise.Event<EventHandler<PlayerState?>>(h.Provider, new PlayerState(true, 50, "dev"));
+            Raise.Event<EventHandler<PlayerState?>>(h.Provider, new PlayerState(true, 50, "dev", true));
         Assert.Equal(50, h.Controller.Volume);
     }
 
@@ -319,7 +399,8 @@ public sealed class VolumeControllerTests
 
         public required VolumeController Controller { get; init; }
 
-        public static Harness Create(int step, int startVolume, TimeProvider? time = null)
+        public static Harness Create(
+            int step, int startVolume, TimeProvider? time = null, bool supportsVolume = true)
         {
             ISpotifyClient client = Substitute.For<ISpotifyClient>();
             client.SetVolumeAsync(Arg.Any<int>()).Returns(Task.CompletedTask);
@@ -333,7 +414,7 @@ public sealed class VolumeControllerTests
             auth.State.Returns(ConnectionState.Connected);
 
             IPlayerStateProvider provider = Substitute.For<IPlayerStateProvider>();
-            provider.Current.Returns(new PlayerState(true, startVolume, "Test device"));
+            provider.Current.Returns(new PlayerState(true, startVolume, "Test device", supportsVolume));
 
             var controller = new VolumeController(
                 client, hotkeys, settings, auth, provider, Substitute.For<ILogger<VolumeController>>(), time);
