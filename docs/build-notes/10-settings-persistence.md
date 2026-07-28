@@ -113,3 +113,28 @@
     removed in the ui-visual-refinements branch.
   - **Checks:** build 0/0, `dotnet test` 244 passed. Visual grouping/indent is a manual check (no UI
     run this session).
+
+## 2026-07-28 — Footer disclaimer removed
+
+- **Change:** the Settings footer no longer renders "· Not affiliated with Spotify"; it now reads
+  "Amplify {version}" (brand still hyperlinked to the repo). Requested by the user.
+- **Deviations from spec/contracts:** none in code contracts. The feature doc
+  ([10-settings-persistence §UI](../features/10-settings-persistence.md)) was updated to match, since
+  it previously specified the disclaimer as part of the footer copy.
+- **Implementation:** the `Settings_Footer_Suffix` resource was **deleted** from
+  `Strings/en-US/Resources.resw` rather than reduced to a bare `{0}` — with the prose gone the entry
+  held no localisable text, only a format placeholder, so `SettingsViewModel.BuildFooterText()` now
+  returns `" " + AppVersion()` directly (still `static`, and the leading space that separates it from
+  the brand hyperlink is unchanged). This is a **deliberate, narrow exception** to the feature's "no
+  hard-coded UI text outside `.resw`" rule: a version number is data, not copy. If prose ever returns
+  to the footer, the string goes back into `.resw`. The now-unused `System.Globalization` using and
+  the `string.Format` call went with it; `_strings` is still used for other Settings keys.
+  `SettingsPage.xaml` was untouched apart from the stale code comment above the footer `TextBlock`.
+- **Compliance note:** the non-affiliation statement is *not* one of the Spotify posture items listed
+  in CLAUDE.md / [specification §6](../specification.md#6-spotify-web-api-client-standards) (own
+  developer app, non-commercial, Premium-gated, on-device, Reset/Disconnect). It remains stated in
+  [README.md](../../README.md) and [specification §1](../specification.md#1-overview), so the app's
+  documented position is unchanged — only the in-app surface was dropped.
+- **Checks:** `dotnet build Amplify.slnx --configuration Release -p:Platform=x64` → 0 warnings,
+  0 errors; `dotnet test` → 254 passed, 0 skipped (no test referenced the footer string). Visual
+  confirmation of the footer is a manual check (no UI run this session).

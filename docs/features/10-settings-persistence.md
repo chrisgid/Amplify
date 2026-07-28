@@ -42,9 +42,10 @@ the app's shared `Resources.resw`** (localized strings) that every later screen 
   onboarding ([feature 04](./04-onboarding.md)) and changed only via Reset
   ([feature 12](./12-reset-and-account.md)).
 - **Reset** — "Reset Amplify" (danger) ([feature 12](./12-reset-and-account.md)).
-- Footer: "Amplify {version} · Not affiliated with Spotify", where the **"Amplify" name is a
-  hyperlink** to the GitHub repo (`https://github.com/chrisgid/Amplify`) — use a `HyperlinkButton`/
-  `Hyperlink`; the version and "Not affiliated with Spotify" remain plain text.
+- Footer: "Amplify {version}", where the **"Amplify" name is a hyperlink** to the GitHub repo
+  (`https://github.com/chrisgid/Amplify`) — use a `HyperlinkButton`/`Hyperlink`; the version remains
+  plain text. (The non-affiliation disclaimer lives in [README](../../README.md) /
+  [specification §1](../specification.md#1-overview), not in the app UI.)
 
 ## Acceptance criteria
 

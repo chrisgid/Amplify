@@ -1,4 +1,3 @@
-using System.Globalization;
 using Amplify.Core.Auth;
 using Amplify.Core.Reset;
 using Amplify.Core.Settings;
@@ -109,7 +108,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             ? _strings.GetString("Settings_ClientId_NotSet")
             : _settings.Current.SpotifyClientId;
 
-    /// <summary>The version + affiliation line shown in the footer, after the brand hyperlink.</summary>
+    /// <summary>The version shown in the footer, after the brand hyperlink.</summary>
     public string FooterText { get; }
 
     private void LoadFromSettings()
@@ -300,8 +299,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private static partial void LogResetFailed(ILogger logger, Exception exception);
 
     // A leading space separates the version from the preceding brand hyperlink in the footer line.
-    private string BuildFooterText() =>
-        " " + string.Format(CultureInfo.CurrentCulture, _strings.GetString("Settings_Footer_Suffix"), AppVersion());
+    private static string BuildFooterText() => " " + AppVersion();
 
     private static string AppVersion()
     {

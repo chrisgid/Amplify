@@ -149,7 +149,7 @@
                     <Button x:Uid="Settings_Reset_Button" Click="OnResetClick" />
                 </tk:SettingsCard>
 
-                <!-- Footer: the brand links to the repo; version + affiliation follow as plain text. -->
+                <!-- Footer: the brand links to the repo; the version follows as plain text. -->
                 <TextBlock
                     Margin="0,16,0,16"
                     HorizontalAlignment="Center"
