@@ -207,10 +207,6 @@
   <data name="Settings_Footer_Brand.Text" xml:space="preserve">
     <value>Amplify</value>
   </data>
-  <data name="Settings_Footer_Suffix" xml:space="preserve">
-    <value>{0} · Not affiliated with Spotify</value>
-    <comment>{0} is the app version, e.g. 1.0.0</comment>
-  </data>
   <data name="Notification_TrayHint_Title" xml:space="preserve">
     <value>Amplify is minimized to the system tray</value>
   </data>
