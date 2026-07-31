@@ -260,6 +260,7 @@
                                 </ItemsControl>
                                 <TextBlock
                                     x:Uid="Hotkey_Listening"
+                                    Padding="0,6"
                                     VerticalAlignment="Center"
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -303,6 +304,7 @@
                                 </ItemsControl>
                                 <TextBlock
                                     x:Uid="Hotkey_Listening"
+                                    Padding="0,6"
                                     VerticalAlignment="Center"
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Style="{StaticResource CaptionTextBlockStyle}"
