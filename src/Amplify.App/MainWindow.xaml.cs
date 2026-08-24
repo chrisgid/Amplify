@@ -6,7 +6,9 @@ using Amplify.App.ViewModels;
 using Amplify.App.Views;
 using Amplify.Core.Navigation;
 using Amplify.Core.Settings;
+using Amplify.Core.Theming;
 using Amplify.Core.Windowing;
+using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -14,6 +16,8 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.Windows.ApplicationModel.Resources;
 using Windows.Graphics;
+using Windows.UI;
+using ThemeSettings = Microsoft.UI.System.ThemeSettings;
 
 namespace Amplify.App;
 
@@ -37,6 +41,12 @@ public sealed partial class MainWindow : Window, IDisposable
     private readonly PlayerStateProvider _playerState;
     private readonly ThemeService _theme;
     private readonly ISettingsService _settings;
+
+    // Watches the OS contrast-theme setting for the caption buttons (see ApplyCaptionButtonColors).
+    // It needs a WindowId, which is why it lives here rather than in ThemeService — that service
+    // deliberately holds no UI reference. Kept in a field for the same reason as the service's
+    // UISettings: the Changed event stops firing once the object is collected.
+    private readonly ThemeSettings _themeSettings;
 
     // The default title-bar identity (app name + logo), captured from XAML so it can be swapped for the
     // Settings screen's own title + back button and restored on the way back.
@@ -68,6 +78,7 @@ public sealed partial class MainWindow : Window, IDisposable
         _settingsTitle = new ResourceLoader().GetString("Settings_Title/Text");
 
         ConfigureWindowChrome();
+        _themeSettings = ThemeSettings.CreateForWindowId(AppWindow.Id);
         ApplyTheme();
 
         _persistDebounce = DispatcherQueue.CreateTimer();
@@ -77,6 +88,7 @@ public sealed partial class MainWindow : Window, IDisposable
 
         _shell.RouteChanged += OnShellRouteChanged;
         _theme.ThemeChanged += OnThemeChanged;
+        _themeSettings.Changed += OnThemeSettingsChanged;
         VisibilityChanged += OnVisibilityChanged;
         // The title bar's built-in back button drives the same back navigation as the on-screen route.
         AppTitleBar.BackRequested += OnTitleBarBackRequested;
@@ -183,15 +195,94 @@ public sealed partial class MainWindow : Window, IDisposable
     // settings/OS sources), so the appearance can be applied directly.
     private void OnThemeChanged(object? sender, EventArgs e) => ApplyTheme();
 
+    // Turning a contrast theme on or off changes which colours the caption buttons should use. Unlike
+    // ThemeService's event this one arrives straight from the OS, so it marshals itself to the UI
+    // thread rather than assuming it is already there.
+    private void OnThemeSettingsChanged(ThemeSettings sender, object args)
+    {
+        if (DispatcherQueue.HasThreadAccess)
+        {
+            ApplyTheme();
+        }
+        else
+        {
+            DispatcherQueue.TryEnqueue(ApplyTheme);
+        }
+    }
+
     // Drive the content root's theme from the resolved preference. ElementTheme.Default follows the
-    // OS live; Light/Dark pin it. The root carries the Mica backdrop and title bar along, and system
-    // brushes pick up the OS accent automatically.
+    // OS live; Light/Dark pin it. The root carries the Mica backdrop and the TitleBar control's own
+    // title/icon along, and system brushes pick up the OS accent automatically — but NOT the system
+    // caption buttons, which are outside the XAML tree and are coloured separately below.
     private void ApplyTheme()
     {
+        // Unsubscribing in Dispose can't recall a callback already posted to the dispatcher, so a
+        // theme change enqueued from an OS notification can dequeue after the window has closed —
+        // where ApplyCaptionButtonColors' AppWindow.TitleBar would throw against a destroyed window.
+        // Dispose sets this first and runs on this same thread, so the check can't race it.
+        if (_disposed)
+        {
+            return;
+        }
+
         if (Content is FrameworkElement root)
         {
             root.RequestedTheme = _theme.CurrentTheme;
         }
+
+        ApplyCaptionButtonColors();
+    }
+
+    // Colour the Minimise/Maximise/Close buttons to match the app's theme. The TitleBar control only
+    // reserves space for them; they are drawn by the system via AppWindowTitleBar, so RequestedTheme
+    // never reaches them and they otherwise keep the OS's own light/dark glyphs. Called from
+    // ApplyTheme so it re-runs on every theme change, not just at window creation.
+    //
+    // Backgrounds stay transparent so the Mica backdrop shows through — the alpha channel is honoured
+    // only because the content is extended into the title bar. The Close button's hover and pressed
+    // backgrounds are system-defined (the red) and can't be overridden; that's by design.
+    private void ApplyCaptionButtonColors()
+    {
+        // False only on Windows 10 builds that predate title bar customisation, where the system
+        // draws its own themed buttons anyway.
+        if (!AppWindowTitleBar.IsCustomizationSupported())
+        {
+            return;
+        }
+
+        AppWindowTitleBar titleBar = AppWindow.TitleBar;
+
+        // Under a contrast theme, hand the buttons back to the system — null resets each property to
+        // its system colour. The OS palette is the accessible one and the user may have customised it,
+        // so our own colours would be actively harmful: a Light override under a dark contrast theme
+        // would paint near-black glyphs onto a black title bar. This resets rather than skips, so
+        // switching a contrast theme *on* while running clears colours set before it.
+        if (_themeSettings.HighContrast)
+        {
+            titleBar.ButtonBackgroundColor = null;
+            titleBar.ButtonInactiveBackgroundColor = null;
+            titleBar.ButtonForegroundColor = null;
+            titleBar.ButtonHoverForegroundColor = null;
+            titleBar.ButtonPressedForegroundColor = null;
+            titleBar.ButtonInactiveForegroundColor = null;
+            titleBar.ButtonHoverBackgroundColor = null;
+            titleBar.ButtonPressedBackgroundColor = null;
+            return;
+        }
+
+        bool dark = _theme.EffectiveTheme == ResolvedTheme.Dark;
+
+        titleBar.ButtonBackgroundColor = Colors.Transparent;
+        titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
+
+        Color glyph = dark ? _darkGlyph : _lightGlyph;
+        titleBar.ButtonForegroundColor = glyph;
+        titleBar.ButtonHoverForegroundColor = glyph;
+        titleBar.ButtonPressedForegroundColor = glyph;
+        titleBar.ButtonInactiveForegroundColor = dark ? _darkInactiveGlyph : _lightInactiveGlyph;
+
+        titleBar.ButtonHoverBackgroundColor = dark ? _darkHover : _lightHover;
+        titleBar.ButtonPressedBackgroundColor = dark ? _darkPressed : _lightPressed;
     }
 
     private void OnShellRouteChanged(object? sender, ShellRoute route) => NavigateTo(route);
@@ -310,10 +401,24 @@ public sealed partial class MainWindow : Window, IDisposable
         PersistWindowState();
         _shell.RouteChanged -= OnShellRouteChanged;
         _theme.ThemeChanged -= OnThemeChanged;
+        _themeSettings.Changed -= OnThemeSettingsChanged;
         VisibilityChanged -= OnVisibilityChanged;
         AppTitleBar.BackRequested -= OnTitleBarBackRequested;
         AppWindow.Changed -= OnAppWindowChanged;
     }
+
+    // Caption button colours, per theme. The glyph tones mirror the Fluent primary/disabled text
+    // fills flattened onto their backdrop (the foreground properties ignore the alpha channel, so
+    // they have to be opaque), and the hover/pressed washes follow the Fluent subtle-fill roles:
+    // a translucent black over light, white over dark, with pressed lighter than hover.
+    private static readonly Color _lightGlyph = Color.FromArgb(0xFF, 0x1B, 0x1B, 0x1B);
+    private static readonly Color _darkGlyph = Colors.White;
+    private static readonly Color _lightInactiveGlyph = Color.FromArgb(0xFF, 0x99, 0x99, 0x99);
+    private static readonly Color _darkInactiveGlyph = Color.FromArgb(0xFF, 0x76, 0x76, 0x76);
+    private static readonly Color _lightHover = Color.FromArgb(0x19, 0x00, 0x00, 0x00);
+    private static readonly Color _darkHover = Color.FromArgb(0x19, 0xFF, 0xFF, 0xFF);
+    private static readonly Color _lightPressed = Color.FromArgb(0x0D, 0x00, 0x00, 0x00);
+    private static readonly Color _darkPressed = Color.FromArgb(0x0D, 0xFF, 0xFF, 0xFF);
 
     private const uint _monitorDefaultToNearest = 2;  // MONITOR_DEFAULTTONEAREST
     private const int _mdtEffectiveDpi = 0;            // MDT_EFFECTIVE_DPI

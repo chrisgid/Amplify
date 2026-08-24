@@ -36,4 +36,23 @@ public static class ThemeResolver
         ThemeMode.Dark => ResolvedTheme.Dark,
         _ => ResolvedTheme.Default,
     };
+
+    /// <summary>
+    /// Resolves a preference all the way to a concrete <see cref="ResolvedTheme.Light"/> or
+    /// <see cref="ResolvedTheme.Dark"/> — never <see cref="ResolvedTheme.Default"/> — for the parts of
+    /// the UI the framework can't theme for us. The system caption buttons are the case in point: they
+    /// are drawn by the OS rather than by the XAML tree, so they must be handed explicit colours and
+    /// "follow the OS" has to be collapsed to an actual light or dark by the caller.
+    /// </summary>
+    /// <param name="mode">The stored appearance preference.</param>
+    /// <param name="systemIsDark">Reads whether Windows is currently using its dark theme. The OS
+    /// query is a platform concern, kept out of this mapping so it stays testable — and taken as a
+    /// delegate rather than a value so it is invoked <em>only</em> for the modes that follow the OS.
+    /// A pinned Light/Dark preference never touches it.</param>
+    public static ResolvedTheme ResolveEffective(ThemeMode mode, Func<bool> systemIsDark) => Resolve(mode) switch
+    {
+        ResolvedTheme.Light => ResolvedTheme.Light,
+        ResolvedTheme.Dark => ResolvedTheme.Dark,
+        _ => systemIsDark() ? ResolvedTheme.Dark : ResolvedTheme.Light,
+    };
 }
