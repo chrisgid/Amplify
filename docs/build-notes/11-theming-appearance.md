@@ -192,3 +192,23 @@ Two valid findings on the caption-button fix above; both implemented.
     (Settings > Accessibility > Contrast themes, or Left Alt + Left Shift + PrtScn) toggled *while the
     app is running*, with the Appearance override set to Light and then Dark, hands the buttons back
     to the system's contrast colours and returns them when it is switched off.
+
+## 2026-08-25 — Code review fix, second round (PR #48)
+
+One further finding, valid: `ApplyTheme` is now reachable **after** the window has closed.
+
+- The contrast-theme handler marshals with `DispatcherQueue.TryEnqueue(ApplyTheme)`, and `Dispose`'s
+  `-=` cannot recall a callback that is already posted. A contrast-theme change landing just as the
+  user quits from the tray would dequeue against a destroyed window, where
+  `ApplyCaptionButtonColors`' `AppWindow.TitleBar` throws — an unhandled exception at shutdown.
+- Fixed with `if (_disposed) return;` at the top of `ApplyTheme`. `Dispose` sets `_disposed` **before**
+  its unsubscribes and runs on the UI thread from `Closed`, and `ApplyTheme` only ever runs on that
+  same thread, so the check cannot race the teardown.
+- **Worth knowing:** the `ThemeService` → `ThemeChanged` path was never exposed to this, but only
+  incidentally — it enqueues `() => ThemeChanged?.Invoke(...)`, which re-reads the event at dequeue
+  time and no-ops once `Dispose` has removed the window's handler. Enqueuing a bound method instead
+  of a lambda is what loses that property. Keep it in mind before posting any other bound method to
+  the dispatcher from this window.
+- `dotnet build` → 0 warnings, 0 errors; `dotnet test` → 269 passed, 0 skipped;
+  `dotnet format --verify-no-changes` → clean. No behaviour change to verify by hand: the guard only
+  suppresses work on an already-closed window.

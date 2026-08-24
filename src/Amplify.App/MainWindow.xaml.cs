@@ -216,6 +216,15 @@ public sealed partial class MainWindow : Window, IDisposable
     // caption buttons, which are outside the XAML tree and are coloured separately below.
     private void ApplyTheme()
     {
+        // Unsubscribing in Dispose can't recall a callback already posted to the dispatcher, so a
+        // theme change enqueued from an OS notification can dequeue after the window has closed —
+        // where ApplyCaptionButtonColors' AppWindow.TitleBar would throw against a destroyed window.
+        // Dispose sets this first and runs on this same thread, so the check can't race it.
+        if (_disposed)
+        {
+            return;
+        }
+
         if (Content is FrameworkElement root)
         {
             root.RequestedTheme = _theme.CurrentTheme;
