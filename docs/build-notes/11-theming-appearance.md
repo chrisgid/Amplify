@@ -83,3 +83,73 @@ the non-obvious.
     `TitleBar` control with it; the OS accent flows via `SystemAccentColor`/accent system brushes.
   - `Windows.UI.ViewManagement.UISettings.ColorValuesChanged` is the event for OS theme/accent changes
     and fires on a non-UI thread.
+
+## 2026-08-25 — Fix: system caption buttons ignored the app theme · branch `fix/11-caption-button-theming`
+
+The Phase 2 smoke test logged item 11 as *pass with defect*: in the light theme the window's
+Minimise/Maximise/Close buttons kept their dark-mode look (white glyphs, near-black hover). Everything
+else — including the `TitleBar` control's own title and icon — themed correctly.
+
+- **Root cause:** `MainWindow.ApplyTheme()` only set `RequestedTheme` on the content root. The system
+  caption buttons are **not in the XAML tree** — the `TitleBar` control merely reserves space for them
+  and they are drawn by `AppWindowTitleBar`, so `RequestedTheme` never reaches them and the deprecated
+  `WindowCaptionBackground`-style resource theming has no effect either. They have to be given explicit
+  colours. The stale comment above `ApplyTheme()` (the root "carries the … title bar along") was
+  corrected to say which parts that does and doesn't cover.
+
+- **Deviations from spec/contracts:** none. No contract change: `EffectiveTheme` is on the concrete
+  `ThemeService` (which `MainWindow` already depends on for `CurrentTheme`), not on `IThemeService`.
+
+- **Assumptions / design (docs were silent):**
+  - **The colours are set inside `ApplyTheme()`, not in `ConfigureWindowChrome()`**, so they re-run on
+    every `ThemeChanged` rather than only at window creation. `ThemeService` already raises
+    `ThemeChanged` unconditionally on `UISettings.ColorValuesChanged`, so an OS light/dark switch
+    re-evaluates them live with no new plumbing.
+  - **New Core seam `ThemeResolver.ResolveEffective(ThemeMode, bool systemIsDark)`** returning a
+    concrete `Light`/`Dark` — never `Default`. This is the trap in this fix: `Resolve` deliberately
+    maps `System → Default` because the *framework* resolves that for XAML elements, but a colour
+    picker has no "follow the OS" option. The OS read is the caller's job, which keeps the mapping
+    pure and unit-testable (7 new cases, incl. "never returns Default" and "an override beats the OS").
+  - **`ThemeService.EffectiveTheme` does the OS read** via the `UISettings` instance it already holds:
+    `GetColorValue(UIColorType.Background)` is black under the dark theme and white under the light one,
+    tested with the standard perceived-brightness weighting. It is a **property evaluated per call**,
+    not a cached field — while following the system the OS theme can change under us. Falls back to
+    light where `UISettings` is unavailable (unpackaged/headless), matching the Windows default.
+  - **`ThemeService` now keeps the `ThemeMode` it resolved** in `_mode`, because `ElementTheme.Default`
+    is lossy — it says "follow the OS" without saying which OS theme is in force. `_mode` is assigned
+    **before** `Apply`'s idempotence guard, since `System` and an unknown value both resolve to
+    `Default` and the guard can short-circuit a preference change `EffectiveTheme` still needs to see.
+  - **Colour choices** (`MainWindow`'s private statics): glyph tones are the Fluent primary/disabled
+    text fills flattened onto their backdrop — the foreground properties **ignore the alpha channel**,
+    so they must be opaque. Hover/pressed follow the Fluent subtle-fill roles (translucent black over
+    light, white over dark, pressed lighter than hover). `ButtonBackgroundColor` and
+    `ButtonInactiveBackgroundColor` stay `Colors.Transparent` so Mica shows through.
+  - **Guarded on `AppWindowTitleBar.IsCustomizationSupported()`**, which is false only on Windows 10
+    builds predating title bar customisation — there the system draws its own themed buttons anyway.
+
+- **Deferred / known gaps:**
+  - **The Close button's hover/pressed background is system-defined** (the red) and can't be
+    overridden — documented behaviour, not a defect. Don't chase it.
+  - The unrelated Phase 2 defect (Spotify-unreachable never surfaced in the UI) is untouched.
+
+- **Manual/integration checks:**
+  - `dotnet build Amplify.slnx -c Debug -p:Platform=x64` → **0 warnings, 0 errors**.
+  - `dotnet test` → **265 passed, 0 skipped** (254 baseline + 11 new `ResolveEffective` cases).
+  - `dotnet format Amplify.slnx --verify-no-changes` → clean.
+  - **Not reachable by unit tests** (OS/UI-bound), so verified by hand on a packaged run — **pass**:
+    Windows light + override System → dark-on-light glyphs; Windows dark + override System →
+    light-on-dark; override Light while Windows is dark, and override Dark while Windows is light →
+    buttons follow the **app**, not the OS; hover legible in both themes; and switching the Windows
+    theme while the app is running (including while tray-hidden, then reopened) updates the colours
+    live rather than only at startup.
+
+- **Verified facts (microsoft-docs):**
+  - [TitleBar — Anatomy](https://learn.microsoft.com/windows/apps/develop/ui/controls/title-bar#anatomy):
+    the system caption buttons are not part of the `TitleBar` control; it allocates space and
+    `AppWindowTitleBar` owns their customisation.
+  - [Title bar customization](https://learn.microsoft.com/windows/apps/develop/title-bar): the caption
+    *background* properties (`ButtonBackgroundColor`, `ButtonHoverBackgroundColor`,
+    `ButtonPressedBackgroundColor`, `ButtonInactiveBackgroundColor`) honour the alpha channel **only**
+    while content is extended into the title bar; **all other colour properties ignore alpha**. Setting
+    a property to `null` resets it to the system colour. The Close button's hover/pressed background is
+    always system-defined. Colour customisation is a no-op on Windows 10.

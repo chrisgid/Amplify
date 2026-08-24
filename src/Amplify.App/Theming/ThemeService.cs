@@ -29,6 +29,11 @@ public sealed class ThemeService : IThemeService, IStartupInitializer
     // unpackaged or headless run), in which case live OS-following is simply not wired.
     private readonly UISettings? _uiSettings;
 
+    // The preference CurrentTheme was resolved from. Kept because ElementTheme.Default is lossy: it
+    // says "follow the OS" without saying which OS theme is in force, and EffectiveTheme has to
+    // answer that for the consumers the framework can't theme (the system caption buttons).
+    private ThemeMode _mode;
+
     public ThemeService(ISettingsService settings)
     {
         _settings = settings;
@@ -37,7 +42,8 @@ public sealed class ThemeService : IThemeService, IStartupInitializer
         // notifications raised on other threads can be marshalled back before touching the UI.
         _dispatcher = DispatcherQueue.GetForCurrentThread();
 
-        CurrentTheme = ToElementTheme(ThemeResolver.Resolve(settings.Current.ThemeMode));
+        _mode = settings.Current.ThemeMode;
+        CurrentTheme = ToElementTheme(ThemeResolver.Resolve(_mode));
 
         _settings.Changed += OnSettingsChanged;
 
@@ -57,6 +63,15 @@ public sealed class ThemeService : IThemeService, IStartupInitializer
     /// <summary>The framework theme the window should apply to its content root.</summary>
     public ElementTheme CurrentTheme { get; private set; }
 
+    /// <summary>
+    /// The appearance actually in force, always a concrete <see cref="ResolvedTheme.Light"/> or
+    /// <see cref="ResolvedTheme.Dark"/>: while following the system this reads the current Windows
+    /// theme, so it is evaluated on each call rather than cached. For UI the framework themes itself,
+    /// prefer <see cref="CurrentTheme"/> — this is for surfaces drawn outside the XAML tree (the
+    /// system caption buttons) that have to be given explicit colours.
+    /// </summary>
+    public ResolvedTheme EffectiveTheme => ThemeResolver.ResolveEffective(_mode, IsSystemDark());
+
     /// <inheritdoc />
     public event EventHandler? ThemeChanged;
 
@@ -73,6 +88,11 @@ public sealed class ThemeService : IThemeService, IStartupInitializer
     /// <inheritdoc />
     public void Apply(ThemeMode mode)
     {
+        // Recorded before the idempotence guard below: System and an unknown value both resolve to
+        // ElementTheme.Default, so the guard can short-circuit on a preference change that
+        // EffectiveTheme still needs to see.
+        _mode = mode;
+
         ElementTheme resolved = ToElementTheme(ThemeResolver.Resolve(mode));
         if (resolved == CurrentTheme)
         {
@@ -100,6 +120,21 @@ public sealed class ThemeService : IThemeService, IStartupInitializer
         {
             _dispatcher.TryEnqueue(() => ThemeChanged?.Invoke(this, EventArgs.Empty));
         }
+    }
+
+    // Whether Windows is currently in dark mode. UISettings reports the theme through its colour
+    // palette rather than a flag: the Background value is black under the dark theme and white under
+    // the light one, so the standard perceived-brightness test on it is the read. Falls back to light
+    // where UISettings is unavailable (unpackaged/headless), matching the Windows default.
+    private bool IsSystemDark()
+    {
+        if (_uiSettings is null)
+        {
+            return false;
+        }
+
+        Windows.UI.Color background = _uiSettings.GetColorValue(UIColorType.Background);
+        return ((5 * background.G) + (2 * background.R) + background.B) <= (8 * 128);
     }
 
     private static ElementTheme ToElementTheme(ResolvedTheme resolved) => resolved switch
