@@ -153,3 +153,42 @@ else — including the `TitleBar` control's own title and icon — themed correc
     while content is extended into the title bar; **all other colour properties ignore alpha**. Setting
     a property to `null` resets it to the system colour. The Close button's hover/pressed background is
     always system-defined. Colour customisation is a no-op on Windows 10.
+
+## 2026-08-25 — Code review fixes (PR #48)
+
+Two valid findings on the caption-button fix above; both implemented.
+
+- **Contrast themes were unhandled.** With a Windows contrast theme active *and* an explicit
+  Light/Dark override (e.g. "Night sky" + Appearance = Light), the hardcoded palette painted
+  `#1B1B1B` glyphs onto a black title bar. `ApplyCaptionButtonColors` now checks
+  `Microsoft.UI.System.ThemeSettings.HighContrast` first and, when set, assigns **null** to all eight
+  properties — documented as "resets it to the default system colour". It resets rather than skips, so
+  turning a contrast theme *on* while running clears colours set before it.
+  - **`ThemeSettings` lives in `MainWindow`, not `ThemeService`.** It is created with
+    `ThemeSettings.CreateForWindowId(AppWindow.Id)`, and the service deliberately holds no UI
+    reference. Held in a field for the same reason as the service's `UISettings` — the docs are
+    explicit that `Changed` stops firing once the object is collected. Subscribed alongside the other
+    window events and unsubscribed in `Dispose`.
+  - **Its `Changed` handler marshals to the UI thread itself.** `ThemeService` documents that it owns
+    marshalling for *its* OS sources so the window can apply directly; this is a second OS source
+    wired straight to the window, so the window owns marshalling for it.
+  - Per the [contrast themes](https://learn.microsoft.com/windows/apps/design/accessibility/high-contrast-themes)
+    guidance, a contrast-theme palette is user-customisable — app-chosen foreground colours are the
+    wrong thing there by design, not merely a bad fit for one scheme.
+
+- **`EffectiveTheme` read the OS unconditionally, and unguarded.** `ResolveEffective`'s second
+  parameter is now a `Func<bool>` rather than a `bool`, so the OS is queried **only** for the modes
+  that follow it — a pinned Light/Dark never calls it. Laziness is a property of the seam rather than
+  of one call site, and is covered by two new tests (read / not read). `IsSystemDark` also wraps
+  `GetColorValue` in the same `InvalidOperationException`/`COMException` catch the constructor already
+  uses around `new UISettings()`: it runs from a `ThemeChanged` callback on the dispatcher, where a
+  throw would be unhandled and take the app down.
+
+- **Manual/integration checks:**
+  - `dotnet build Amplify.slnx -c Debug -p:Platform=x64` → 0 warnings, 0 errors.
+  - `dotnet test` → **269 passed, 0 skipped** (265 + 4 new lazy-read cases).
+  - `dotnet format Amplify.slnx --verify-no-changes` → clean.
+  - The contrast-theme path was verified by hand on a packaged run — **pass**: a contrast theme
+    (Settings > Accessibility > Contrast themes, or Left Alt + Left Shift + PrtScn) toggled *while the
+    app is running*, with the Appearance override set to Light and then Dark, hands the buttons back
+    to the system's contrast colours and returns them when it is switched off.

@@ -70,7 +70,7 @@ public sealed class ThemeService : IThemeService, IStartupInitializer
     /// prefer <see cref="CurrentTheme"/> — this is for surfaces drawn outside the XAML tree (the
     /// system caption buttons) that have to be given explicit colours.
     /// </summary>
-    public ResolvedTheme EffectiveTheme => ThemeResolver.ResolveEffective(_mode, IsSystemDark());
+    public ResolvedTheme EffectiveTheme => ThemeResolver.ResolveEffective(_mode, IsSystemDark);
 
     /// <inheritdoc />
     public event EventHandler? ThemeChanged;
@@ -124,8 +124,12 @@ public sealed class ThemeService : IThemeService, IStartupInitializer
 
     // Whether Windows is currently in dark mode. UISettings reports the theme through its colour
     // palette rather than a flag: the Background value is black under the dark theme and white under
-    // the light one, so the standard perceived-brightness test on it is the read. Falls back to light
-    // where UISettings is unavailable (unpackaged/headless), matching the Windows default.
+    // the light one, so the standard perceived-brightness test on it is the read. Passed to
+    // ResolveEffective as a delegate, so a pinned Light/Dark preference never calls it at all.
+    //
+    // Falls back to light where UISettings is unavailable or the call fails — the same conditions the
+    // constructor already tolerates. Guarded for the same reason it is constructed inside a try: this
+    // runs from a ThemeChanged callback on the dispatcher, where a throw would take the app down.
     private bool IsSystemDark()
     {
         if (_uiSettings is null)
@@ -133,8 +137,15 @@ public sealed class ThemeService : IThemeService, IStartupInitializer
             return false;
         }
 
-        Windows.UI.Color background = _uiSettings.GetColorValue(UIColorType.Background);
-        return ((5 * background.G) + (2 * background.R) + background.B) <= (8 * 128);
+        try
+        {
+            Windows.UI.Color background = _uiSettings.GetColorValue(UIColorType.Background);
+            return ((5 * background.G) + (2 * background.R) + background.B) <= (8 * 128);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
+        {
+            return false;
+        }
     }
 
     private static ElementTheme ToElementTheme(ResolvedTheme resolved) => resolved switch

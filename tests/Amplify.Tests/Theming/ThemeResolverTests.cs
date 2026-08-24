@@ -28,7 +28,7 @@ public class ThemeResolverTests
     public void ResolveEffectiveCollapsesSystemToTheCurrentOsTheme(
         ThemeMode mode, bool systemIsDark, ResolvedTheme expected)
     {
-        Assert.Equal(expected, ThemeResolver.ResolveEffective(mode, systemIsDark));
+        Assert.Equal(expected, ThemeResolver.ResolveEffective(mode, () => systemIsDark));
     }
 
     [Theory]
@@ -40,7 +40,33 @@ public class ThemeResolverTests
         ThemeMode mode, bool systemIsDark, ResolvedTheme expected)
     {
         // A manual override pins the appearance: the caption buttons follow the app, not Windows.
-        Assert.Equal(expected, ThemeResolver.ResolveEffective(mode, systemIsDark));
+        Assert.Equal(expected, ThemeResolver.ResolveEffective(mode, () => systemIsDark));
+    }
+
+    [Theory]
+    [InlineData(ThemeMode.Light)]
+    [InlineData(ThemeMode.Dark)]
+    public void ResolveEffectiveDoesNotReadTheOsThemeWhenOverridden(ThemeMode mode)
+    {
+        // The read is a COM call into UISettings, so an answer that can't change it isn't worth
+        // asking for — the caller passes a delegate precisely so this case can skip it.
+        bool wasRead = false;
+
+        ThemeResolver.ResolveEffective(mode, () => { wasRead = true; return true; });
+
+        Assert.False(wasRead);
+    }
+
+    [Theory]
+    [InlineData(ThemeMode.System)]
+    [InlineData((ThemeMode)999)]
+    public void ResolveEffectiveReadsTheOsThemeWhenFollowingTheSystem(ThemeMode mode)
+    {
+        bool wasRead = false;
+
+        ThemeResolver.ResolveEffective(mode, () => { wasRead = true; return true; });
+
+        Assert.True(wasRead);
     }
 
     [Theory]
@@ -51,7 +77,7 @@ public class ThemeResolverTests
     public void ResolveEffectiveNeverReturnsDefault(ThemeMode mode)
     {
         // Its whole point is to be handed to a colour picker, which has no "follow the OS" option.
-        Assert.NotEqual(ResolvedTheme.Default, ThemeResolver.ResolveEffective(mode, systemIsDark: false));
-        Assert.NotEqual(ResolvedTheme.Default, ThemeResolver.ResolveEffective(mode, systemIsDark: true));
+        Assert.NotEqual(ResolvedTheme.Default, ThemeResolver.ResolveEffective(mode, () => false));
+        Assert.NotEqual(ResolvedTheme.Default, ThemeResolver.ResolveEffective(mode, () => true));
     }
 }

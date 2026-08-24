@@ -45,12 +45,14 @@ public static class ThemeResolver
     /// "follow the OS" has to be collapsed to an actual light or dark by the caller.
     /// </summary>
     /// <param name="mode">The stored appearance preference.</param>
-    /// <param name="systemIsDark">Whether Windows is currently using its dark theme. Read by the
-    /// caller (the OS query is a platform concern, kept out of this mapping so it stays testable).</param>
-    public static ResolvedTheme ResolveEffective(ThemeMode mode, bool systemIsDark) => Resolve(mode) switch
+    /// <param name="systemIsDark">Reads whether Windows is currently using its dark theme. The OS
+    /// query is a platform concern, kept out of this mapping so it stays testable — and taken as a
+    /// delegate rather than a value so it is invoked <em>only</em> for the modes that follow the OS.
+    /// A pinned Light/Dark preference never touches it.</param>
+    public static ResolvedTheme ResolveEffective(ThemeMode mode, Func<bool> systemIsDark) => Resolve(mode) switch
     {
         ResolvedTheme.Light => ResolvedTheme.Light,
         ResolvedTheme.Dark => ResolvedTheme.Dark,
-        _ => systemIsDark ? ResolvedTheme.Dark : ResolvedTheme.Light,
+        _ => systemIsDark() ? ResolvedTheme.Dark : ResolvedTheme.Light,
     };
 }
