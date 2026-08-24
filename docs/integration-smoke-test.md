@@ -46,8 +46,13 @@ machine with a real Spotify account:
    (confirm in the Spotify app); muted at 0; control is dimmed when there is no active device.
 6. **Volume — global hotkeys** — [ ] with Amplify **minimised to the tray and another app
    focused**, the default `Ctrl+Alt+↑/↓` change Spotify's volume; the meter stays in sync.
-7. **Rebind** — [ ] recording a new combo persists it; it survives a restart and re-registers; a
-   combo already owned by another app is rejected with the prior binding kept.
+7. **Rebind** — [ ] recording a new combo persists it; it survives a restart and re-registers;
+   binding **both actions to the same combo** is rejected with the prior binding kept. There is no
+   cross-app conflict to test: hotkeys use a `WH_KEYBOARD_LL` hook, which observes keys without
+   consuming them, so a combo another app already uses keeps working in both and never fails to
+   register (see [feature 06](./features/06-global-hotkeys.md#edge-cases--error-handling) and its
+   [build note](./build-notes/06-global-hotkeys.md)). Registration fails only if the hook itself
+   can't be installed.
 8. **Tray & background** — [ ] minimise hides to the tray and **removes the taskbar button**;
    close-to-tray keeps hotkeys alive; the tray menu Open/Settings/Quit work; Quit fully exits.
    - [ ] **Onboarding suppresses the tray persona:** while **not connected** (first run, or after a
@@ -61,7 +66,8 @@ machine with a real Spotify account:
 11. **Theming** — [ ] the app follows the Windows light/dark theme and accent live; the
     System/Light/Dark override applies immediately and persists.
 12. **Settings persistence** — [ ] toggles/step/theme persist across a restart; the read-only
-    Client ID shows with "Reset Amplify to change it"; the footer "Amplify" name links to the repo.
+    Client ID shows with "Disconnect your account or reset Amplify to change it"; the footer
+    "Amplify" name links to the repo.
 13. **Reset** — [ ] confirming Reset clears shortcuts + Client ID, disconnects, and returns to
     onboarding; Cancel changes nothing.
     - [ ] Back on onboarding, the tray icon disappears and tray behaviour is suppressed again
