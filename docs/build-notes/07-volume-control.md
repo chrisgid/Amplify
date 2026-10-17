@@ -316,3 +316,20 @@ stayed `false` and the volume hotkeys silently no-opped — exactly when they're
   the card is disabled from the first read with no flicker, the device line reads
   "`{Device}` · volume control not supported", and transferring playback back to a controllable
   device re-enables the control within one poll.
+
+## 2026-10-17 — Player-state polling records read failures (feature 05 fix)
+
+- **Why it touches this feature:** the shared `PlayerStateProvider` lives on the polling side, and
+  the fix for the Phase 2 "Spotify unreachable is never surfaced" blocker had to go in its read path.
+  Full reasoning in [`build-notes/05`](./05-connection-status.md).
+- **What changed here:** `RefreshAsync`'s `HttpRequestException`/`TaskCanceledException` catch now
+  feeds a `ReachabilityTracker` before returning, and a successful read clears it just before
+  `Publish(...)`. A disconnect resets the tracker alongside clearing the player state.
+  `IPlayerStateProvider` gained `IsUnreachable` + `ReachabilityChanged`.
+- **What deliberately did *not* change:** `UpdatePollingState`, the 5s `_pollInterval`, the
+  `_refreshing` collapse, and the "skip the publish on failure" behaviour are all unchanged. The
+  tracker is advisory — it never stops, slows, or gates the poll, which is what preserves the
+  existing auto-recovery when the network returns.
+- **`VolumeController` is untouched.** `CanControl` still doesn't consult reachability, so the volume
+  card stays interactive during an outage and a failed write reverts optimistically as before. Noted
+  as a known gap rather than fixed here, to keep this change out of feature 07's state machine.

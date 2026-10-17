@@ -189,3 +189,69 @@ treatment, and one functional gap:
 - **Note for a future session:** this feature's doc still describes the yellow warning triangle and
   no-active-device `InfoBar` that were removed in June; only the device-line bullets have been
   brought in line with the code.
+
+## 2026-10-17 — Spotify-unreachable is surfaced (Phase 2 blocker)
+
+- **The bug:** with the network pulled, nothing changed on screen. `PlayerStateProvider.RefreshAsync`
+  logged the failure and returned *before* `Publish(...)`, so consumers saw **no event at all** — the
+  card sat on "Connected" plus a device and volume from the last successful read, indefinitely. The
+  catch block's comment said "the status card owns surfacing persistent failures", but the card had
+  no way to observe a read failure. The only failing check of the eighteen in the Phase 2 pass.
+- **Design decision — a separate signal, not `ConnectionState.Error`.** `ConnectionState.Error` is
+  set in six places, all auth/token failures, and it is genuinely *latching*: the token is dead and
+  only re-authorisation fixes it. Being unreachable is the opposite — transient, and it must clear
+  itself. Conflating them invites the fix that would be **worse than the bug**: enter an error state,
+  stop the timer, wait for a click. So `ConnectionState` is untouched and
+  `IPlayerStateProvider` gained `IsUnreachable` + `ReachabilityChanged` instead (see
+  [`contracts.md`](../contracts.md)).
+- **Auto-recovery is the load-bearing requirement, and nothing gates it.** The new
+  `Amplify.Core.Spotify.ReachabilityTracker` records read outcomes and reports a flag; it has **no**
+  influence on the timer. `UpdatePollingState` is byte-for-byte unchanged, so the 5s poll runs right
+  through an outage and the first successful read clears the flag with no user action.
+  `ReachabilityTrackerTests.ASingleSuccessClearsTheUnreachableState` and
+  `RecoveryIsImmediateHoweverLongTheOutageRan` are the regression guards for that — if either ever
+  needs a `Reset()`/reconnect call to pass, the app has stopped healing itself.
+- **Threshold: 3 consecutive failures (~15s).** Short enough to be prompt, long enough that one
+  dropped request doesn't flap the UI. `FailuresMustBeConsecutiveToCount` pins that intermittent
+  failures never accumulate. Transitions are reported once, not once per poll, so a long outage
+  doesn't re-notify every 5 seconds.
+- **The Reconnect trap, avoided.** `ReconnectAsync` calls `IAuthService.ConnectAsync()` — the full
+  PKCE flow, including `Launcher.LaunchUriAsync` to the system browser. That is right for a dead
+  token and badly wrong for a Wi-Fi blip, where the token is fine. The unreachable bar therefore gets
+  its **own** `RetryCommand`, which only calls `_playerStateProvider.RefreshAsync()`. It is an
+  optional shortcut for an impatient user; walking away recovers just as well.
+- **The connected card is suppressed while unreachable** (`ShowConnectedCard` now also requires
+  `!IsUnreachable`). Leaving it up is the actual complaint in the bug report — stale device and
+  volume presented as current. This matches how `Connecting`/`Error` already replace the card rather
+  than sitting beside it.
+- **Severity is `Warning`, not `Error`.** The two bars now mean different things to the user: the
+  error bar needs them (sign in again), the warning bar doesn't (the app is already recovering).
+- **`Status_Error.Title` retitled** from "Can't reach Spotify" to "Can't sign in to Spotify". Two
+  bars can't share a title, and the old one described the *network* case while the bar it sits on is
+  raised only by auth/token failures. New keys: `Status_Unreachable.Title`/`.Message` and
+  `Status_Unreachable_Retry.Content` ("Try again").
+- **The unreachable message tells the user what to do, not what's still fine.** First draft was
+  "Your account is still signed in. Amplify keeps trying…" — reassurance about something the
+  user isn't worried about yet. Reworded to "Check your internet connection. Amplify will
+  reconnect automatically once it's back.": the likely cause and the one thing they can act on
+  first, then the promise that stops them hunting for a button. The "still signed in" fact is
+  carried by the bar's severity instead — yellow means wait, the red sign-in bar means act.
+- **Precedence:** `IsUnreachableNotice` requires `ConnectionState.Connected`, so an auth error keeps
+  its own bar even while reads are failing — the Try again button could never recover from a dead
+  token.
+- **Not covered by unit tests:** `tests/Amplify.Tests` references only `Amplify.Core`, so
+  `PlayerStateProvider` (WinUI `DispatcherQueueTimer`) and `StatusViewModel` can't be tested here, as
+  with every other App-layer type. "Polling continues while unreachable" is held by code structure
+  (the tracker never touches the timer) and by the packaged run; the threshold, self-clearing, and
+  precedence rules are all unit-tested in Core.
+- **Deliberately out of scope:** the volume card still enables off `IVolumeController.CanControl`,
+  which doesn't consult reachability, so during an outage it stays interactive showing the
+  last-known level. A write then fails and `VolumeController` reverts it optimistically — existing,
+  already-tested behaviour. Wiring reachability into the controller would widen the blast radius
+  into feature 07's state machine for a cosmetic gain; worth a separate look.
+- **Checks:** `dotnet build Amplify.slnx -c Debug -p:Platform=x64` → 0 warnings / 0 errors.
+  `dotnet test Amplify.slnx -c Debug -p:Platform=x64` → **285 passed, 0 skipped** (269 before this
+  change — the bug report's "254 baseline" was stale — plus 16 new: 10 `ReachabilityTracker` cases
+  and 6 `StatusPresentation` cases). `dotnet format --verify-no-changes` clean. **Not yet verified
+  on a packaged run** — the live network-pull checks in
+  [`integration-smoke-test.md`](../integration-smoke-test.md) are still outstanding.

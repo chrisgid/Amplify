@@ -187,6 +187,12 @@ public interface IPlayerStateProvider
     PlayerState? Current { get; }                    // last reading, null when unread/disconnected
     event EventHandler<PlayerState?> PlayerStateChanged;
     Task RefreshAsync();                             // read now (e.g. on focus); coalesces overlaps
+
+    // Reads have failed ReachabilityTracker.UnreachableThreshold times in a row. NOT the same as
+    // ConnectionState.Error: the token is still valid, polling continues unchanged throughout, and
+    // this clears on the next successful read with no user action. Raised once per transition.
+    bool IsUnreachable { get; }
+    event EventHandler<bool> ReachabilityChanged;
 }
 
 // feature 06 — global hotkeys
@@ -270,6 +276,7 @@ public interface IStartupInitializer
 | `IAuthService.ConnectionStateChanged` | 03 | 01 (routing), 04, 05, 12 |
 | `IHotkeyService.HotkeyPressed` | 06 | 07 |
 | `IPlayerStateProvider.PlayerStateChanged` | 07 (shared provider) | 05 (status card), 07 (volume) |
+| `IPlayerStateProvider.ReachabilityChanged` | 07 (shared provider) | 05 (status card) |
 | `IVolumeController.VolumeChanged` | 07 | 07 UI |
 | `ISettingsService.Changed` | 10 | 06 (re-register), 07 (step), 08 (startup/tray), 11 (theme) |
 | `IThemeService.ThemeChanged` | 11 | 01 (window) |

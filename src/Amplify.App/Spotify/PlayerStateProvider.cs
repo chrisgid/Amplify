@@ -29,6 +29,11 @@ public sealed partial class PlayerStateProvider : IPlayerStateProvider, IStartup
     private readonly ILogger<PlayerStateProvider> _logger;
     private readonly DispatcherQueueTimer? _pollTimer;
 
+    // Advisory only: it decides when a run of failed reads is worth telling the user about, and never
+    // affects whether or how often we poll. Mutated solely inside the dispatcher callbacks below, so it
+    // is single-threaded even though reads complete on a pool thread.
+    private readonly ReachabilityTracker _reachability = new();
+
     // Whether the main window is currently visible; set by the shell via Suspend()/Resume() so polling
     // stops when nobody can see the result. True initially — the window is visible at launch.
     private bool _windowVisible = true;
@@ -58,7 +63,11 @@ public sealed partial class PlayerStateProvider : IPlayerStateProvider, IStartup
 
     public PlayerState? Current { get; private set; }
 
+    public bool IsUnreachable => _reachability.IsUnreachable;
+
     public event EventHandler<PlayerState?>? PlayerStateChanged;
+
+    public event EventHandler<bool>? ReachabilityChanged;
 
     // After tray/window (200): the window is up to drive Suspend()/Resume(), and the first read below
     // needs the session restored (a pre-step). Consumers seed from Current, so order beyond this is
@@ -80,7 +89,7 @@ public sealed partial class PlayerStateProvider : IPlayerStateProvider, IStartup
     {
         if (_auth.State != ConnectionState.Connected)
         {
-            Publish(null);
+            PublishDisconnected();
             return;
         }
 
@@ -100,8 +109,12 @@ public sealed partial class PlayerStateProvider : IPlayerStateProvider, IStartup
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
             // A failed request/token-refresh (or HttpClient's own timeout — there's no caller token
-            // here) just skips this read; the status card owns surfacing persistent failures.
+            // here) skips this read: no PlayerStateChanged, so nobody mistakes the old reading for a
+            // fresh one. The run of failures is recorded instead, and once it's long enough the status
+            // block says so. Deliberately no change to the timer — the poll carries on at its normal
+            // cadence, which is what lets the app recover by itself when the network comes back.
             LogPlayerStateReadFailed(ex);
+            RecordReadOutcome(succeeded: false);
             return;
         }
         finally
@@ -109,6 +122,9 @@ public sealed partial class PlayerStateProvider : IPlayerStateProvider, IStartup
             _refreshing = false;
         }
 
+        // Clear any failure run before publishing, so a consumer handling PlayerStateChanged already
+        // sees IsUnreachable false rather than a fresh reading alongside a stale outage flag.
+        RecordReadOutcome(succeeded: true);
         Publish(state);
     }
 
@@ -156,7 +172,7 @@ public sealed partial class PlayerStateProvider : IPlayerStateProvider, IStartup
             else
             {
                 // Disconnecting clears the player state so consumers drop the device immediately.
-                Publish(null);
+                PublishDisconnected();
             }
 
             UpdatePollingState();
@@ -175,6 +191,40 @@ public sealed partial class PlayerStateProvider : IPlayerStateProvider, IStartup
             _pollTimer?.Stop();
         }
     }
+
+    // Clears the player state and any failure run together: once disconnected the question "can we
+    // reach Spotify" no longer applies, and a later reconnect should start from a clean slate rather
+    // than inheriting an outage that may be long over.
+    private void PublishDisconnected()
+    {
+        _dispatcher.RunOnUi(() =>
+        {
+            if (_reachability.Reset())
+            {
+                ReachabilityChanged?.Invoke(this, false);
+            }
+        });
+
+        Publish(null);
+    }
+
+    // Feeds one read's outcome to the tracker, raising the event only on a transition so a long outage
+    // doesn't re-notify every 5 seconds.
+    private void RecordReadOutcome(bool succeeded) =>
+        _dispatcher.RunOnUi(() =>
+        {
+            // A read that failed as the account was disconnecting can land here after the disconnect
+            // reset; counting it would let a stale run rebuild behind the user's back. A success still
+            // counts unconditionally — clearing is always safe.
+            bool changed = succeeded
+                ? _reachability.RecordSuccess()
+                : _auth.State == ConnectionState.Connected && _reachability.RecordFailure();
+
+            if (changed)
+            {
+                ReachabilityChanged?.Invoke(this, _reachability.IsUnreachable);
+            }
+        });
 
     private void Publish(PlayerState? state) =>
         _dispatcher.RunOnUi(() =>

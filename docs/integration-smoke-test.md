@@ -90,8 +90,14 @@ machine with a real Spotify account:
       controllable device re-enables it within one poll (~5s).
 - [ ] **Token refresh:** after the access token expires (or on a forced `401`), the next action
       refreshes silently; a rotated refresh token is persisted; concurrent calls don't double-refresh.
-- [ ] **Offline / Spotify unreachable:** the status block shows the error state with Reconnect; the
-      app does not crash.
+- [ ] **Offline / Spotify unreachable:** within ~15s (three failed polls) the status block replaces
+      the connected card with the "Can't reach Spotify" warning and a **Try again** button; the app
+      does not crash.
+- [ ] **Unreachable recovers on its own:** restore the network and *touch nothing* — the healthy card
+      must come back by itself on the next successful poll. Needing a click is a failure.
+- [ ] **Try again doesn't re-authorise:** clicking it during an outage forces one read only; it must
+      never open the browser while the stored token is still valid (that's the Reconnect button on
+      the separate sign-in error bar).
 - [ ] **Theme/accent change while hidden:** applied correctly when the window is next shown.
 
 ## Exit criteria
