@@ -2,6 +2,7 @@ using System.Net;
 using Amplify.Core.Auth;
 using Amplify.Core.Configuration;
 using Amplify.Core.Settings;
+using Amplify.Core.Spotify;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Windows.System;
@@ -266,8 +267,23 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
             // error so the status UI doesn't stay latched on Error after recovery.
             SetState(ConnectionState.Connected);
         }
+        catch (HttpRequestException ex) when (SpotifyRequestFailure.IsTransport(ex))
+        {
+            // The token endpoint was never reached, so the refresh token is untouched and still good:
+            // this is an outage, not an authorisation failure. Leave the connection state alone and
+            // rethrow. Latching Error here would be actively harmful — it stops the player-state poll
+            // (PlayerStateProvider polls only while Connected), which is what lets the app recover by
+            // itself, and it offers Reconnect, which runs the full PKCE flow and sends the user to the
+            // browser to re-approve an app they never stopped being signed in to. Staying Connected
+            // keeps the poll running, so the read failures surface as "can't reach Spotify" instead,
+            // and the next refresh succeeds on its own once the network is back.
+            LogRefreshUnreachable(ex);
+            throw;
+        }
         catch (HttpRequestException ex)
         {
+            // Spotify answered and rejected the refresh (e.g. the token was revoked). That genuinely
+            // needs the user to authorise again, so it latches.
             LogRefreshFailed(ex);
             SetState(ConnectionState.Error);
             throw;
@@ -364,4 +380,7 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Spotify access-token refresh failed.")]
     private partial void LogRefreshFailed(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Couldn't reach Spotify to refresh the access token; staying connected and letting the poll retry.")]
+    private partial void LogRefreshUnreachable(Exception exception);
 }

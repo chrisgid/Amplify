@@ -37,7 +37,7 @@ public sealed partial class PlayerStateProvider : IPlayerStateProvider, IStartup
     // Whether the main window is currently visible; set by the shell via Suspend()/Resume() so polling
     // stops when nobody can see the result. True initially — the window is visible at launch.
     private bool _windowVisible = true;
-    private bool _refreshing;
+    private Task? _inFlight;
     private bool _disposed;
 
     public PlayerStateProvider(IAuthService auth, ISpotifyClient client, ILogger<PlayerStateProvider> logger)
@@ -85,22 +85,29 @@ public sealed partial class PlayerStateProvider : IPlayerStateProvider, IStartup
         return Task.CompletedTask;
     }
 
-    public async Task RefreshAsync()
+    public Task RefreshAsync()
     {
         if (_auth.State != ConnectionState.Connected)
         {
             PublishDisconnected();
-            return;
+            return Task.CompletedTask;
         }
 
-        // The poll tick, a reconnect, and an on-demand refresh can overlap; collapse them into one
-        // in-flight read (all initiated on the UI thread).
-        if (_refreshing)
+        // The poll tick, a reconnect, and an on-demand refresh can overlap; collapse them onto one
+        // in-flight read (all initiated on the UI thread) and hand every caller that same task. Older
+        // versions returned immediately instead, which made an awaiting caller — the status card's
+        // "Try again" — a silent no-op whenever a slow read was already running. Keyed on IsCompleted
+        // rather than a flag that has to be cleared, so no missed clear can ever wedge the poll.
+        if (_inFlight is { IsCompleted: false })
         {
-            return;
+            return _inFlight;
         }
 
-        _refreshing = true;
+        return _inFlight = ReadAsync();
+    }
+
+    private async Task ReadAsync()
+    {
         PlayerState? state;
         try
         {
@@ -108,23 +115,19 @@ public sealed partial class PlayerStateProvider : IPlayerStateProvider, IStartup
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
-            // A failed request/token-refresh (or HttpClient's own timeout — there's no caller token
-            // here) skips this read: no PlayerStateChanged, so nobody mistakes the old reading for a
-            // fresh one. The run of failures is recorded instead, and once it's long enough the status
-            // block says so. Deliberately no change to the timer — the poll carries on at its normal
-            // cadence, which is what lets the app recover by itself when the network comes back.
+            // A failed read skips this publish: no PlayerStateChanged, so nobody mistakes the old
+            // reading for a fresh one. Deliberately no change to the timer — the poll carries on at
+            // its normal cadence, which is what lets the app recover by itself when the network comes
+            // back. Only a failure that means "Spotify isn't answering" counts towards the outage;
+            // see SpotifyRequestFailure for why a persistent 403 must not.
             LogPlayerStateReadFailed(ex);
-            RecordReadOutcome(succeeded: false);
+            RecordReadOutcome(ex);
             return;
-        }
-        finally
-        {
-            _refreshing = false;
         }
 
         // Clear any failure run before publishing, so a consumer handling PlayerStateChanged already
         // sees IsUnreachable false rather than a fresh reading alongside a stale outage flag.
-        RecordReadOutcome(succeeded: true);
+        RecordReadOutcome(null);
         Publish(state);
     }
 
@@ -132,6 +135,16 @@ public sealed partial class PlayerStateProvider : IPlayerStateProvider, IStartup
     public void Suspend()
     {
         _windowVisible = false;
+
+        // Drop any outage along with the poll that would clear it. Nothing reads while hidden, so a
+        // flag left set here would still be set whenever the user reopens the window — showing "can't
+        // reach Spotify" over a connection that recovered hours ago, until Resume's read returns.
+        // Resume re-reads immediately, so a still-live outage is back within one round trip.
+        if (_reachability.Reset())
+        {
+            ReachabilityChanged?.Invoke(this, false);
+        }
+
         UpdatePollingState();
     }
 
@@ -209,16 +222,22 @@ public sealed partial class PlayerStateProvider : IPlayerStateProvider, IStartup
     }
 
     // Feeds one read's outcome to the tracker, raising the event only on a transition so a long outage
-    // doesn't re-notify every 5 seconds.
-    private void RecordReadOutcome(bool succeeded) =>
+    // doesn't re-notify every 5 seconds. A failure that doesn't mean "Spotify isn't answering" (a
+    // persistent 403, say) is logged but left out of the run — claiming an outage would blame the
+    // network and promise a recovery that will never arrive.
+    private void RecordReadOutcome(Exception? failure) =>
         _dispatcher.RunOnUi(() =>
         {
             // A read that failed as the account was disconnecting can land here after the disconnect
             // reset; counting it would let a stale run rebuild behind the user's back. A success still
             // counts unconditionally — clearing is always safe.
-            bool changed = succeeded
+            bool countsAsOutage = failure is not null
+                && SpotifyRequestFailure.MeansUnreachable(failure)
+                && _auth.State == ConnectionState.Connected;
+
+            bool changed = failure is null
                 ? _reachability.RecordSuccess()
-                : _auth.State == ConnectionState.Connected && _reachability.RecordFailure();
+                : countsAsOutage && _reachability.RecordFailure();
 
             if (changed)
             {

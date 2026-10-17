@@ -310,7 +310,10 @@
   </data>
   <data name="Status_Error.Title" xml:space="preserve">
     <value>Can't sign in to Spotify</value>
-    <comment>Authorisation/token failure — the user has to reconnect. Distinct from Status_Unreachable, which is a network outage the app recovers from by itself.</comment>
+    <comment>Shown when Spotify rejected the session, or when an interactive sign-in failed — either way the user has to reconnect. Distinct from Status_Unreachable, which is a network outage the app recovers from by itself.</comment>
+  </data>
+  <data name="Status_Error.Message" xml:space="preserve">
+    <value>Reconnect to sign in again. If that doesn't work, check your internet connection.</value>
   </data>
   <data name="Status_Error_Reconnect.Content" xml:space="preserve">
     <value>Reconnect</value>

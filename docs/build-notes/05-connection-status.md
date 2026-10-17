@@ -255,3 +255,59 @@ treatment, and one functional gap:
   and 6 `StatusPresentation` cases). `dotnet format --verify-no-changes` clean. **Not yet verified
   on a packaged run** — the live network-pull checks in
   [`integration-smoke-test.md`](../integration-smoke-test.md) are still outstanding.
+
+## 2026-10-17 — Code-review fixes to the unreachable work (same day)
+
+A high-effort review found six issues in the entry above. All six were confirmed against the code
+and fixed; the first made the feature not work at all in the most common real outage.
+
+- **Correction to the entry above: "Error is set in six places, all auth/token failures" was wrong.**
+  `SpotifyAuthService.RefreshCoreAsync` caught *every* `HttpRequestException` — a pure transport
+  failure included — and called `SetState(ConnectionState.Error)`. Spotify access tokens last ~1h,
+  so any outage spanning a token refresh flipped auth to `Error`, which (a) stopped the poll timer,
+  since `PlayerStateProvider` polls only while `Connected`, (b) reset the reachability tracker, so
+  the new warning bar could never appear, and (c) offered Reconnect and its browser flow. That is
+  precisely the "enter an error state, stop the timer, wait for a click" outcome the entry above
+  claims to have avoided — it just needed a longer outage than the smoke test's ~100s to show.
+  **Fix:** `RefreshCoreAsync` now splits its catch on `SpotifyRequestFailure.IsTransport`. A request
+  that never reached Spotify leaves the connection state alone and rethrows, so the poll keeps
+  running and the read failures surface as unreachable; only a refresh Spotify actually *rejected*
+  latches `Error`. See [`build-notes/03`](./03-spotify-authentication.md).
+- **New `Amplify.Core.Spotify.SpotifyRequestFailure`** carries that distinction for both callers.
+  `IsTransport` = DNS/TCP/TLS/proxy, decided on `HttpRequestException.HttpRequestError` rather than
+  on a null `StatusCode` alone, because `SpotifyTokenClient` also throws one by hand with a null
+  status. `MeansUnreachable` = transport, timeout, `408`, or `5xx`.
+- **A persistent `403` is no longer reported as a network outage.** `GetPlayerStateAsync` calls
+  `EnsureSuccessStatusCode()`, so a user whose own Spotify app registration lacks
+  `user-read-playback-state` gets a `403` every poll — which the first cut turned into a permanent
+  "check your internet connection" over a hidden account card, blaming the wrong thing and promising
+  a recovery that could never arrive. `4xx` now stays out of the outage count. It reverts to the
+  pre-existing stale-card behaviour there, which is a known gap, but it no longer states a false
+  cause.
+- **The tracker resets on `Suspend()`.** Hiding the window stops the poll without clearing the flag,
+  so an outage that ended while minimised stayed on screen until `Resume`'s read returned — and a
+  `StatusViewModel` constructed in that window seeded straight into it. The question stops applying
+  while nothing is reading, exactly as on disconnect.
+- **"Try again" is no longer a silent no-op.** `RefreshAsync` returned immediately when a read was
+  already in flight, which during a slow outage is most of the time, so the click did nothing and
+  said nothing. It now returns the in-flight task, so an awaiting caller waits for a real result —
+  and because `[RelayCommand]` async commands disallow concurrent execution by default
+  (`AsyncRelayCommandOptions.None`, verified against the CommunityToolkit.Mvvm 8.4.2 docs), the
+  button disables itself while the read runs, which is the honest signal: already trying. Keyed on
+  `Task.IsCompleted` rather than a flag needing a clear, so a missed clear cannot wedge the poll.
+- **"~15s" was an over-promise and the docs now say so.** The threshold counts failed *reads*, not
+  ticks, and reads collapse onto one in-flight request, so a hanging request swallows every tick in
+  its window. `SocketsHttpHandler.ConnectTimeout` is now 10s to bound the blackhole/captive-portal
+  case; see [`build-notes/07`](./07-volume-control.md) for why it is not `HttpClient.Timeout`.
+- **`Status_Error` copy revisited.** With `RefreshCoreAsync` fixed, that bar really is raised only by
+  a rejected session or a failed interactive sign-in, so "Can't sign in to Spotify" now holds. A
+  `Status_Error.Message` was added — "Reconnect to sign in again. If that doesn't work, check your
+  internet connection." — because `ConnectAsync` can still reach the bar from a network failure
+  during an explicit sign-in.
+- **Not unit-tested:** `SpotifyAuthService` is App-layer (PasswordVault, `Launcher`), so the
+  `RefreshCoreAsync` split has no direct test; the classifier it delegates to has 17. The end-to-end
+  path was traced by hand instead — nothing between `RefreshCoreAsync` and
+  `PlayerStateProvider.ReadAsync` catches, so the rethrown transport failure does reach the tracker.
+- **Checks:** build 0 warnings / 0 errors; `dotnet test` **302 passed, 0 skipped** (285 before, 17
+  new `SpotifyRequestFailure` cases); `dotnet format --verify-no-changes` clean. The packaged
+  verification is still outstanding and now needs the long-outage case in particular.

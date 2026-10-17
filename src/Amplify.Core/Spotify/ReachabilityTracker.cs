@@ -16,10 +16,17 @@ namespace Amplify.Core.Spotify;
 public sealed class ReachabilityTracker
 {
     /// <summary>
-    /// How many consecutive failed reads it takes to call Spotify unreachable. Three at the poller's
-    /// 5s cadence is roughly fifteen seconds — long enough that a single blip or one dropped request
-    /// doesn't flap the status block, short enough that a real outage is surfaced promptly.
+    /// How many consecutive failed reads it takes to call Spotify unreachable. Long enough that a
+    /// single blip or one dropped request doesn't flap the status block, short enough that a real
+    /// outage is surfaced promptly.
     /// </summary>
+    /// <remarks>
+    /// Counted in reads, not in clock time: reads collapse onto one in-flight request, so a tick that
+    /// arrives while a slow read is still running is swallowed rather than counted. With the poller's
+    /// 5s cadence and the client's 10s connect timeout that puts the usual case at roughly 15s and the
+    /// worst case at well under a minute — but it is not a deadline, and a request that hangs after
+    /// connecting can stretch it further.
+    /// </remarks>
     public const int UnreachableThreshold = 3;
 
     private int _consecutiveFailures;

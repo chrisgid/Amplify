@@ -333,3 +333,22 @@ stayed `false` and the volume hotkeys silently no-opped — exactly when they're
 - **`VolumeController` is untouched.** `CanControl` still doesn't consult reachability, so the volume
   card stays interactive during an outage and a failed write reverts optimistically as before. Noted
   as a known gap rather than fixed here, to keep this change out of feature 07's state machine.
+
+## 2026-10-17 — Connect timeout on the API client; RefreshAsync returns the in-flight read
+
+- **`SocketsHttpHandler.ConnectTimeout = 10s`** in `AddSpotifyClient`. Previously infinite, so a
+  blackholed route (associated Wi-Fi with no path out, a captive portal) left each read stuck in TCP
+  retries for tens of seconds. Because reads collapse onto one in-flight request, every poll tick in
+  that window was swallowed, and feature 05's outage threshold — which counts failed reads — could
+  take minutes to trip. Set on the handler and **not** as `HttpClient.Timeout`, which would also
+  bound `RateLimitHandler`'s `Retry-After` wait; that is legitimately long and deliberately uncapped.
+- **`PlayerStateProvider.RefreshAsync` now returns the in-flight task** rather than a completed one
+  when a read is already running — a truer reading of "overlapping calls collapse into one in-flight
+  read", which previously meant "are dropped". Keyed on `Task.IsCompleted` rather than a flag that
+  has to be cleared, so a missed clear can't wedge the poll. `_refreshing` is gone.
+- **Effect on `VolumeController`:** none in the common case. `EnsureControllableAsync` awaits
+  `RefreshAsync` only after `CanControl` has already come back false — exactly when the in-flight
+  read is the thing that would answer the question, so waiting for it beats dropping the nudge. The
+  `_probeInterval` throttle still bounds a mashed hotkey, and all existing `VolumeControllerTests`
+  pass unchanged.
+- **Checks:** build 0/0, `dotnet test` 302 passed, `dotnet format` clean.

@@ -30,6 +30,16 @@ internal static class SpotifyClientServiceCollectionExtensions
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {
                 PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+
+                // Bound how long a connection attempt can hang. With the default (infinite) a
+                // blackholed route — an associated access point with no path out, a captive portal —
+                // leaves each read stuck in TCP retries for tens of seconds, and because reads
+                // collapse onto one in-flight request, every poll tick in that window is swallowed.
+                // The status block's outage threshold counts failed reads, so without this an outage
+                // could take minutes to show rather than the intended three polls.
+                // Deliberately set here and not as HttpClient.Timeout: that bounds the whole send,
+                // including RateLimitHandler's Retry-After wait, which is legitimately long.
+                ConnectTimeout = TimeSpan.FromSeconds(10),
             });
         return services;
     }

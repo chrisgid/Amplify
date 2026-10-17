@@ -296,3 +296,26 @@ string in `LoopbackCallbackListener`. Reworked them to match the prototype's OAu
 - **Checks:** `dotnet build src/Amplify.App` → **0 warnings, 0 errors**; `dotnet test
   tests/Amplify.Tests` → **170 passed**; verified both resource names are present in the built
   assembly via reflection. Visual rendering is manual (open the `.html` files in a browser).
+
+## 2026-10-17 — A transport failure during token refresh no longer latches Error
+
+- **Why:** found in review of the feature 05 unreachable work (see
+  [`build-notes/05`](./05-connection-status.md)). `RefreshCoreAsync` caught every
+  `HttpRequestException` and set `ConnectionState.Error`, conflating "Spotify rejected your session"
+  with "we couldn't reach Spotify". The second is an outage: the refresh token is untouched and
+  still good.
+- **Why it mattered beyond cosmetics:** `PlayerStateProvider` polls only while `Connected`, so
+  latching `Error` on a network blip stopped the poll — and the poll is the only thing that would
+  have noticed the network coming back. The app could then be recovered only by Reconnect, which
+  runs the full PKCE flow and opens the browser for a session that never actually expired. Any
+  outage lasting past a token refresh (~1h lifetime, 60s skew) hit this.
+- **What changed:** the catch is split on `SpotifyRequestFailure.IsTransport(ex)`. A transport
+  failure logs and rethrows with the connection state untouched, so the caller's read fails and the
+  status block surfaces it as unreachable; anything Spotify actually answered with is unchanged and
+  still latches `Error`. New `LogRefreshUnreachable` keeps the two distinguishable in the logs.
+- **Deliberately unchanged:** `ConnectAsync`'s `HttpRequestException` catch still latches `Error`.
+  That path is an interactive sign-in the user just asked for, so reporting a failed sign-in is
+  right even when the cause is the network; the InfoBar's new message says to check the connection.
+- **Checks:** build 0/0, `dotnet test` 302 passed, `dotnet format` clean. No direct unit test —
+  `SpotifyAuthService` is App-layer; the `SpotifyRequestFailure` classifier it now defers to is
+  covered by 17 cases in `tests/Amplify.Tests/Spotify/SpotifyRequestFailureTests.cs`.
