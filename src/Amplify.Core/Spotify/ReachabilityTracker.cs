@@ -23,9 +23,9 @@ public sealed class ReachabilityTracker
     /// <remarks>
     /// Counted in reads, not in clock time: reads collapse onto one in-flight request, so a tick that
     /// arrives while a slow read is still running is swallowed rather than counted. With the poller's
-    /// 5s cadence and the client's 10s connect timeout that puts the usual case at roughly 15s and the
-    /// worst case at well under a minute — but it is not a deadline, and a request that hangs after
-    /// connecting can stretch it further.
+    /// 5s cadence that is roughly 15s when requests fail fast, and roughly 30s at worst, since
+    /// <c>RequestTimeoutHandler</c> caps each attempt at 10s. Still not a deadline — just a bounded
+    /// one.
     /// </remarks>
     public const int UnreachableThreshold = 3;
 

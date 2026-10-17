@@ -90,9 +90,12 @@ machine with a real Spotify account:
       controllable device re-enables it within one poll (~5s).
 - [ ] **Token refresh:** after the access token expires (or on a forced `401`), the next action
       refreshes silently; a rotated refresh token is persisted; concurrent calls don't double-refresh.
-- [ ] **Offline / Spotify unreachable:** after three failed polls (usually ~15s; longer if requests
-      hang before timing out) the status block replaces the connected card with the "Can't reach
-      Spotify" warning and a **Try again** button; the app does not crash.
+- [ ] **Offline / Spotify unreachable:** after three failed polls — ~15s when requests fail fast,
+      ~30s at worst, since each attempt is capped at 10s — the status block replaces the connected
+      card with the "Can't reach Spotify" warning and a **Try again** button; no crash.
+- [ ] **Launching with no network:** start the app offline with a session already stored. It must
+      open on the main screen and show the unreachable warning, **not** the onboarding/Connect
+      screen, and must recover on its own (account name included) once the network returns.
 - [ ] **Unreachable recovers on its own:** restore the network and *touch nothing* — the healthy card
       must come back by itself on the next successful poll. Needing a click is a failure.
 - [ ] **Outage spanning a token refresh:** the important one, and the case an earlier build got

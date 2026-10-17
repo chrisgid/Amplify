@@ -88,4 +88,47 @@ public class SpotifyRequestFailureTests
     {
         Assert.False(SpotifyRequestFailure.MeansUnreachable(new InvalidOperationException("Not connected.")));
     }
+
+    [Theory]
+    [InlineData(HttpRequestError.ResponseEnded)]
+    [InlineData(HttpRequestError.HttpProtocolError)]
+    [InlineData(HttpRequestError.VersionNegotiationError)]
+    [InlineData(HttpRequestError.UserAuthenticationError)]
+    [InlineData(HttpRequestError.ExtendedConnectNotSupported)]
+    public void OtherConnectionLevelFailuresAreTransportToo(HttpRequestError error)
+    {
+        // These all mean the exchange broke down before a usable answer came back — a response that
+        // ended early, a protocol or version failure, a proxy refusing to authenticate us. None of
+        // them says anything about whether the Spotify session is still valid.
+        var exception = new HttpRequestException(error, "connection level");
+
+        Assert.True(SpotifyRequestFailure.IsTransport(exception));
+        Assert.True(SpotifyRequestFailure.MeansUnreachable(exception));
+    }
+
+    [Fact]
+    public void AnUnrecognisedErrorCodeFailsSafeTowardsTransport()
+    {
+        // The two ways of being wrong are not symmetric. Calling a transport failure an auth failure
+        // stops the poll and sends the user to the browser for a session that never expired; calling
+        // an auth failure a transport one just keeps polling through something that won't recover.
+        // So a code this build has never heard of — including ones added to the framework later —
+        // has to land on the transport side.
+        var exception = new HttpRequestException((HttpRequestError)9999, "from the future");
+
+        Assert.True(SpotifyRequestFailure.IsTransport(exception));
+    }
+
+    [Theory]
+    [InlineData(HttpRequestError.InvalidResponse)]
+    [InlineData(HttpRequestError.ConfigurationLimitExceeded)]
+    public void AResponseThatArrivedButWasUnusableIsNotTransport(HttpRequestError error)
+    {
+        // Spotify answered; the answer was just no good. That is not an outage, and it must not stop
+        // a genuinely broken session from latching.
+        var exception = new HttpRequestException(error, "unusable response");
+
+        Assert.False(SpotifyRequestFailure.IsTransport(exception));
+        Assert.False(SpotifyRequestFailure.MeansUnreachable(exception));
+    }
 }

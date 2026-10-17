@@ -1,4 +1,5 @@
 using Amplify.Core.Auth;
+using Amplify.Core.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Amplify.App.Auth;
@@ -17,9 +18,14 @@ internal static class SpotifyAuthServiceCollectionExtensions
         // rotation never applies. Recycle pooled connections ourselves so a days-long session doesn't
         // refresh tokens over stale connections to the Accounts service.
         services.AddHttpClient<SpotifyTokenClient>()
+            // Token calls sit on the critical path of every player-state read (the authorization
+            // handler refreshes through them), so an unbounded one would stall the poll just as
+            // effectively as an unbounded read. Same deadline, same reasoning.
+            .AddHttpMessageHandler(() => new RequestTimeoutHandler(RequestTimeoutHandler.DefaultTimeout))
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {
                 PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+                ConnectTimeout = TimeSpan.FromSeconds(5),
             });
         services.AddSingleton<IRefreshTokenStore, PasswordVaultRefreshTokenStore>();
 

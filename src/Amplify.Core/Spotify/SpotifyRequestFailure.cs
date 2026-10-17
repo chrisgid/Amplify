@@ -16,16 +16,28 @@ public static class SpotifyRequestFailure
     /// must not treat this as an authorisation failure.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <see cref="HttpRequestException.StatusCode"/> is <c>null</c> for every transport failure, but
     /// also for an exception thrown by hand after a response arrived, so the error code is checked
-    /// too — a hand-thrown one carries <see cref="HttpRequestError.Unknown"/>.
+    /// too. It is checked as a deny-list rather than a list of known transport errors, because the
+    /// two ways of being wrong are not symmetric: calling a transport failure an auth failure stops
+    /// the poll and sends the user to the browser, while the reverse merely keeps polling through
+    /// something that won't recover. So anything unrecognised — including error codes added to the
+    /// framework after this was written — is treated as transport.
+    /// </para>
+    /// <para>
+    /// The three exclusions are the cases where Spotify did answer: <see cref="HttpRequestError.Unknown"/>
+    /// is what an exception constructed by hand carries (<c>SpotifyTokenClient</c> throws one when a
+    /// <c>200</c> omits the access token), and <see cref="HttpRequestError.InvalidResponse"/> and
+    /// <see cref="HttpRequestError.ConfigurationLimitExceeded"/> both describe a response that arrived
+    /// and was unusable.
+    /// </para>
     /// </remarks>
     public static bool IsTransport(HttpRequestException exception) =>
-        exception.StatusCode is null && exception.HttpRequestError is
-            HttpRequestError.NameResolutionError or
-            HttpRequestError.ConnectionError or
-            HttpRequestError.SecureConnectionError or
-            HttpRequestError.ProxyTunnelError;
+        exception.StatusCode is null && exception.HttpRequestError is not (
+            HttpRequestError.Unknown or
+            HttpRequestError.InvalidResponse or
+            HttpRequestError.ConfigurationLimitExceeded);
 
     /// <summary>
     /// Whether this failure means "Spotify isn't answering, and may well answer again shortly" — the

@@ -319,3 +319,28 @@ string in `LoopbackCallbackListener`. Reworked them to match the prototype's OAu
 - **Checks:** build 0/0, `dotnet test` 302 passed, `dotnet format` clean. No direct unit test —
   `SpotifyAuthService` is App-layer; the `SpotifyRequestFailure` classifier it now defers to is
   covered by 17 cases in `tests/Amplify.Tests/Spotify/SpotifyRequestFailureTests.cs`.
+
+## 2026-10-17 — Launching offline keeps the session instead of dropping to onboarding
+
+Second review round on the feature 05 work; two of the three findings landed here.
+
+- **`RestoreSessionAsync` discarded a perfectly good session when the network was down at launch.**
+  It ran once at startup with nothing to retry it, and a transport failure fell into the generic
+  catch: `ClearTokens()` + `Disconnected`, so the user met the onboarding screen as though they had
+  never signed in. The stored refresh token survived (it is cleared only on 400/401), but the only
+  button on that screen runs the PKCE flow, which cannot work offline either — so the app was stuck
+  until it was relaunched on a working network. It now restores **optimistically** on an unreachable
+  failure: state `Connected`, poll running, reads surfacing the outage, everything clearing itself
+  when the network returns. Unlike `ConnectAsync`, this is not an interactive sign-in the user asked
+  for, so the "reporting a failed sign-in is right" reasoning from the earlier entry doesn't cover
+  it.
+- **An optimistic restore has no account**, because the profile read never happened. `RefreshCoreAsync`
+  now backfills it (`TryReadAccountAsync`) on the first refresh that gets through, so the card
+  doesn't come back from the outage nameless and stay that way. Best-effort and swallowed: a missing
+  display name must never cost the user their session.
+- **Both catches widened from `IsTransport` to `MeansUnreachable`.** A `5xx` or a timeout from the
+  token endpoint says no more about the validity of the refresh token than a dead socket does, yet
+  the narrower predicate would have latched `Error` and stopped the poll for both — the same bug as
+  the first round, one class along.
+- **Checks:** build 0/0, `dotnet test` 315 passed, `dotnet format` clean. Still no direct test —
+  `SpotifyAuthService` is App-layer — but `SpotifyRequestFailure` now has 25 cases behind it.

@@ -352,3 +352,24 @@ stayed `false` and the volume hotkeys silently no-opped — exactly when they're
   `_probeInterval` throttle still bounds a mashed hotkey, and all existing `VolumeControllerTests`
   pass unchanged.
 - **Checks:** build 0/0, `dotnet test` 302 passed, `dotnet format` clean.
+
+## 2026-10-17 — Per-attempt request deadline (ConnectTimeout wasn't enough)
+
+- **`ConnectTimeout` only bounds *new* connections.** The previous entry's 10s setting did nothing
+  for a request sent on a pooled connection — and with `PooledConnectionLifetime` at 2 minutes that
+  is the common case after a laptop sleeps or roams off its network. Such a send sits in TCP
+  retransmits with nothing to cut it, bounded only by `HttpClient.Timeout`'s 100s default; because
+  reads collapse onto one in-flight task, every poll tick in that window is swallowed, leaving the
+  stale "Connected" card up for minutes.
+- **New `Amplify.Core.Http.RequestTimeoutHandler`** links a per-attempt `CancellationTokenSource`
+  (10s) and reports a trip the way `HttpClient` reports its own timeout — `TaskCanceledException`
+  wrapping `TimeoutException` — so nothing downstream needs to know it exists. Registered
+  **innermost** on the API client, which is what keeps it inside `RateLimitHandler`'s `Retry-After`
+  wait rather than truncating it; that was the reason `HttpClient.Timeout` was rejected.
+- **The token client gets the same handler.** It sits on the critical path of every read (the
+  authorization handler refreshes through it), so an unbounded token call stalls the poll just as
+  effectively as an unbounded read.
+- **`ConnectTimeout` dropped to 5s** on both clients. Redundant with the deadline above, kept
+  because failing a doomed connection attempt early is cheaper and clearer than waiting it out.
+- **Checks:** build 0/0, `dotnet test` 315 passed (302 before: 5 new `RequestTimeoutHandler` cases
+  and 8 new `SpotifyRequestFailure` cases), `dotnet format` clean.

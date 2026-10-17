@@ -311,3 +311,29 @@ and fixed; the first made the feature not work at all in the most common real ou
 - **Checks:** build 0 warnings / 0 errors; `dotnet test` **302 passed, 0 skipped** (285 before, 17
   new `SpotifyRequestFailure` cases); `dotnet format --verify-no-changes` clean. The packaged
   verification is still outstanding and now needs the long-outage case in particular.
+
+## 2026-10-17 — Second review round (same day)
+
+Three more findings, all confirmed. Two are logged in full against the features that own the code —
+[`build-notes/03`](./03-spotify-authentication.md) for the offline-launch fix and
+[`build-notes/07`](./07-volume-control.md) for the per-attempt request deadline. The third is here.
+
+- **`SpotifyRequestFailure.IsTransport` was an allow-list of four error codes**, so `ResponseEnded`,
+  `HttpProtocolError`, `VersionNegotiationError` and `UserAuthenticationError` — all of them failures
+  with no usable answer from Spotify — fell through to the "Spotify rejected you" branch and latched
+  `Error`. It is now a **deny-list**, because the two ways of being wrong are not symmetric: calling
+  a transport failure an auth failure stops the poll and sends the user to the browser for a session
+  that never expired, while the reverse merely keeps polling through something that won't recover.
+  Anything unrecognised, including error codes added to the framework later, now lands on the
+  transport side. Only `Unknown` (what a hand-constructed exception carries), `InvalidResponse` and
+  `ConfigurationLimitExceeded` are excluded — the cases where a response did arrive.
+- **This also closes the "~15s can be minutes" partial** from the first round. The per-attempt
+  deadline bounds a stalled read at 10s whether or not the connection is new, so three failed reads
+  is now ~30s worst case rather than the ~5 minutes `HttpClient.Timeout` allowed. The hedged wording
+  in `ReachabilityTracker`'s remarks and the smoke-test checklist is updated to match.
+- **Still open, deliberately:** a persistent `4xx` (a client registration missing
+  `user-read-playback-state`) is kept out of the outage count so it can't claim a false cause, which
+  means it falls back to the original silent stale card. Surfacing that properly needs its own
+  message and is not part of this fix.
+- **Checks:** build 0/0, `dotnet test` **315 passed, 0 skipped**, `dotnet format` clean. The
+  packaged verification remains outstanding.
