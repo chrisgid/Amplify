@@ -160,6 +160,11 @@ public interface IAuthService
     Account? CurrentAccount { get; }
     event EventHandler<ConnectionState> ConnectionStateChanged;
 
+    // CurrentAccount does not always arrive with a state change: a session restored while Spotify
+    // was unreachable connects without one and fills it in on the first refresh that gets through,
+    // by which point the state has been Connected all along.
+    event EventHandler<Account?> AccountChanged;
+
     Task<bool> RestoreSessionAsync();           // silent, from stored refresh token
     Task<AuthResult> ConnectAsync(CancellationToken cancellationToken = default); // interactive PKCE flow
     Task<string> GetAccessTokenAsync();         // valid token, auto-refreshing
@@ -274,6 +279,7 @@ public interface IStartupInitializer
 | Event | Raised by | Consumed by |
 | --- | --- | --- |
 | `IAuthService.ConnectionStateChanged` | 03 | 01 (routing), 04, 05, 12 |
+| `IAuthService.AccountChanged` | 03 | 05 (status card) |
 | `IHotkeyService.HotkeyPressed` | 06 | 07 |
 | `IPlayerStateProvider.PlayerStateChanged` | 07 (shared provider) | 05 (status card), 07 (volume) |
 | `IPlayerStateProvider.ReachabilityChanged` | 07 (shared provider) | 05 (status card) |

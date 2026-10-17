@@ -344,3 +344,30 @@ Second review round on the feature 05 work; two of the three findings landed her
   the first round, one class along.
 - **Checks:** build 0/0, `dotnet test` 315 passed, `dotnet format` clean. Still no direct test —
   `SpotifyAuthService` is App-layer — but `SpotifyRequestFailure` now has 25 cases behind it.
+
+## 2026-10-17 — IAuthService gains AccountChanged
+
+- **Why:** third review round, and a bug created by the backfill added in the entry above. An
+  offline restore connects with no account; the first successful refresh fills `CurrentAccount` and
+  then calls `SetState(ConnectionState.Connected)` — which returns early, because the state has been
+  `Connected` since launch. No `ConnectionStateChanged`, so nothing told the status card to re-read
+  the account. `Account` is a plain record, so the card's `x:Bind` paths were never re-evaluated and
+  it came back from the outage with a blank avatar and an empty name, permanently. Exactly what the
+  backfill was written to prevent, and what the new smoke-test item ("account name included") asks
+  for.
+- **Contract change:** `IAuthService` gains `event EventHandler<Account?> AccountChanged`
+  ([`contracts.md`](../contracts.md) updated, including the cross-feature event table). Chosen over
+  re-raising `ConnectionStateChanged` after a late fill: the state genuinely has not changed, and
+  firing a state event that lies about that would reach `ShellRouter`, `OnboardingFlow` and the
+  player-state provider as well, for the benefit of one view-model.
+- **`CurrentAccount` is now a property with a backing field** that raises on assignment. `Account` is
+  a record, so the equality guard makes redundant assignments silent — clearing an already-null
+  account in `ClearTokens`, or re-reading an unchanged profile — and no call site had to change.
+- **Not unit-tested, again:** `SpotifyAuthService` is App-layer (PasswordVault, `Launcher`) and
+  `StatusViewModel` needs a `DispatcherQueue`, so neither half of this is reachable from
+  `tests/Amplify.Tests`. Verified by tracing the recovery order instead: the refresh fills the
+  account (notifying first), then the read succeeds and clears the outage flag, so the card is
+  already populated by the time it becomes visible. The packaged offline-launch check in
+  [`integration-smoke-test.md`](../integration-smoke-test.md) is what actually covers this.
+- **Checks:** build 0/0, `dotnet test` 315 passed (unchanged — no new testable surface),
+  `dotnet format` clean.

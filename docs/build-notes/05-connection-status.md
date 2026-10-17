@@ -337,3 +337,20 @@ Three more findings, all confirmed. Two are logged in full against the features 
   message and is not part of this fix.
 - **Checks:** build 0/0, `dotnet test` **315 passed, 0 skipped**, `dotnet format` clean. The
   packaged verification remains outstanding.
+
+## 2026-10-17 — Third review round: the recovered card was blank
+
+- **One finding, and it was mine.** The account backfill added for the offline-launch fix never
+  reached the UI: `SetState(Connected)` no-ops when the state is already `Connected`, so the status
+  card was never told to re-read `Account` and came back from an outage with a blank avatar and
+  empty name for the rest of the session. Full reasoning in
+  [`build-notes/03`](./03-spotify-authentication.md).
+- **In this feature's code:** `StatusViewModel` now subscribes to the new
+  `IAuthService.AccountChanged` and raises `OnPropertyChanged(nameof(Account))` from it, marshalled
+  through `RunOnUi` like its other handlers. `NotifyStateChanged` still covers the ordinary
+  connect/disconnect path; this only adds the case where the account moves on its own.
+- **Recovery order, since it matters:** the refresh fills the account (and notifies) *inside* the
+  read that then succeeds and clears the outage flag — so `Account` is already populated by the time
+  `ShowConnectedCard` flips back to true and the card is rendered.
+- **Checks:** build 0/0, `dotnet test` 315 passed, `dotnet format` clean. Packaged verification
+  still outstanding.

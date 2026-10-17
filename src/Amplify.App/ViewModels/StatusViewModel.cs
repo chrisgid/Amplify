@@ -46,6 +46,7 @@ public sealed partial class StatusViewModel : ObservableObject
         _isUnreachable = _playerStateProvider.IsUnreachable;
 
         _auth.ConnectionStateChanged += OnConnectionStateChanged;
+        _auth.AccountChanged += OnAccountChanged;
         _playerStateProvider.PlayerStateChanged += OnPlayerStateChanged;
         _playerStateProvider.ReachabilityChanged += OnReachabilityChanged;
     }
@@ -156,6 +157,13 @@ public sealed partial class StatusViewModel : ObservableObject
 
         NotifyStateChanged();
     }
+
+    // The account can arrive without a connection-state change: a session restored while Spotify
+    // was unreachable connects with no account and fills it in on the first refresh that gets
+    // through. Account is a plain record, so nothing re-evaluates the card's x:Bind paths unless
+    // this says so — without it the card comes back from an outage blank and stays blank.
+    private void OnAccountChanged(object? sender, Account? account) =>
+        _dispatcher.RunOnUi(() => OnPropertyChanged(nameof(Account)));
 
     private void OnReachabilityChanged(object? sender, bool isUnreachable) =>
         _dispatcher.RunOnUi(() =>

@@ -17,6 +17,15 @@ public interface IAuthService
     event EventHandler<ConnectionState> ConnectionStateChanged;
 
     /// <summary>
+    /// Raised when <see cref="CurrentAccount"/> changes, carrying the new value. Needed because the
+    /// account does not always arrive with a connection-state change: a session restored while
+    /// Spotify was unreachable connects without one and fills it in on the first refresh that gets
+    /// through, by which point the state has been <see cref="ConnectionState.Connected"/> all along
+    /// and <see cref="ConnectionStateChanged"/> has nothing to report.
+    /// </summary>
+    event EventHandler<Account?> AccountChanged;
+
+    /// <summary>
     /// Silently restores a session from a stored refresh token, without user interaction.
     /// Returns <c>true</c> when a usable session was restored.
     /// </summary>

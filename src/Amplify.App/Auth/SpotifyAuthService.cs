@@ -24,6 +24,7 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
     private static readonly TimeSpan _refreshSkew = TimeSpan.FromSeconds(60);
 
     private readonly SpotifyTokenClient _tokenClient;
+    private Account? _account;
     private readonly IRefreshTokenStore _refreshTokenStore;
     private readonly ISettingsService _settings;
     private readonly SpotifyOptions _options;
@@ -52,9 +53,30 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
 
     public ConnectionState State { get; private set; } = ConnectionState.Disconnected;
 
-    public Account? CurrentAccount { get; private set; }
+    /// <inheritdoc />
+    /// <remarks>
+    /// Assigning raises <see cref="AccountChanged"/>. <see cref="Account"/> is a record, so the
+    /// equality check makes a redundant assignment — clearing an already-null account, re-reading
+    /// the same profile — silent.
+    /// </remarks>
+    public Account? CurrentAccount
+    {
+        get => _account;
+        private set
+        {
+            if (_account == value)
+            {
+                return;
+            }
+
+            _account = value;
+            AccountChanged?.Invoke(this, value);
+        }
+    }
 
     public event EventHandler<ConnectionState>? ConnectionStateChanged;
+
+    public event EventHandler<Account?>? AccountChanged;
 
     /// <summary>
     /// Silently restores a session from the stored refresh token: refreshes the access token, reads
@@ -284,7 +306,9 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
 
             // A session restored while offline has no account yet — the profile read never happened.
             // Fill it in on the first refresh that gets through, or the card would come back from the
-            // outage nameless and stay that way for the rest of the session.
+            // outage nameless and stay that way for the rest of the session. The assignment raises
+            // AccountChanged, which is what actually reaches the card: SetState below is a no-op
+            // here, because the state has been Connected since the optimistic restore.
             if (CurrentAccount is null)
             {
                 await TryReadAccountAsync().ConfigureAwait(false);
