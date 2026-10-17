@@ -296,3 +296,78 @@ string in `LoopbackCallbackListener`. Reworked them to match the prototype's OAu
 - **Checks:** `dotnet build src/Amplify.App` → **0 warnings, 0 errors**; `dotnet test
   tests/Amplify.Tests` → **170 passed**; verified both resource names are present in the built
   assembly via reflection. Visual rendering is manual (open the `.html` files in a browser).
+
+## 2026-10-17 — A transport failure during token refresh no longer latches Error
+
+- **Why:** found in review of the feature 05 unreachable work (see
+  [`build-notes/05`](./05-connection-status.md)). `RefreshCoreAsync` caught every
+  `HttpRequestException` and set `ConnectionState.Error`, conflating "Spotify rejected your session"
+  with "we couldn't reach Spotify". The second is an outage: the refresh token is untouched and
+  still good.
+- **Why it mattered beyond cosmetics:** `PlayerStateProvider` polls only while `Connected`, so
+  latching `Error` on a network blip stopped the poll — and the poll is the only thing that would
+  have noticed the network coming back. The app could then be recovered only by Reconnect, which
+  runs the full PKCE flow and opens the browser for a session that never actually expired. Any
+  outage lasting past a token refresh (~1h lifetime, 60s skew) hit this.
+- **What changed:** the catch is split on `SpotifyRequestFailure.IsTransport(ex)`. A transport
+  failure logs and rethrows with the connection state untouched, so the caller's read fails and the
+  status block surfaces it as unreachable; anything Spotify actually answered with is unchanged and
+  still latches `Error`. New `LogRefreshUnreachable` keeps the two distinguishable in the logs.
+- **Deliberately unchanged:** `ConnectAsync`'s `HttpRequestException` catch still latches `Error`.
+  That path is an interactive sign-in the user just asked for, so reporting a failed sign-in is
+  right even when the cause is the network; the InfoBar's new message says to check the connection.
+- **Checks:** build 0/0, `dotnet test` 302 passed, `dotnet format` clean. No direct unit test —
+  `SpotifyAuthService` is App-layer; the `SpotifyRequestFailure` classifier it now defers to is
+  covered by 17 cases in `tests/Amplify.Tests/Spotify/SpotifyRequestFailureTests.cs`.
+
+## 2026-10-17 — Launching offline keeps the session instead of dropping to onboarding
+
+Second review round on the feature 05 work; two of the three findings landed here.
+
+- **`RestoreSessionAsync` discarded a perfectly good session when the network was down at launch.**
+  It ran once at startup with nothing to retry it, and a transport failure fell into the generic
+  catch: `ClearTokens()` + `Disconnected`, so the user met the onboarding screen as though they had
+  never signed in. The stored refresh token survived (it is cleared only on 400/401), but the only
+  button on that screen runs the PKCE flow, which cannot work offline either — so the app was stuck
+  until it was relaunched on a working network. It now restores **optimistically** on an unreachable
+  failure: state `Connected`, poll running, reads surfacing the outage, everything clearing itself
+  when the network returns. Unlike `ConnectAsync`, this is not an interactive sign-in the user asked
+  for, so the "reporting a failed sign-in is right" reasoning from the earlier entry doesn't cover
+  it.
+- **An optimistic restore has no account**, because the profile read never happened. `RefreshCoreAsync`
+  now backfills it (`TryReadAccountAsync`) on the first refresh that gets through, so the card
+  doesn't come back from the outage nameless and stay that way. Best-effort and swallowed: a missing
+  display name must never cost the user their session.
+- **Both catches widened from `IsTransport` to `MeansUnreachable`.** A `5xx` or a timeout from the
+  token endpoint says no more about the validity of the refresh token than a dead socket does, yet
+  the narrower predicate would have latched `Error` and stopped the poll for both — the same bug as
+  the first round, one class along.
+- **Checks:** build 0/0, `dotnet test` 315 passed, `dotnet format` clean. Still no direct test —
+  `SpotifyAuthService` is App-layer — but `SpotifyRequestFailure` now has 25 cases behind it.
+
+## 2026-10-17 — IAuthService gains AccountChanged
+
+- **Why:** third review round, and a bug created by the backfill added in the entry above. An
+  offline restore connects with no account; the first successful refresh fills `CurrentAccount` and
+  then calls `SetState(ConnectionState.Connected)` — which returns early, because the state has been
+  `Connected` since launch. No `ConnectionStateChanged`, so nothing told the status card to re-read
+  the account. `Account` is a plain record, so the card's `x:Bind` paths were never re-evaluated and
+  it came back from the outage with a blank avatar and an empty name, permanently. Exactly what the
+  backfill was written to prevent, and what the new smoke-test item ("account name included") asks
+  for.
+- **Contract change:** `IAuthService` gains `event EventHandler<Account?> AccountChanged`
+  ([`contracts.md`](../contracts.md) updated, including the cross-feature event table). Chosen over
+  re-raising `ConnectionStateChanged` after a late fill: the state genuinely has not changed, and
+  firing a state event that lies about that would reach `ShellRouter`, `OnboardingFlow` and the
+  player-state provider as well, for the benefit of one view-model.
+- **`CurrentAccount` is now a property with a backing field** that raises on assignment. `Account` is
+  a record, so the equality guard makes redundant assignments silent — clearing an already-null
+  account in `ClearTokens`, or re-reading an unchanged profile — and no call site had to change.
+- **Not unit-tested, again:** `SpotifyAuthService` is App-layer (PasswordVault, `Launcher`) and
+  `StatusViewModel` needs a `DispatcherQueue`, so neither half of this is reachable from
+  `tests/Amplify.Tests`. Verified by tracing the recovery order instead: the refresh fills the
+  account (notifying first), then the read succeeds and clears the outage flag, so the card is
+  already populated by the time it becomes visible. The packaged offline-launch check in
+  [`integration-smoke-test.md`](../integration-smoke-test.md) is what actually covers this.
+- **Checks:** build 0/0, `dotnet test` 315 passed (unchanged — no new testable surface),
+  `dotnet format` clean.

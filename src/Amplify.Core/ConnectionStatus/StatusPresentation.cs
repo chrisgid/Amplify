@@ -13,16 +13,34 @@ namespace Amplify.Core.ConnectionStatus;
 /// <param name="PlayerState">
 /// The last-known player state, or <c>null</c> when it hasn't been read yet (e.g. not connected).
 /// </param>
-public readonly record struct StatusPresentation(ConnectionState State, PlayerState? PlayerState)
+/// <param name="IsUnreachable">
+/// Whether player-state reads have been failing for long enough to call Spotify unreachable (see
+/// <see cref="ReachabilityTracker"/>). Separate from <paramref name="State"/> on purpose: the token
+/// is still good, only the network is gone, so this clears itself on the next successful read.
+/// </param>
+public readonly record struct StatusPresentation(
+    ConnectionState State, PlayerState? PlayerState, bool IsUnreachable)
 {
-    /// <summary>Whether the connected account card (success or no-active-device variant) should show.</summary>
-    public bool ShowConnectedCard => State == ConnectionState.Connected;
+    /// <summary>
+    /// Whether the connected account card (success or no-active-device variant) should show. Suppressed
+    /// while unreachable: the card asserts "Connected" beside a device name and a volume that are only
+    /// as fresh as the last successful read, so leaving it up would present stale data as current —
+    /// the whole point of surfacing the outage.
+    /// </summary>
+    public bool ShowConnectedCard => State == ConnectionState.Connected && !IsUnreachable;
 
     /// <summary>Whether the connecting <c>InfoBar</c> should show.</summary>
     public bool IsConnecting => State == ConnectionState.Connecting;
 
     /// <summary>Whether the error <c>InfoBar</c> (with Reconnect) should show.</summary>
     public bool IsError => State == ConnectionState.Error;
+
+    /// <summary>
+    /// Whether the unreachable <c>InfoBar</c> (with Try again) should show. Only while otherwise
+    /// connected — a dead token already has its own <see cref="IsError"/> bar, and that one wins
+    /// because re-authorising is the real fix there.
+    /// </summary>
+    public bool IsUnreachableNotice => State == ConnectionState.Connected && IsUnreachable;
 
     /// <summary>Whether Spotify reported an active device on the last refresh.</summary>
     public bool HasActiveDevice => PlayerState is { HasActiveDevice: true };

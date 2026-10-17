@@ -1,5 +1,6 @@
 using Amplify.App.ViewModels;
 using Amplify.Core.Auth;
+using Amplify.Core.Http;
 using Amplify.Core.Spotify;
 using Amplify.Core.Startup;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,11 +26,23 @@ internal static class SpotifyClientServiceCollectionExtensions
                 client.BaseAddress = _apiBaseAddress)
             .AddHttpMessageHandler<RateLimitHandler>()
             .AddHttpMessageHandler<SpotifyAuthorizationHandler>()
+            // Innermost, so it bounds each network attempt and sits *inside* RateLimitHandler's
+            // Retry-After wait rather than cutting it short. Without it a read on a pooled connection
+            // — the usual case after the machine sleeps or roams off its network — is bounded only by
+            // HttpClient.Timeout's 100s default, and because reads collapse onto one in-flight
+            // request, every poll tick in that window is swallowed. The status block's outage
+            // threshold counts failed reads, so an unbounded attempt keeps the stale "Connected" card
+            // up for minutes.
+            .AddHttpMessageHandler(() => new RequestTimeoutHandler(RequestTimeoutHandler.DefaultTimeout))
             // The client is captured by a long-lived singleton, so recycle pooled connections
             // ourselves (IHttpClientFactory's handler rotation can't apply to a captured instance).
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {
                 PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+
+                // Fail a doomed connection attempt faster than the deadline above would. Only covers
+                // establishing a connection — a request reusing a pooled one is the handler's job.
+                ConnectTimeout = TimeSpan.FromSeconds(5),
             });
         return services;
     }

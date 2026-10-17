@@ -27,6 +27,7 @@ public sealed partial class StatusViewModel : ObservableObject
     private readonly ResourceLoader _strings = new();
 
     private PlayerState? _playerState;
+    private bool _isUnreachable;
 
     public StatusViewModel(
         IAuthService auth, IPlayerStateProvider playerStateProvider, ILogger<StatusViewModel> logger)
@@ -42,15 +43,18 @@ public sealed partial class StatusViewModel : ObservableObject
 
         // Seed from the provider's last-known state in case it read before this view-model existed.
         _playerState = _playerStateProvider.Current;
+        _isUnreachable = _playerStateProvider.IsUnreachable;
 
         _auth.ConnectionStateChanged += OnConnectionStateChanged;
+        _auth.AccountChanged += OnAccountChanged;
         _playerStateProvider.PlayerStateChanged += OnPlayerStateChanged;
+        _playerStateProvider.ReachabilityChanged += OnReachabilityChanged;
     }
 
     // All the state-combination rules (which card/InfoBar to show) live in StatusPresentation
     // (Amplify.Core), so they're unit-tested without WinUI; this is a thin, always-current
     // projection of it for x:Bind.
-    private StatusPresentation Presentation => new(_auth.State, _playerState);
+    private StatusPresentation Presentation => new(_auth.State, _playerState, _isUnreachable);
 
     /// <summary>The current connection lifecycle state.</summary>
     public ConnectionState State => _auth.State;
@@ -97,6 +101,31 @@ public sealed partial class StatusViewModel : ObservableObject
     /// <summary>Whether the error <c>InfoBar</c> (with Reconnect) should show.</summary>
     public bool IsError => Presentation.IsError;
 
+    /// <summary>Whether the unreachable <c>InfoBar</c> (with Try again) should show.</summary>
+    public bool IsUnreachableNotice => Presentation.IsUnreachableNotice;
+
+    /// <summary>
+    /// Asks for one read now, for a user who doesn't want to wait out the poll. Pointedly *not*
+    /// <see cref="ReconnectAsync"/>: the stored token is still valid during an outage, and
+    /// <c>ConnectAsync</c> would run the full PKCE flow and throw the user into the system browser to
+    /// re-approve an app they never stopped being signed in to. This is an optional shortcut — the
+    /// poll is still running, so doing nothing recovers just as well.
+    /// </summary>
+    [RelayCommand]
+    private async Task RetryAsync()
+    {
+        try
+        {
+            await _playerStateProvider.RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            // RefreshAsync swallows the network failures this button exists for, but a bug there must
+            // not surface as an unobserved exception from a fire-and-forget command invocation.
+            LogRetryFailed(ex);
+        }
+    }
+
     /// <summary>Re-runs the connect/refresh path after a failure.</summary>
     [RelayCommand]
     private async Task ReconnectAsync()
@@ -129,6 +158,21 @@ public sealed partial class StatusViewModel : ObservableObject
         NotifyStateChanged();
     }
 
+    // The account can arrive without a connection-state change: a session restored while Spotify
+    // was unreachable connects with no account and fills it in on the first refresh that gets
+    // through. Account is a plain record, so nothing re-evaluates the card's x:Bind paths unless
+    // this says so — without it the card comes back from an outage blank and stays blank.
+    private void OnAccountChanged(object? sender, Account? account) =>
+        _dispatcher.RunOnUi(() => OnPropertyChanged(nameof(Account)));
+
+    private void OnReachabilityChanged(object? sender, bool isUnreachable) =>
+        _dispatcher.RunOnUi(() =>
+        {
+            _isUnreachable = isUnreachable;
+            OnPropertyChanged(nameof(ShowConnectedCard));
+            OnPropertyChanged(nameof(IsUnreachableNotice));
+        });
+
     private void OnPlayerStateChanged(object? sender, PlayerState? state) =>
         _dispatcher.RunOnUi(() =>
         {
@@ -143,6 +187,7 @@ public sealed partial class StatusViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowConnectedCard));
         OnPropertyChanged(nameof(IsConnecting));
         OnPropertyChanged(nameof(IsError));
+        OnPropertyChanged(nameof(IsUnreachableNotice));
         NotifyPlayerStateChanged();
     }
 
@@ -156,4 +201,7 @@ public sealed partial class StatusViewModel : ObservableObject
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Reconnect attempt failed unexpectedly.")]
     private partial void LogReconnectFailed(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Retrying the Spotify read failed unexpectedly.")]
+    private partial void LogRetryFailed(Exception exception);
 }

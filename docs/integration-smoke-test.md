@@ -90,8 +90,28 @@ machine with a real Spotify account:
       controllable device re-enables it within one poll (~5s).
 - [ ] **Token refresh:** after the access token expires (or on a forced `401`), the next action
       refreshes silently; a rotated refresh token is persisted; concurrent calls don't double-refresh.
-- [ ] **Offline / Spotify unreachable:** the status block shows the error state with Reconnect; the
-      app does not crash.
+- [ ] **Offline / Spotify unreachable:** after three failed polls — ~15s when requests fail fast,
+      ~30s at worst, since each attempt is capped at 10s — the status block replaces the connected
+      card with the "Can't reach Spotify" warning and a **Try again** button; no crash.
+- [ ] **Launching with no network:** start the app offline with a session already stored. It must
+      open on the main screen and show the unreachable warning, **not** the onboarding/Connect
+      screen, and must recover on its own (account name included) once the network returns.
+- [ ] **Unreachable recovers on its own:** restore the network and *touch nothing* — the healthy card
+      must come back by itself on the next successful poll. Needing a click is a failure.
+- [ ] **Outage spanning a token refresh:** the important one, and the case an earlier build got
+      wrong. Leave the network down long enough for the access token to need refreshing (over an
+      hour, or restart with the clock near expiry). The warning bar must stay up and polling must
+      continue — if it flips to the red "Can't sign in to Spotify" bar, the poll has stopped and
+      only the browser flow can recover it.
+- [ ] **Try again doesn't re-authorise:** clicking it during an outage forces one read only; it must
+      never open the browser while the stored token is still valid (that's the Reconnect button on
+      the separate sign-in error bar). While a read is already in flight the button is disabled
+      rather than silently doing nothing.
+- [ ] **Hidden while unreachable:** minimise during an outage, restore the network, then reopen —
+      the card must be healthy, not still showing the warning from before.
+- [ ] **A permission error is not reported as an outage:** with a client registration missing the
+      `user-read-playback-state` scope, the app must not claim the internet is down (that message
+      promises an automatic recovery that can never happen).
 - [ ] **Theme/accent change while hidden:** applied correctly when the window is next shown.
 
 ## Exit criteria

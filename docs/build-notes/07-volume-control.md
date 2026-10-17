@@ -316,3 +316,60 @@ stayed `false` and the volume hotkeys silently no-opped — exactly when they're
   the card is disabled from the first read with no flicker, the device line reads
   "`{Device}` · volume control not supported", and transferring playback back to a controllable
   device re-enables the control within one poll.
+
+## 2026-10-17 — Player-state polling records read failures (feature 05 fix)
+
+- **Why it touches this feature:** the shared `PlayerStateProvider` lives on the polling side, and
+  the fix for the Phase 2 "Spotify unreachable is never surfaced" blocker had to go in its read path.
+  Full reasoning in [`build-notes/05`](./05-connection-status.md).
+- **What changed here:** `RefreshAsync`'s `HttpRequestException`/`TaskCanceledException` catch now
+  feeds a `ReachabilityTracker` before returning, and a successful read clears it just before
+  `Publish(...)`. A disconnect resets the tracker alongside clearing the player state.
+  `IPlayerStateProvider` gained `IsUnreachable` + `ReachabilityChanged`.
+- **What deliberately did *not* change:** `UpdatePollingState`, the 5s `_pollInterval`, the
+  `_refreshing` collapse, and the "skip the publish on failure" behaviour are all unchanged. The
+  tracker is advisory — it never stops, slows, or gates the poll, which is what preserves the
+  existing auto-recovery when the network returns.
+- **`VolumeController` is untouched.** `CanControl` still doesn't consult reachability, so the volume
+  card stays interactive during an outage and a failed write reverts optimistically as before. Noted
+  as a known gap rather than fixed here, to keep this change out of feature 07's state machine.
+
+## 2026-10-17 — Connect timeout on the API client; RefreshAsync returns the in-flight read
+
+- **`SocketsHttpHandler.ConnectTimeout = 10s`** in `AddSpotifyClient`. Previously infinite, so a
+  blackholed route (associated Wi-Fi with no path out, a captive portal) left each read stuck in TCP
+  retries for tens of seconds. Because reads collapse onto one in-flight request, every poll tick in
+  that window was swallowed, and feature 05's outage threshold — which counts failed reads — could
+  take minutes to trip. Set on the handler and **not** as `HttpClient.Timeout`, which would also
+  bound `RateLimitHandler`'s `Retry-After` wait; that is legitimately long and deliberately uncapped.
+- **`PlayerStateProvider.RefreshAsync` now returns the in-flight task** rather than a completed one
+  when a read is already running — a truer reading of "overlapping calls collapse into one in-flight
+  read", which previously meant "are dropped". Keyed on `Task.IsCompleted` rather than a flag that
+  has to be cleared, so a missed clear can't wedge the poll. `_refreshing` is gone.
+- **Effect on `VolumeController`:** none in the common case. `EnsureControllableAsync` awaits
+  `RefreshAsync` only after `CanControl` has already come back false — exactly when the in-flight
+  read is the thing that would answer the question, so waiting for it beats dropping the nudge. The
+  `_probeInterval` throttle still bounds a mashed hotkey, and all existing `VolumeControllerTests`
+  pass unchanged.
+- **Checks:** build 0/0, `dotnet test` 302 passed, `dotnet format` clean.
+
+## 2026-10-17 — Per-attempt request deadline (ConnectTimeout wasn't enough)
+
+- **`ConnectTimeout` only bounds *new* connections.** The previous entry's 10s setting did nothing
+  for a request sent on a pooled connection — and with `PooledConnectionLifetime` at 2 minutes that
+  is the common case after a laptop sleeps or roams off its network. Such a send sits in TCP
+  retransmits with nothing to cut it, bounded only by `HttpClient.Timeout`'s 100s default; because
+  reads collapse onto one in-flight task, every poll tick in that window is swallowed, leaving the
+  stale "Connected" card up for minutes.
+- **New `Amplify.Core.Http.RequestTimeoutHandler`** links a per-attempt `CancellationTokenSource`
+  (10s) and reports a trip the way `HttpClient` reports its own timeout — `TaskCanceledException`
+  wrapping `TimeoutException` — so nothing downstream needs to know it exists. Registered
+  **innermost** on the API client, which is what keeps it inside `RateLimitHandler`'s `Retry-After`
+  wait rather than truncating it; that was the reason `HttpClient.Timeout` was rejected.
+- **The token client gets the same handler.** It sits on the critical path of every read (the
+  authorization handler refreshes through it), so an unbounded token call stalls the poll just as
+  effectively as an unbounded read.
+- **`ConnectTimeout` dropped to 5s** on both clients. Redundant with the deadline above, kept
+  because failing a doomed connection attempt early is cheaper and clearer than waiting it out.
+- **Checks:** build 0/0, `dotnet test` 315 passed (302 before: 5 new `RequestTimeoutHandler` cases
+  and 8 new `SpotifyRequestFailure` cases), `dotnet format` clean.

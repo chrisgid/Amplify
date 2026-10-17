@@ -192,6 +192,23 @@
                     Severity="Informational"
                     Visibility="{x:Bind StatusViewModel.IsConnecting, Mode=OneWay}" />
 
+                <!-- Spotify unreachable: reads are failing but the token is fine and the poll is still
+                     running, so this clears itself when the network returns. Warning rather than Error
+                     for exactly that reason — the bar below needs the user, this one doesn't; "Try
+                     again" only forces an early read and must never run the authorisation flow. -->
+                <InfoBar
+                    x:Uid="Status_Unreachable"
+                    IsClosable="False"
+                    IsOpen="{x:Bind StatusViewModel.IsUnreachableNotice, Mode=OneWay}"
+                    Severity="Warning"
+                    Visibility="{x:Bind StatusViewModel.IsUnreachableNotice, Mode=OneWay}">
+                    <InfoBar.ActionButton>
+                        <Button
+                            x:Uid="Status_Unreachable_Retry"
+                            Command="{x:Bind StatusViewModel.RetryCommand}" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
+
                 <!-- Error -->
                 <InfoBar
                     x:Uid="Status_Error"

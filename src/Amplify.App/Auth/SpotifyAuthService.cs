@@ -2,6 +2,7 @@ using System.Net;
 using Amplify.Core.Auth;
 using Amplify.Core.Configuration;
 using Amplify.Core.Settings;
+using Amplify.Core.Spotify;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Windows.System;
@@ -23,6 +24,7 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
     private static readonly TimeSpan _refreshSkew = TimeSpan.FromSeconds(60);
 
     private readonly SpotifyTokenClient _tokenClient;
+    private Account? _account;
     private readonly IRefreshTokenStore _refreshTokenStore;
     private readonly ISettingsService _settings;
     private readonly SpotifyOptions _options;
@@ -51,15 +53,41 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
 
     public ConnectionState State { get; private set; } = ConnectionState.Disconnected;
 
-    public Account? CurrentAccount { get; private set; }
+    /// <inheritdoc />
+    /// <remarks>
+    /// Assigning raises <see cref="AccountChanged"/>. <see cref="Account"/> is a record, so the
+    /// equality check makes a redundant assignment — clearing an already-null account, re-reading
+    /// the same profile — silent.
+    /// </remarks>
+    public Account? CurrentAccount
+    {
+        get => _account;
+        private set
+        {
+            if (_account == value)
+            {
+                return;
+            }
+
+            _account = value;
+            AccountChanged?.Invoke(this, value);
+        }
+    }
 
     public event EventHandler<ConnectionState>? ConnectionStateChanged;
+
+    public event EventHandler<Account?>? AccountChanged;
 
     /// <summary>
     /// Silently restores a session from the stored refresh token: refreshes the access token, reads
     /// the account, and transitions to connected. Returns <c>false</c> (leaving the app on onboarding)
-    /// when there is no stored token or Client ID, or the refresh fails.
+    /// when there is no stored token or Client ID, or Spotify rejected the token.
     /// </summary>
+    /// <remarks>
+    /// A failure to reach Spotify at all still returns <c>true</c> and connects: the token was never
+    /// presented, so it is almost certainly fine, and onboarding offers nothing that works offline.
+    /// The session then starts without an account name, which the first successful refresh fills in.
+    /// </remarks>
     public async Task<bool> RestoreSessionAsync()
     {
         string? refreshToken = _refreshTokenStore.Load();
@@ -79,10 +107,23 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
             SetState(ConnectionState.Connected);
             return true;
         }
+        catch (Exception ex) when (SpotifyRequestFailure.MeansUnreachable(ex))
+        {
+            // Launched with no way to reach Spotify. The stored refresh token was never presented, so
+            // it is almost certainly still good — dropping to onboarding would tell the user they are
+            // signed out when they are not, and the only button there runs a PKCE flow that cannot
+            // work offline either, leaving the app stuck until it is relaunched on a working network.
+            // Restore optimistically instead: the poll starts, its reads fail, and the status block
+            // reports Spotify as unreachable. That clears itself — account included, see
+            // RefreshCoreAsync — on the first refresh that gets through.
+            LogRestoreUnreachable(ex);
+            SetState(ConnectionState.Connected);
+            return true;
+        }
         catch (Exception ex)
         {
-            // Restore is best-effort and runs during startup, so it must never throw: any failure
-            // (HTTP error, request timeout, malformed response, …) falls back to onboarding rather
+            // Restore is best-effort and runs during startup, so it must never throw: any remaining
+            // failure (a rejected token, a malformed response, …) falls back to onboarding rather
             // than crashing the app.
             LogRestoreFailed(ex);
             // A 400/401 means the refresh token is no longer valid — drop it so we don't retry a dead
@@ -262,12 +303,39 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
         {
             TokenSet tokens = await _tokenClient.RefreshAsync(clientId, _refreshToken).ConfigureAwait(false);
             ApplyTokens(tokens);
+
+            // A session restored while offline has no account yet — the profile read never happened.
+            // Fill it in on the first refresh that gets through, or the card would come back from the
+            // outage nameless and stay that way for the rest of the session. The assignment raises
+            // AccountChanged, which is what actually reaches the card: SetState below is a no-op
+            // here, because the state has been Connected since the optimistic restore.
+            if (CurrentAccount is null)
+            {
+                await TryReadAccountAsync().ConfigureAwait(false);
+            }
+
             // A successful refresh means the connection is healthy again — clear any prior transient
             // error so the status UI doesn't stay latched on Error after recovery.
             SetState(ConnectionState.Connected);
         }
+        catch (Exception ex) when (SpotifyRequestFailure.MeansUnreachable(ex))
+        {
+            // Spotify never gave a usable answer — no connection, a timeout, or a 5xx — so the
+            // refresh token is untouched and still good: an outage, not an authorisation failure.
+            // Leave the connection state alone and rethrow. Latching Error here would be actively
+            // harmful — it stops the player-state poll
+            // (PlayerStateProvider polls only while Connected), which is what lets the app recover by
+            // itself, and it offers Reconnect, which runs the full PKCE flow and sends the user to the
+            // browser to re-approve an app they never stopped being signed in to. Staying Connected
+            // keeps the poll running, so the read failures surface as "can't reach Spotify" instead,
+            // and the next refresh succeeds on its own once the network is back.
+            LogRefreshUnreachable(ex);
+            throw;
+        }
         catch (HttpRequestException ex)
         {
+            // Spotify answered and rejected the refresh (e.g. the token was revoked). That genuinely
+            // needs the user to authorise again, so it latches.
             LogRefreshFailed(ex);
             SetState(ConnectionState.Error);
             throw;
@@ -313,6 +381,20 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
         {
             _refreshToken = tokens.RefreshToken;
             _refreshTokenStore.Save(tokens.RefreshToken);
+        }
+    }
+
+    // Best-effort: the access token is what matters, and a missing display name must never cost the
+    // user their session. Any failure is logged and left for the next refresh to retry.
+    private async Task TryReadAccountAsync()
+    {
+        try
+        {
+            CurrentAccount = await _tokenClient.GetAccountAsync(_accessToken!).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            LogAccountReadFailed(ex);
         }
     }
 
@@ -364,4 +446,13 @@ internal sealed partial class SpotifyAuthService : IAuthService, ISpotifyTokenPr
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Spotify access-token refresh failed.")]
     private partial void LogRefreshFailed(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Couldn't reach Spotify to refresh the access token; staying connected and letting the poll retry.")]
+    private partial void LogRefreshUnreachable(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Couldn't reach Spotify to restore the session; keeping it and letting the poll retry.")]
+    private partial void LogRestoreUnreachable(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Couldn't read the Spotify account; the session is still usable.")]
+    private partial void LogAccountReadFailed(Exception exception);
 }

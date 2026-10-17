@@ -23,6 +23,20 @@ public interface IPlayerStateProvider
     event EventHandler<PlayerState?> PlayerStateChanged;
 
     /// <summary>
+    /// Whether reads have been failing for long enough to call Spotify unreachable (see
+    /// <see cref="ReachabilityTracker"/>). Distinct from <c>ConnectionState.Error</c>, which means the
+    /// token itself is dead: this is transient, the poll keeps running throughout, and it clears on
+    /// the next successful read with no user action.
+    /// </summary>
+    bool IsUnreachable { get; }
+
+    /// <summary>
+    /// Raised when <see cref="IsUnreachable"/> changes — once per transition, not once per failed
+    /// read — carrying the new value.
+    /// </summary>
+    event EventHandler<bool> ReachabilityChanged;
+
+    /// <summary>
     /// Reads the current player state now and publishes it. Used for immediate reconciles (e.g. when a
     /// screen is shown) on top of the background poll; overlapping calls collapse into one in-flight read.
     /// </summary>
